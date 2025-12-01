@@ -3,7 +3,9 @@
 //! This module provides macOS-specific font management using Core Text APIs,
 //! implementing the same functionality as the Swift CLI but in Rust.
 
-use fontlift_core::{validation, FontError, FontInfo, FontManager, FontResult, FontScope};
+use fontlift_core::{
+    protection, validation, FontError, FontInfo, FontManager, FontResult, FontScope,
+};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -69,8 +71,7 @@ impl MacFontManager {
 
     /// Check if path is in system font directory
     fn is_system_font_path(&self, path: &Path) -> bool {
-        let path_str = path.to_string_lossy();
-        path_str.starts_with("/System/Library/Fonts/") || path_str.starts_with("/Library/Fonts/")
+        protection::is_protected_system_font_path(path)
     }
 
     /// Check if current user has admin privileges

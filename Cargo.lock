@@ -403,6 +403,7 @@ dependencies = [
  "fontlift-platform-win",
  "log",
  "pyo3",
+ "pyo3-build-config",
  "thiserror",
  "tokio",
 ]

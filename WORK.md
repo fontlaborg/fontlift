@@ -4,3 +4,10 @@
 - Ran `cargo test --workspace` (pass).
 - Added CLI aliases (`l/i/u/rm/c`) and mapped clap parse errors to legacy exit codes (0 for help/version, 1 otherwise).
 - Added tests for alias coverage and exit-code mapping; `cargo test --workspace` passes.
+- Removed `build-macos.sh`; unified on `build.sh` to eliminate shell completion ambiguity (`./build` now resolves uniquely).
+- Updated PLAN/TODO references to reflect single build script.
+- Added core `protection` helpers for system font detection and deterministic deduplication; wired CLI list rendering to use shared dedupe logic and reused protection checks in macOS manager.
+- New core tests for protection/dedup helpers; all crates pass `cargo test --workspace`.
+- Extended CLI ergonomics: batch file/dir install/uninstall/remove support, global `--dry-run/--quiet/--verbose` flags, and deterministic input collection.
+- Added CLI tests for directory expansion and dry-run no-op behavior; ran `cargo fmt` and `cargo test --workspace` (pass).
+- Updated README/USAGE to document multi-file installs and dry-run/quiet/verbose flags; checked off TODO/PLAN items for CLI ergonomics.

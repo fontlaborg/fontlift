@@ -38,7 +38,8 @@
 - Add migration-safe help text and consistent error/exit codes; add shell completion generation.
   - [x] Shell completion generation via `fontlift completions <shell>` writing to stdout.
   - [x] Exit code alignment with legacy binaries for common failure cases.
-- [x] Implemented `list --json` output with deterministic sorting and deduplication to stabilize scripting surface.
+  - [x] Implemented `list --json` output with deterministic sorting and deduplication to stabilize scripting surface.
+  - [x] Added batch file/dir handling plus `--dry-run`/`--quiet`/`--verbose` toggles for install/uninstall/remove commands.
 
 ### WS4 — Python bindings & packaging
 - Expose full surface: typed `FontInfo`, list/install/uninstall/remove/cleanup with scope/admin/prune/cache/dry-run options, name-based ops, JSON-friendly return values.
@@ -52,7 +53,7 @@
 
 ### WS6 — Documentation & release
 - Update README/USAGE/FEATURE_MATRIX with parity status, flags, migration guide, and Python examples.
-- Harden build scripts (`build.sh`, `build-macos.sh`, Windows packaging) and document prerequisites.
+- Harden build script (`build.sh`) and Windows packaging and document prerequisites.
 - Publish release checklist, CHANGELOG entries, and distribution plan (crates.io, GitHub releases with binaries, PyPI wheels).
 
 ## Milestones

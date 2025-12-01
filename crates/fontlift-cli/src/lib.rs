@@ -4,10 +4,12 @@
 //! of the existing Swift and CLI implementations.
 
 use clap::error::ErrorKind;
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand, ValueHint};
 use clap_complete::{generate, Shell};
-use fontlift_core::{FontError, FontInfo, FontManager, FontScope};
+use fontlift_core::{protection, validation, FontError, FontInfo, FontManager, FontScope};
 use serde_json::to_string_pretty;
+use std::collections::BTreeSet;
+use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -18,6 +20,32 @@ use std::sync::Arc;
 #[command(about = "Install, uninstall, list, and remove fonts cross-platform", long_about = None)]
 #[command(version = "2.0.0-dev")]
 pub struct Cli {
+    /// Simulate actions without changing system state
+    #[arg(
+        global = true,
+        long,
+        help = "Print intended actions without mutating fonts"
+    )]
+    pub dry_run: bool,
+
+    /// Reduce output to errors only
+    #[arg(
+        global = true,
+        long,
+        help = "Silence routine status output",
+        conflicts_with = "verbose"
+    )]
+    pub quiet: bool,
+
+    /// Show additional status output
+    #[arg(
+        global = true,
+        long,
+        help = "Show verbose status messages",
+        conflicts_with = "quiet"
+    )]
+    pub verbose: bool,
+
     /// Output as JSON (deterministic ordering)
     #[arg(global = true, long, help = "Output results as JSON")]
     pub json: bool,
@@ -44,8 +72,14 @@ pub enum Commands {
     /// Install fonts from file paths
     #[command(alias = "i")]
     Install {
-        /// Font file path to install
-        font_path: PathBuf,
+        /// Font file path(s) or directory/ies containing fonts
+        #[arg(
+            value_name = "FONT|DIR",
+            num_args = 1..,
+            value_hint = ValueHint::AnyPath,
+            help = "Font file(s) or directory/ies to install; directories are scanned for font files"
+        )]
+        font_inputs: Vec<PathBuf>,
 
         #[arg(
             short,
@@ -61,8 +95,14 @@ pub enum Commands {
         #[arg(short, long, help = "Font name to uninstall")]
         name: Option<String>,
 
-        /// Font file path to uninstall
-        font_path: Option<PathBuf>,
+        /// Font file path(s) or directory/ies containing fonts
+        #[arg(
+            value_name = "FONT|DIR",
+            num_args = 0..,
+            value_hint = ValueHint::AnyPath,
+            help = "Font file(s) or directory/ies to uninstall; directories are scanned for font files"
+        )]
+        font_inputs: Vec<PathBuf>,
 
         #[arg(
             short,
@@ -78,8 +118,14 @@ pub enum Commands {
         #[arg(short, long, help = "Font name to remove")]
         name: Option<String>,
 
-        /// Font file path to remove
-        font_path: Option<PathBuf>,
+        /// Font file path(s) or directory/ies containing fonts
+        #[arg(
+            value_name = "FONT|DIR",
+            num_args = 0..,
+            value_hint = ValueHint::AnyPath,
+            help = "Font file(s) or directory/ies to remove; directories are scanned for font files"
+        )]
+        font_inputs: Vec<PathBuf>,
 
         #[arg(
             short,
@@ -128,6 +174,51 @@ pub enum ListRender {
     Json(String),
 }
 
+/// Output controls for CLI commands
+#[derive(Debug, Clone, Copy)]
+pub struct OutputOptions {
+    pub quiet: bool,
+    pub verbose: bool,
+}
+
+impl OutputOptions {
+    pub fn should_print(&self) -> bool {
+        !self.quiet
+    }
+
+    pub fn should_print_verbose(&self) -> bool {
+        self.verbose && !self.quiet
+    }
+}
+
+/// Execution controls shared by mutating commands
+#[derive(Debug, Clone, Copy)]
+pub struct OperationOptions {
+    pub dry_run: bool,
+    pub output: OutputOptions,
+}
+
+impl OperationOptions {
+    pub fn new(dry_run: bool, quiet: bool, verbose: bool) -> Self {
+        Self {
+            dry_run,
+            output: OutputOptions { quiet, verbose },
+        }
+    }
+}
+
+fn log_status(opts: &OperationOptions, message: &str) {
+    if opts.output.should_print() {
+        println!("{}", message);
+    }
+}
+
+fn log_verbose(opts: &OperationOptions, message: &str) {
+    if opts.output.should_print_verbose() {
+        eprintln!("{}", message);
+    }
+}
+
 /// Prepare list output according to options (sorting/deduplication is deterministic)
 pub fn render_list_output(
     mut fonts: Vec<FontInfo>,
@@ -136,15 +227,7 @@ pub fn render_list_output(
     let must_sort = opts.sorted || opts.json;
 
     if must_sort {
-        fonts.sort_by(|a, b| {
-            let name_a = a.postscript_name.to_lowercase();
-            let name_b = b.postscript_name.to_lowercase();
-            let path_a = a.path.to_string_lossy().to_string();
-            let path_b = b.path.to_string_lossy().to_string();
-            (name_a, path_a).cmp(&(name_b, path_b))
-        });
-
-        fonts.dedup_by(|a, b| a.postscript_name == b.postscript_name && a.path == b.path);
+        fonts = protection::dedupe_fonts(fonts);
     }
 
     if opts.json {
@@ -175,6 +258,48 @@ pub fn render_list_output(
     }
 
     Ok(ListRender::Lines(lines))
+}
+
+/// Expand user-provided font inputs (files or directories) into a unique, sorted list of font files
+pub fn collect_font_inputs(inputs: &[PathBuf]) -> Result<Vec<PathBuf>, FontError> {
+    if inputs.is_empty() {
+        return Err(FontError::InvalidFormat(
+            "At least one font path or directory is required".to_string(),
+        ));
+    }
+
+    let mut found: BTreeSet<PathBuf> = BTreeSet::new();
+
+    for input in inputs {
+        if input.is_dir() {
+            for entry in fs::read_dir(input).map_err(FontError::IoError)? {
+                let entry = entry.map_err(FontError::IoError)?;
+                let path = entry.path();
+                if path.is_file() && validation::is_valid_font_extension(&path) {
+                    found.insert(path);
+                }
+            }
+        } else if input.is_file() {
+            if validation::is_valid_font_extension(input) {
+                found.insert(input.clone());
+            } else {
+                return Err(FontError::InvalidFormat(format!(
+                    "Invalid font extension: {}",
+                    input.display()
+                )));
+            }
+        } else {
+            return Err(FontError::FontNotFound(input.clone()));
+        }
+    }
+
+    if found.is_empty() {
+        return Err(FontError::InvalidFormat(
+            "No font files found in provided paths".to_string(),
+        ));
+    }
+
+    Ok(found.into_iter().collect())
 }
 
 /// Create the appropriate font manager for the current platform
@@ -238,8 +363,9 @@ pub async fn handle_list_command(
 /// Handle the install command
 pub async fn handle_install_command(
     manager: Arc<dyn FontManager>,
-    font_path: PathBuf,
+    font_inputs: Vec<PathBuf>,
     admin: bool,
+    opts: OperationOptions,
 ) -> Result<(), FontError> {
     let scope = if admin {
         FontScope::System
@@ -247,19 +373,26 @@ pub async fn handle_install_command(
         FontScope::User
     };
 
-    println!("Installing font from: {}", font_path.display());
-    println!(
-        "Scope: {}",
-        if admin {
-            "system-level (all users)"
-        } else {
-            "user-level"
+    let targets = collect_font_inputs(&font_inputs)?;
+
+    for path in targets {
+        log_verbose(&opts, &format!("Scope: {}", scope.description()));
+        if opts.dry_run {
+            log_status(
+                &opts,
+                &format!(
+                    "DRY-RUN: would install font {} ({})",
+                    path.display(),
+                    scope.description()
+                ),
+            );
+            continue;
         }
-    );
 
-    manager.install_font(&font_path, scope)?;
-
-    println!("✅ Successfully installed font");
+        log_status(&opts, &format!("Installing font from: {}", path.display()));
+        manager.install_font(&path, scope)?;
+        log_status(&opts, "✅ Successfully installed font");
+    }
 
     Ok(())
 }
@@ -268,8 +401,9 @@ pub async fn handle_install_command(
 pub async fn handle_uninstall_command(
     manager: Arc<dyn FontManager>,
     name: Option<String>,
-    font_path: Option<PathBuf>,
+    font_inputs: Vec<PathBuf>,
     admin: bool,
+    opts: OperationOptions,
 ) -> Result<(), FontError> {
     let scope = if admin {
         FontScope::System
@@ -278,7 +412,7 @@ pub async fn handle_uninstall_command(
     };
 
     if let Some(font_name) = name {
-        println!("Uninstalling font by name: {}", font_name);
+        log_status(&opts, &format!("Uninstalling font by name: {}", font_name));
 
         // Find font by name in installed fonts
         let installed_fonts = manager.list_installed_fonts()?;
@@ -286,20 +420,48 @@ pub async fn handle_uninstall_command(
             .iter()
             .find(|f| f.postscript_name == font_name || f.full_name == font_name)
         {
-            manager.uninstall_font(&font.path, scope)?;
-            println!("✅ Successfully uninstalled font '{}'", font_name);
+            if opts.dry_run {
+                log_status(
+                    &opts,
+                    &format!(
+                        "DRY-RUN: would uninstall '{}' at {}",
+                        font_name,
+                        font.path.display()
+                    ),
+                );
+            } else {
+                manager.uninstall_font(&font.path, scope)?;
+                log_status(
+                    &opts,
+                    &format!("✅ Successfully uninstalled font '{}'", font_name),
+                );
+            }
         } else {
             return Err(FontError::FontNotFound(PathBuf::from(font_name)));
         }
-    } else if let Some(path) = font_path {
-        println!("Uninstalling font from path: {}", path.display());
-
-        manager.uninstall_font(&path, scope)?;
-        println!("✅ Successfully uninstalled font");
     } else {
-        return Err(FontError::RegistrationFailed(
-            "Must specify --name or a font path".to_string(),
-        ));
+        let targets = collect_font_inputs(&font_inputs)?;
+        for path in targets {
+            if opts.dry_run {
+                log_status(
+                    &opts,
+                    &format!(
+                        "DRY-RUN: would uninstall font at {} ({})",
+                        path.display(),
+                        scope.description()
+                    ),
+                );
+                continue;
+            }
+
+            log_status(
+                &opts,
+                &format!("Uninstalling font from path: {}", path.display()),
+            );
+
+            manager.uninstall_font(&path, scope)?;
+            log_status(&opts, "✅ Successfully uninstalled font");
+        }
     }
 
     Ok(())
@@ -309,8 +471,9 @@ pub async fn handle_uninstall_command(
 pub async fn handle_remove_command(
     manager: Arc<dyn FontManager>,
     name: Option<String>,
-    font_path: Option<PathBuf>,
+    font_inputs: Vec<PathBuf>,
     admin: bool,
+    opts: OperationOptions,
 ) -> Result<(), FontError> {
     let scope = if admin {
         FontScope::System
@@ -319,7 +482,7 @@ pub async fn handle_remove_command(
     };
 
     if let Some(font_name) = name {
-        println!("Removing font by name: {}", font_name);
+        log_status(&opts, &format!("Removing font by name: {}", font_name));
 
         // Find font by name in installed fonts
         let installed_fonts = manager.list_installed_fonts()?;
@@ -327,20 +490,48 @@ pub async fn handle_remove_command(
             .iter()
             .find(|f| f.postscript_name == font_name || f.full_name == font_name)
         {
-            manager.remove_font(&font.path, scope)?;
-            println!("✅ Successfully removed font '{}'", font_name);
+            if opts.dry_run {
+                log_status(
+                    &opts,
+                    &format!(
+                        "DRY-RUN: would remove '{}' at {}",
+                        font_name,
+                        font.path.display()
+                    ),
+                );
+            } else {
+                manager.remove_font(&font.path, scope)?;
+                log_status(
+                    &opts,
+                    &format!("✅ Successfully removed font '{}'", font_name),
+                );
+            }
         } else {
             return Err(FontError::FontNotFound(PathBuf::from(font_name)));
         }
-    } else if let Some(path) = font_path {
-        println!("Removing font from path: {}", path.display());
-
-        manager.remove_font(&path, scope)?;
-        println!("✅ Successfully removed font");
     } else {
-        return Err(FontError::RegistrationFailed(
-            "Must specify --name or a font path".to_string(),
-        ));
+        let targets = collect_font_inputs(&font_inputs)?;
+        for path in targets {
+            if opts.dry_run {
+                log_status(
+                    &opts,
+                    &format!(
+                        "DRY-RUN: would remove font at {} ({})",
+                        path.display(),
+                        scope.description()
+                    ),
+                );
+                continue;
+            }
+
+            log_status(
+                &opts,
+                &format!("Removing font from path: {}", path.display()),
+            );
+
+            manager.remove_font(&path, scope)?;
+            log_status(&opts, "✅ Successfully removed font");
+        }
     }
 
     Ok(())
@@ -350,6 +541,7 @@ pub async fn handle_remove_command(
 pub async fn handle_cleanup_command(
     manager: Arc<dyn FontManager>,
     admin: bool,
+    opts: OperationOptions,
 ) -> Result<(), FontError> {
     let scope = if admin {
         FontScope::System
@@ -357,13 +549,24 @@ pub async fn handle_cleanup_command(
         FontScope::User
     };
 
-    println!(
-        "Starting {} cleanup...",
-        if admin { "system" } else { "user" }
+    log_status(
+        &opts,
+        &format!(
+            "Starting {} cleanup...",
+            if admin { "system" } else { "user" }
+        ),
     );
 
+    if opts.dry_run {
+        log_status(
+            &opts,
+            &format!("DRY-RUN: would clear font caches ({})", scope.description()),
+        );
+        return Ok(());
+    }
+
     manager.clear_font_caches(scope)?;
-    println!("✅ Successfully cleared font caches");
+    log_status(&opts, "✅ Successfully cleared font caches");
 
     Ok(())
 }
@@ -371,30 +574,31 @@ pub async fn handle_cleanup_command(
 /// Main CLI handler
 pub async fn run_cli(cli: Cli) -> Result<(), FontError> {
     let manager = create_font_manager();
+    let op_opts = OperationOptions::new(cli.dry_run, cli.quiet, cli.verbose);
 
     match cli.command {
         Commands::List { path, name, sorted } => {
             handle_list_command(manager, path, name, sorted, cli.json).await?;
         }
-        Commands::Install { font_path, admin } => {
-            handle_install_command(manager, font_path, admin).await?;
+        Commands::Install { font_inputs, admin } => {
+            handle_install_command(manager, font_inputs, admin, op_opts).await?;
         }
         Commands::Uninstall {
             name,
-            font_path,
+            font_inputs,
             admin,
         } => {
-            handle_uninstall_command(manager, name, font_path, admin).await?;
+            handle_uninstall_command(manager, name, font_inputs, admin, op_opts).await?;
         }
         Commands::Remove {
             name,
-            font_path,
+            font_inputs,
             admin,
         } => {
-            handle_remove_command(manager, name, font_path, admin).await?;
+            handle_remove_command(manager, name, font_inputs, admin, op_opts).await?;
         }
         Commands::Cleanup { admin } => {
-            handle_cleanup_command(manager, admin).await?;
+            handle_cleanup_command(manager, admin, op_opts).await?;
         }
         Commands::Completions { shell } => {
             write_completions(shell, std::io::stdout())?;
@@ -429,7 +633,10 @@ mod tests {
     use super::*;
     use fontlift_core::FontInfo;
     use serde_json::Value;
+    use std::fs;
     use std::path::PathBuf;
+    use std::sync::{Arc, Mutex};
+    use tokio::runtime::Runtime;
 
     #[test]
     fn test_cli_parsing() {
@@ -520,6 +727,93 @@ mod tests {
                 "/fonts/Beta.ttf".to_string()
             ],
             "dedupes identical paths and sorts deterministically"
+        );
+    }
+
+    #[test]
+    fn collect_font_inputs_scans_directories_and_dedupes() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let alpha = tmp.path().join("Alpha.ttf");
+        let beta = tmp.path().join("Beta.otf");
+        fs::write(&alpha, b"test").expect("write alpha");
+        fs::write(&beta, b"test").expect("write beta");
+
+        // Provide both a directory and a direct file reference to ensure deduplication
+        let inputs = vec![tmp.path().to_path_buf(), beta.clone()];
+        let collected = collect_font_inputs(&inputs).expect("collect");
+
+        assert_eq!(collected, vec![alpha.clone(), beta.clone()]);
+    }
+
+    #[derive(Default)]
+    struct RecordingManager {
+        installs: Mutex<Vec<(PathBuf, FontScope)>>,
+    }
+
+    impl FontManager for RecordingManager {
+        fn install_font(
+            &self,
+            path: &std::path::Path,
+            scope: FontScope,
+        ) -> fontlift_core::FontResult<()> {
+            self.installs
+                .lock()
+                .expect("lock")
+                .push((path.to_path_buf(), scope));
+            Ok(())
+        }
+
+        fn uninstall_font(
+            &self,
+            _path: &std::path::Path,
+            _scope: FontScope,
+        ) -> fontlift_core::FontResult<()> {
+            Ok(())
+        }
+
+        fn remove_font(
+            &self,
+            _path: &std::path::Path,
+            _scope: FontScope,
+        ) -> fontlift_core::FontResult<()> {
+            Ok(())
+        }
+
+        fn is_font_installed(&self, _path: &std::path::Path) -> fontlift_core::FontResult<bool> {
+            Ok(false)
+        }
+
+        fn list_installed_fonts(&self) -> fontlift_core::FontResult<Vec<FontInfo>> {
+            Ok(Vec::new())
+        }
+
+        fn clear_font_caches(&self, _scope: FontScope) -> fontlift_core::FontResult<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn dry_run_install_skips_invoking_manager() {
+        let runtime = Runtime::new().expect("runtime");
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let font = tmp.path().join("DryRun.ttf");
+        fs::write(&font, b"test").expect("write font");
+
+        let manager = Arc::new(RecordingManager::default());
+        let opts = OperationOptions::new(true, true, false);
+
+        runtime
+            .block_on(handle_install_command(
+                manager.clone(),
+                vec![font.clone()],
+                false,
+                opts,
+            ))
+            .expect("dry run install");
+
+        assert!(
+            manager.installs.lock().expect("lock").is_empty(),
+            "dry-run should not call install_font"
         );
     }
 

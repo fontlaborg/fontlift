@@ -397,7 +397,7 @@ run_tests() {
 	if [ -f "$SCRIPT_DIR/$python_path" ]; then
 		print_substep "Testing Python bindings..."
 		if command_exists python3; then
-			if python3 -c "import sys; sys.path.insert(0, '$SCRIPT_DIR/target/$build_mode'); import fontlift_python; print('✓ Python bindings import successful')" 2>/dev/null; then
+			if python3 -c "import sys; sys.path.insert(0, '$SCRIPT_DIR/target/$build_mode'); import fontlift; print('✓ Python bindings import successful')" 2>/dev/null; then
 				print_status "Python bindings work ✓"
 			else
 				print_warning "Python bindings test failed (may need to be installed first)"
@@ -715,7 +715,7 @@ main() {
 	echo ""
 	print_status "Next steps:"
 	print_status "- Run CLI: ./target/$BUILD_MODE/fontlift --help"
-	print_status "- Test Python: python3 -c 'import fontlift_python; print(fontlift_python.list())'"
+	print_status "- Test Python: python3 -c 'import fontlift; print(fontlift.list_fonts())'"
 	print_status "- Read documentation: README.md, USAGE.md"
 	
 	if [ "$CREATE_PACKAGES" == "yes" ]; then

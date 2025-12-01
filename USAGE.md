@@ -16,20 +16,30 @@ fontlift list --json
 # List with detailed information
 fontlift list --path --name --sorted
 
-# Install a font for current user
-fontlift install /path/to/font.ttf
+# Install one or more fonts for current user
+fontlift install /path/to/font.ttf /other/font.otf
+
+# Install every font in a directory (non-recursive)
+fontlift install /path/to/font-folder
 
 # Install system-wide (requires admin)
 fontlift install /path/to/font.ttf --admin
 
+# Preview what would happen without changing the system
+fontlift install /path/to/font.ttf --dry-run
+
+# Quieter or more verbose status output
+fontlift install /path/to/font.ttf --quiet
+fontlift install /path/to/font.ttf --verbose
+
 # Uninstall a font by name
 fontlift uninstall --name "Arial"
 
-# Uninstall by file path
-fontlift uninstall /path/to/font.ttf
+# Uninstall by file path or directory
+fontlift uninstall /path/to/font.ttf /path/to/font-folder
 
 # Remove font (uninstall + delete)
-fontlift remove /path/to/font.ttf
+fontlift remove /path/to/font.ttf /path/to/font-folder
 
 # Clear font caches
 fontlift cleanup

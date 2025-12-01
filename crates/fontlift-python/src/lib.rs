@@ -12,6 +12,8 @@ use pyo3::types::PyDict;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 /// Python wrapper for fontlift manager
 #[pyclass]
 struct FontliftManager {
@@ -244,14 +246,14 @@ fn cleanup(admin: bool) -> PyResult<()> {
 
 /// Python module definition
 #[pymodule]
-fn fontlift_python(py: Python, m: &PyModule) -> PyResult<()> {
+fn _native(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<FontliftManager>()?;
     m.add_function(wrap_pyfunction!(install, m)?)?;
     m.add_function(wrap_pyfunction!(list, m)?)?;
     m.add_function(wrap_pyfunction!(uninstall, m)?)?;
     m.add_function(wrap_pyfunction!(remove, m)?)?;
     m.add_function(wrap_pyfunction!(cleanup, m)?)?;
-    m.add("__version__", "2.0.0-dev")?;
+    m.add("__version__", VERSION)?;
 
     // Expose convenience alias matching CLI naming
     m.add("__all__", PyDict::new(py))?;

@@ -264,6 +264,53 @@ pub mod cache {
     }
 }
 
+/// Helpers for system font protection and duplicate handling
+pub mod protection {
+    use super::FontInfo;
+    use std::path::Path;
+
+    /// Normalize a path for comparison across platforms (lowercase, forward slashes)
+    fn normalize(path: &Path) -> String {
+        let mut normalized = path.to_string_lossy().replace('\\', "/").to_lowercase();
+
+        // Collapse duplicate separators that can result from Windows-style paths on POSIX hosts
+        while normalized.contains("//") {
+            normalized = normalized.replace("//", "/");
+        }
+
+        normalized
+    }
+
+    /// Detect whether the path points to a protected system font location.
+    /// Covers common macOS and Windows system font directories.
+    pub fn is_protected_system_font_path(path: &Path) -> bool {
+        let normalized = normalize(path);
+
+        normalized.starts_with("/system/library/fonts/")
+            || normalized.starts_with("/library/fonts/")
+            || normalized.starts_with("c:/windows/fonts/")
+    }
+
+    /// Deduplicate fonts deterministically by PostScript name (case-insensitive)
+    /// and path (case-insensitive), returning a sorted list.
+    pub fn dedupe_fonts(mut fonts: Vec<FontInfo>) -> Vec<FontInfo> {
+        fonts.sort_by(|a, b| {
+            let name_a = a.postscript_name.to_lowercase();
+            let name_b = b.postscript_name.to_lowercase();
+            let path_a = normalize(&a.path);
+            let path_b = normalize(&b.path);
+            (name_a, path_a).cmp(&(name_b, path_b))
+        });
+
+        fonts.dedup_by(|a, b| {
+            a.postscript_name.eq_ignore_ascii_case(&b.postscript_name)
+                && normalize(&a.path) == normalize(&b.path)
+        });
+
+        fonts
+    }
+}
+
 /// Default font manager implementation that returns "not implemented" errors
 #[derive(Debug)]
 pub struct DummyFontManager;
@@ -310,6 +357,78 @@ impl FontManager for DummyFontManager {
 mod tests {
     use super::*;
     use std::path::PathBuf;
+
+    #[test]
+    fn detects_protected_system_font_paths() {
+        let mac_system = PathBuf::from("/System/Library/Fonts/SFNS.ttf");
+        let mac_library = PathBuf::from("/Library/Fonts/Helvetica.ttc");
+        let mac_user = PathBuf::from("/Users/example/Library/Fonts/Custom.otf");
+
+        assert!(protection::is_protected_system_font_path(&mac_system));
+        assert!(protection::is_protected_system_font_path(&mac_library));
+        assert!(!protection::is_protected_system_font_path(&mac_user));
+
+        let win_system = PathBuf::from(r"C:\\Windows\\Fonts\\Arial.ttf");
+        let win_subdir = PathBuf::from(r"C:\\Windows\\Fonts\\TrueType\\ComicSans.ttf");
+        let win_user = PathBuf::from(r"D:\\Users\\me\\Fonts\\MyFont.ttf");
+
+        assert!(protection::is_protected_system_font_path(&win_system));
+        assert!(protection::is_protected_system_font_path(&win_subdir));
+        assert!(!protection::is_protected_system_font_path(&win_user));
+    }
+
+    #[test]
+    fn deduplication_is_deterministic_by_name_and_path() {
+        let fonts = vec![
+            FontInfo::new(
+                PathBuf::from("/fonts/Beta.ttf"),
+                "Beta".into(),
+                "Beta".into(),
+                "BetaFamily".into(),
+                "Regular".into(),
+            ),
+            FontInfo::new(
+                PathBuf::from("/fonts/alpha.ttf"),
+                "Alpha".into(),
+                "Alpha".into(),
+                "AlphaFamily".into(),
+                "Regular".into(),
+            ),
+            // duplicate same name/path differing only in case
+            FontInfo::new(
+                PathBuf::from("/fonts/alpha.ttf"),
+                "alpha".into(),
+                "alpha".into(),
+                "AlphaFamily".into(),
+                "Regular".into(),
+            ),
+            // same name different path should keep both but order deterministic
+            FontInfo::new(
+                PathBuf::from("/fonts/alpha-bold.ttf"),
+                "Alpha".into(),
+                "Alpha".into(),
+                "AlphaFamily".into(),
+                "Bold".into(),
+            ),
+        ];
+
+        let deduped = protection::dedupe_fonts(fonts);
+
+        let names_and_paths: Vec<(String, String)> = deduped
+            .into_iter()
+            .map(|f| (f.postscript_name, f.path.display().to_string()))
+            .collect();
+
+        assert_eq!(
+            names_and_paths,
+            vec![
+                ("Alpha".into(), "/fonts/alpha-bold.ttf".into()),
+                ("Alpha".into(), "/fonts/alpha.ttf".into()),
+                ("Beta".into(), "/fonts/Beta.ttf".into()),
+            ],
+            "duplicates removed and order is deterministic by name then path"
+        );
+    }
 
     #[test]
     fn test_font_validation() {

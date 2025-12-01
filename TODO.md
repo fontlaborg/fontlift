@@ -9,8 +9,8 @@
 - [ ] Implement Windows install/uninstall/remove using registry + GDI, file copy to per-user/system fonts, admin detection, and conflict auto-removal.
 - [ ] Implement Windows listing from registry + fonts directory with metadata extraction, deduplication, and scope detection.
 - [ ] Implement Windows cleanup (registry prune, FontCache service reset, Adobe cache clearing) with `--prune-only`, `--cache-only`, `--admin` and exit-code parity.
-- [ ] Add cross-platform conflict detection, duplicate handling, and strengthened system-font protection logic in `fontlift-core`.
-- [ ] Expand CLI to match legacy ergonomics: aliases, batch file/dir installs, name- and path-based uninstall/remove, `-p/-n/-s`, `--json`, `--dry-run`, `--quiet/--verbose`, deterministic sorting, and help text updates.
+- [~] Add cross-platform conflict detection in `fontlift-core`; duplicate handling and system-font protection helpers added.
+- [x] Expand CLI to match legacy ergonomics: aliases, batch file/dir installs, name- and path-based uninstall/remove, `-p/-n/-s`, `--json`, `--dry-run`, `--quiet/--verbose`, deterministic sorting, and help text updates.
 - [x] Add CLI `list` JSON output with deterministic sorting and deduplication for repeat entries.
 - [x] Add shell completion generation via `fontlift completions <shell>` and align exit codes with legacy binaries.
 - [ ] Expand Python bindings: typed `FontInfo`, name-based operations, cleanup/prune toggles, scope/admin flags, JSON-friendly results, and Fire-based CLI mirroring Rust behavior.
@@ -18,5 +18,5 @@
 - [ ] Create font fixtures (TTF/OTF/TTC) and golden-output recordings from legacy binaries for list/install/uninstall/remove/cleanup.
 - [ ] Add Rust integration tests per platform with temp dirs and admin-check mocks; add Python `pytest` integration via `maturin develop`.
 - [ ] Stand up CI matrix (macOS + Windows) running `cargo test`, CLI smoke tests with fixtures, and Python wheel build/test with coverage gates.
-- [ ] Update README/USAGE/FEATURE_MATRIX with parity status, migration guide, and Python examples; refresh build scripts (`build.sh`, `build-macos.sh`, Windows packaging docs).
+- [ ] Update README/USAGE/FEATURE_MATRIX with parity status, migration guide, and Python examples; refresh build script (`build.sh`) and Windows packaging docs.
 - [ ] Publish release checklist, CHANGELOG entries, and keep WORK log updated alongside TODO status.

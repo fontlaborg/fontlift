@@ -72,6 +72,12 @@ fontlift install my-font.ttf
 # List installed fonts as deterministic JSON
 fontlift list --json
 
+# Install multiple fonts or an entire directory (non-recursive)
+fontlift install my-font.ttf extras/AnotherFont.otf fonts/
+
+# Preview changes without touching the system
+fontlift install my-font.ttf --dry-run --quiet
+
 # Install system-wide (requires admin)
 fontlift install my-font.ttf --admin
 
