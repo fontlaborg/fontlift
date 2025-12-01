@@ -1,0 +1,67 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/fontlift-cli",
+  "crates/fontlift-core",
+  "crates/fontlift-platform-mac",
+  "crates/fontlift-platform-win",
+  "crates/fontlift-python",
+]
+
+[workspace.package]
+version = "2.0.0-dev"
+authors = ["FontLab Ltd."]
+edition = "2021"
+rust-version = "1.75"
+repository = "https://github.com/fontlaborg/fontlift"
+license = "Apache-2.0"
+
+[workspace.dependencies]
+anyhow = "1.0"
+clap = { version = "4.0", features = ["derive"] }
+clap_complete = "4.5"
+env_logger = "0.11"
+# CLI and Python crates
+fontlift-cli = { path = "crates/fontlift-cli" }
+# Core crates
+fontlift-core = { path = "crates/fontlift-core" }
+# Platform crates
+fontlift-platform-mac = { path = "crates/fontlift-platform-mac" }
+fontlift-platform-win = { path = "crates/fontlift-platform-win" }
+fontlift-python = { path = "crates/fontlift-python" }
+log = "0.4"
+pyo3 = { version = "0.20", features = ["extension-module"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+# External dependencies
+thiserror = "2.0"
+tokio = { version = "1.0", features = ["full"] }
+
+# Additional dependencies for testing
+tempfile = "3.0"
+tokio-test = "0.4"
+
+# Platform-specific dependencies
+cocoa = "0.25"
+core-foundation = "0.9"
+core-text = "20.0"
+objc = "0.2"
+windows = { version = "0.54", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Registry",
+  "Win32_UI_Shell",
+] }
+
+# Platform-specific dependencies are defined in individual crates
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.release]
+opt-level = 3
+strip = true
+lto = true
+codegen-units = 1

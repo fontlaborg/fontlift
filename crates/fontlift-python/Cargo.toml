@@ -1,0 +1,32 @@
+[package]
+name = "fontlift-python"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Python bindings for fontlift"
+
+[lib]
+name = "fontlift_python"
+crate-type = ["cdylib"]
+
+[dependencies]
+fontlift-core = { workspace = true }
+pyo3.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+log.workspace = true
+tokio.workspace = true
+
+# Platform-specific dependencies
+[target.'cfg(target_os = "macos")'.dependencies]
+fontlift-platform-mac = { workspace = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+fontlift-platform-win = { workspace = true }
+
+[features]
+extension-module = ["pyo3/extension-module"]
+default = ["extension-module"]
