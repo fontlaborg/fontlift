@@ -82,6 +82,9 @@ pub struct FontInfo {
 
     /// Font format (TrueType, OpenType, etc.)
     pub format: Option<String>,
+
+    /// Installation scope (user vs system). Optional for backward compatibility.
+    pub scope: Option<FontScope>,
 }
 
 impl FontInfo {
@@ -102,12 +105,19 @@ impl FontInfo {
             weight: None,
             italic: None,
             format: None,
+            scope: None,
         }
     }
 
     /// Get filename without extension
     pub fn filename_stem(&self) -> Option<&str> {
         self.path.file_stem()?.to_str()
+    }
+
+    /// Attach an installation scope to the font info
+    pub fn with_scope(mut self, scope: Option<FontScope>) -> Self {
+        self.scope = scope;
+        self
     }
 }
 
@@ -130,6 +140,12 @@ pub trait FontManager: Send + Sync {
 
     /// Clear font caches
     fn clear_font_caches(&self, scope: FontScope) -> FontResult<()>;
+
+    /// Prune registrations that point to missing or invalid font files.
+    /// Default implementation performs no pruning.
+    fn prune_missing_fonts(&self, _scope: FontScope) -> FontResult<usize> {
+        Ok(0)
+    }
 }
 
 /// Font validation utilities

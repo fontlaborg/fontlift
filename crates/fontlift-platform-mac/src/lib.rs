@@ -6,18 +6,146 @@
 use fontlift_core::{
     protection, validation, FontError, FontInfo, FontManager, FontResult, FontScope,
 };
+use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use core_foundation::array::CFArray;
 use core_foundation::base::TCFType;
+use core_foundation::dictionary::CFDictionary;
 use core_foundation::error::{CFError, CFErrorRef};
+use core_foundation::string::CFString;
 use core_foundation::url::{CFURLRef, CFURL};
+use core_text::font_descriptor::{
+    self as ct_font_descriptor, CTFontDescriptor, CTFontFormat, SymbolicTraitAccessors,
+    TraitAccessors,
+};
 use core_text::font_manager as ct_font_manager;
 
 type CTFontManagerScope = u32;
 const K_CT_FONT_MANAGER_SCOPE_PERSISTENT: CTFontManagerScope = 2; // aligns with user scope
 const K_CT_FONT_MANAGER_SCOPE_USER: CTFontManagerScope = 2;
+
+fn test_cache_root() -> Option<PathBuf> {
+    env::var_os("FONTLIFT_TEST_CACHE_ROOT").map(PathBuf::from)
+}
+
+fn user_home(test_root: &Option<PathBuf>) -> FontResult<PathBuf> {
+    if let Some(root) = test_root.clone() {
+        return Ok(root);
+    }
+
+    env::var("HOME").map(PathBuf::from).map_err(|_| {
+        FontError::UnsupportedOperation(
+            "Unable to resolve HOME directory for cache cleanup".to_string(),
+        )
+    })
+}
+
+fn fake_registry_root() -> Option<PathBuf> {
+    env::var_os("FONTLIFT_FAKE_REGISTRY_ROOT").map(PathBuf::from)
+}
+
+fn fake_registry_target(root: &Path, scope: FontScope, source: &Path) -> FontResult<PathBuf> {
+    let file_name = source.file_name().ok_or_else(|| {
+        FontError::InvalidFormat("Font path must include a file name".to_string())
+    })?;
+
+    let base = match scope {
+        FontScope::User => root.join("Library/Fonts"),
+        FontScope::System => root.join("System/Library/Fonts"),
+    };
+
+    Ok(base.join(file_name))
+}
+
+fn delete_matching_files(root: &Path, predicate: impl Fn(&Path) -> bool) -> FontResult<usize> {
+    if !root.exists() {
+        return Ok(0);
+    }
+
+    let mut removed = 0usize;
+    let mut stack = vec![root.to_path_buf()];
+
+    while let Some(dir) = stack.pop() {
+        let entries = match fs::read_dir(&dir) {
+            Ok(entries) => entries,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(err) => return Err(FontError::IoError(err)),
+        };
+
+        for entry in entries {
+            let entry = entry.map_err(FontError::IoError)?;
+            let path = entry.path();
+
+            if path.is_dir() {
+                stack.push(path);
+                continue;
+            }
+
+            if predicate(&path) {
+                match fs::remove_file(&path) {
+                    Ok(_) => removed += 1,
+                    Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(err) => return Err(FontError::IoError(err)),
+                }
+            }
+        }
+    }
+
+    Ok(removed)
+}
+
+fn purge_directory_contents(root: &Path) -> FontResult<usize> {
+    if !root.exists() {
+        return Ok(0);
+    }
+
+    let mut removed = 0usize;
+    let entries = fs::read_dir(root).map_err(FontError::IoError)?;
+
+    for entry in entries {
+        let entry = entry.map_err(FontError::IoError)?;
+        let path = entry.path();
+
+        if path.is_dir() {
+            removed += purge_directory_contents(&path)?;
+            match fs::remove_dir(&path) {
+                Ok(_) => {}
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+                Err(err) => return Err(FontError::IoError(err)),
+            }
+        } else {
+            fs::remove_file(&path).map_err(FontError::IoError)?;
+            removed += 1;
+        }
+    }
+
+    Ok(removed)
+}
+
+fn clear_adobe_font_caches(home: &Path) -> FontResult<usize> {
+    // Adobe Font cache manifests (AdobeFnt*.lst) live under TypeSupport; remove them recursively
+    let type_support = home.join("Library/Application Support/Adobe/TypeSupport");
+    let removed_lists = delete_matching_files(&type_support, |path| {
+        path.file_name()
+            .and_then(|n| n.to_str())
+            .map(|name| name.starts_with("AdobeFnt") && name.ends_with(".lst"))
+            .unwrap_or(false)
+    })?;
+
+    // Adobe font cache files under Caches/Adobe/Fonts
+    let fonts_cache = home.join("Library/Caches/Adobe/Fonts");
+    let removed_cache = purge_directory_contents(&fonts_cache)?;
+
+    Ok(removed_lists + removed_cache)
+}
+
+fn clear_office_font_cache(home: &Path) -> FontResult<usize> {
+    // Microsoft Office font cache storage used by Office apps
+    let office_cache = home.join("Library/Group Containers/UBF8T346G9.Office/FontCache");
+    purge_directory_contents(&office_cache)
+}
 
 #[link(name = "CoreText", kind = "framework")]
 extern "C" {
@@ -50,15 +178,133 @@ fn cf_error_to_string(err: CFErrorRef) -> String {
     cf_err.description().to_string()
 }
 
+fn scope_from_path(path: &Path) -> FontScope {
+    if let Some(fake_root) = fake_registry_root() {
+        let user_fonts = fake_root.join("Library/Fonts");
+        let system_fonts = fake_root.join("System/Library/Fonts");
+
+        if path.starts_with(&user_fonts) {
+            return FontScope::User;
+        }
+
+        if path.starts_with(&system_fonts) {
+            return FontScope::System;
+        }
+    }
+
+    if let Ok(home) = std::env::var("HOME") {
+        let user_fonts = PathBuf::from(home).join("Library/Fonts");
+        if path.starts_with(&user_fonts) {
+            return FontScope::User;
+        }
+    }
+
+    if path.starts_with("/System/Library/Fonts") || path.starts_with("/Library/Fonts") {
+        FontScope::System
+    } else {
+        // Default to user to avoid over-reporting system scope for custom paths
+        FontScope::User
+    }
+}
+
+fn font_format_to_string(format: CTFontFormat) -> Option<String> {
+    match format {
+        ct_font_descriptor::kCTFontFormatOpenTypePostScript => {
+            Some("OpenTypePostScript".to_string())
+        }
+        ct_font_descriptor::kCTFontFormatOpenTypeTrueType => Some("OpenTypeTrueType".to_string()),
+        ct_font_descriptor::kCTFontFormatTrueType => Some("TrueType".to_string()),
+        ct_font_descriptor::kCTFontFormatPostScript => Some("PostScript".to_string()),
+        ct_font_descriptor::kCTFontFormatBitmap => Some("Bitmap".to_string()),
+        _ => None,
+    }
+}
+
+fn descriptor_to_font_info(descriptor: &CTFontDescriptor) -> Option<FontInfo> {
+    let path = descriptor.font_path()?;
+    let postscript_name = descriptor.font_name();
+    let display_name = descriptor.display_name();
+    let family_name = descriptor.family_name();
+    let style_name = descriptor.style_name();
+
+    let mut info = FontInfo::new(
+        path.clone(),
+        postscript_name.to_string(),
+        display_name.to_string(),
+        family_name.to_string(),
+        style_name.to_string(),
+    )
+    .with_scope(Some(scope_from_path(&path)));
+
+    if let Some(format) = descriptor.font_format() {
+        info.format = font_format_to_string(format);
+    }
+
+    if let Some(traits) = descriptor
+        .attributes()
+        .find(unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontTraitsAttribute) })
+        .and_then(|traits_cf| {
+            if traits_cf.instance_of::<CFDictionary>() {
+                Some(unsafe {
+                    ct_font_descriptor::CTFontTraits::wrap_under_get_rule(
+                        traits_cf.as_CFTypeRef() as _
+                    )
+                })
+            } else {
+                None
+            }
+        })
+    {
+        let symbolic = traits.symbolic_traits();
+        info.italic = Some(symbolic.is_italic());
+
+        let weight = (traits.normalized_weight() * 400.0 + 500.0).round();
+        if weight.is_finite() {
+            let clamped = weight.clamp(1.0, 1000.0) as u16;
+            info.weight = Some(clamped);
+        }
+    }
+
+    Some(info)
+}
+
 /// macOS font manager using Core Text APIs
 pub struct MacFontManager {
-    _private: (),
+    fake_root: Option<PathBuf>,
 }
 
 impl MacFontManager {
     /// Create a new macOS font manager
     pub fn new() -> Self {
-        Self { _private: () }
+        let fake_root = std::env::var_os("FONTLIFT_FAKE_REGISTRY_ROOT").map(PathBuf::from);
+        Self { fake_root }
+    }
+
+    /// Whether the manager should avoid CoreText and operate against a fake registry root
+    pub fn is_fake_registry_enabled(&self) -> bool {
+        self.fake_root.is_some()
+    }
+
+    fn target_directory(&self, scope: FontScope) -> FontResult<PathBuf> {
+        if let Some(root) = &self.fake_root {
+            let dir = match scope {
+                FontScope::User => root.join("Library/Fonts"),
+                FontScope::System => root.join("System/Library/Fonts"),
+            };
+            return Ok(dir);
+        }
+
+        let target_dir = match scope {
+            FontScope::User => {
+                let home_dir = std::env::var("HOME").map_err(|_| {
+                    FontError::PermissionDenied("Cannot determine home directory".to_string())
+                })?;
+                PathBuf::from(home_dir).join("Library/Fonts")
+            }
+            FontScope::System => PathBuf::from("/Library/Fonts"),
+        };
+
+        Ok(target_dir)
     }
 
     /// Extract font information using basic filename parsing as fallback
@@ -85,22 +331,16 @@ impl MacFontManager {
         source_path: &Path,
         scope: FontScope,
     ) -> FontResult<()> {
-        let target_dir = match scope {
-            FontScope::User => {
-                let home_dir = std::env::var("HOME").map_err(|_| {
-                    FontError::PermissionDenied("Cannot determine home directory".to_string())
-                })?;
-                PathBuf::from(home_dir).join("Library/Fonts")
-            }
-            FontScope::System => {
-                if !self.has_admin_privileges() {
-                    return Err(FontError::PermissionDenied(
-                        "System-level font installation requires administrator privileges. Run with --admin or use sudo.".to_string()
-                    ));
-                }
-                PathBuf::from("/Library/Fonts")
-            }
-        };
+        let target_dir = self.target_directory(scope)?;
+
+        if scope == FontScope::System
+            && !self.is_fake_registry_enabled()
+            && !self.has_admin_privileges()
+        {
+            return Err(FontError::PermissionDenied(
+                "System-level font installation requires administrator privileges. Run with --admin or use sudo.".to_string(),
+            ));
+        }
 
         // Create target directory if it doesn't exist
         if !target_dir.exists() {
@@ -119,33 +359,7 @@ impl MacFontManager {
         Ok(())
     }
 
-    /// Validate system operation permissions
-    fn validate_system_operation(&self, scope: FontScope) -> FontResult<()> {
-        if scope == FontScope::System && !self.has_admin_privileges() {
-            return Err(FontError::PermissionDenied(
-                "System-level font operations require administrator privileges. Run with --admin or use sudo.".to_string()
-            ));
-        }
-        Ok(())
-    }
-}
-
-impl Default for MacFontManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl FontManager for MacFontManager {
-    fn install_font(&self, path: &Path, scope: FontScope) -> FontResult<()> {
-        // Validate inputs
-        validation::validate_font_file(path)?;
-        self.validate_system_operation(scope)?;
-
-        if self.is_system_font_path(path) {
-            return Err(FontError::SystemFontProtection(path.to_path_buf()));
-        }
-
+    fn install_font_core_text(&self, path: &Path, scope: FontScope) -> FontResult<()> {
         // Get font info for validation
         let _font_info = self.get_font_info_from_path(path)?;
 
@@ -182,12 +396,115 @@ impl FontManager for MacFontManager {
         }
     }
 
+    fn install_font_fake(&self, path: &Path, scope: FontScope) -> FontResult<()> {
+        let target_dir = self.target_directory(scope)?;
+        let file_name = path.file_name().ok_or_else(|| {
+            FontError::InvalidFormat("Font path is missing a filename".to_string())
+        })?;
+
+        if !target_dir.exists() {
+            fs::create_dir_all(&target_dir).map_err(FontError::IoError)?;
+        }
+
+        let target_path = target_dir.join(file_name);
+        if target_path.exists() {
+            return Err(FontError::AlreadyInstalled(target_path));
+        }
+
+        fs::copy(path, &target_path).map_err(FontError::IoError)?;
+        Ok(())
+    }
+
+    fn uninstall_font_fake(&self, path: &Path, scope: FontScope) -> FontResult<()> {
+        let target_dir = self.target_directory(scope)?;
+        let Some(file_name) = path.file_name() else {
+            return Err(FontError::InvalidFormat(
+                "Font path is missing a filename".to_string(),
+            ));
+        };
+
+        let target_path = target_dir.join(file_name);
+        if target_path.exists() {
+            std::fs::remove_file(&target_path).map_err(FontError::IoError)?;
+            Ok(())
+        } else {
+            Err(FontError::FontNotFound(target_path))
+        }
+    }
+
+    fn list_installed_fonts_fake(&self) -> FontResult<Vec<FontInfo>> {
+        let mut fonts = Vec::new();
+
+        for scope in [FontScope::User, FontScope::System] {
+            let dir = self.target_directory(scope)?;
+            if !dir.exists() {
+                continue;
+            }
+
+            for entry in fs::read_dir(&dir).map_err(FontError::IoError)? {
+                let entry = entry.map_err(FontError::IoError)?;
+                let path = entry.path();
+
+                if !validation::is_valid_font_extension(&path) {
+                    continue;
+                }
+
+                match self.get_font_info_from_path(&path) {
+                    Ok(font) => fonts.push(font.with_scope(Some(scope))),
+                    Err(_) => continue,
+                }
+            }
+        }
+
+        Ok(protection::dedupe_fonts(fonts))
+    }
+
+    /// Validate system operation permissions
+    fn validate_system_operation(&self, scope: FontScope) -> FontResult<()> {
+        if scope == FontScope::System
+            && !self.is_fake_registry_enabled()
+            && !self.has_admin_privileges()
+        {
+            return Err(FontError::PermissionDenied(
+                "System-level font operations require administrator privileges. Run with --admin or use sudo.".to_string()
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl Default for MacFontManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl FontManager for MacFontManager {
+    fn install_font(&self, path: &Path, scope: FontScope) -> FontResult<()> {
+        // Validate inputs
+        validation::validate_font_file(path)?;
+        self.validate_system_operation(scope)?;
+
+        if self.is_system_font_path(path) && !self.is_fake_registry_enabled() {
+            return Err(FontError::SystemFontProtection(path.to_path_buf()));
+        }
+
+        if self.is_fake_registry_enabled() {
+            return self.install_font_fake(path, scope);
+        }
+        self.install_font_core_text(path, scope)
+    }
+
     fn uninstall_font(&self, path: &Path, scope: FontScope) -> FontResult<()> {
         validation::validate_font_file(path)?;
         self.validate_system_operation(scope)?;
 
         if !path.exists() {
             return Err(FontError::FontNotFound(path.to_path_buf()));
+        }
+
+        if self.is_fake_registry_enabled() {
+            return self.uninstall_font_fake(path, scope);
         }
 
         // Convert path to CFURL for Core Text
@@ -255,14 +572,38 @@ impl FontManager for MacFontManager {
 
         for i in 0..font_array.len() {
             if let Some(cf_url) = font_array.get(i) {
+                // Try to pull rich metadata via font descriptors first
+                let descriptors = unsafe {
+                    ct_font_manager::CTFontManagerCreateFontDescriptorsFromURL(
+                        cf_url.as_concrete_TypeRef(),
+                    )
+                };
+
+                if !descriptors.is_null() {
+                    let descriptor_array: CFArray<CTFontDescriptor> =
+                        unsafe { CFArray::wrap_under_create_rule(descriptors) };
+
+                    for idx in 0..descriptor_array.len() {
+                        if let Some(descriptor) = descriptor_array.get(idx) {
+                            if let Some(info) = descriptor_to_font_info(&descriptor) {
+                                fonts.push(info);
+                                continue;
+                            }
+                        }
+                    }
+                }
+
+                // Fallback: basic info from path
                 if let Some(path) = cf_url.to_path() {
-                    // Skip if the path doesn't exist or isn't a font file
                     if !path.exists() || !validation::is_valid_font_extension(&path) {
                         continue;
                     }
 
                     match self.get_font_info_from_path(&path) {
-                        Ok(font_info) => fonts.push(font_info),
+                        Ok(mut font_info) => {
+                            font_info.scope = Some(scope_from_path(&path));
+                            fonts.push(font_info);
+                        }
                         Err(_) => {
                             // Skip fonts we can't read, but don't fail the entire operation
                             continue;
@@ -272,65 +613,141 @@ impl FontManager for MacFontManager {
             }
         }
 
-        Ok(fonts)
+        Ok(protection::dedupe_fonts(fonts))
+    }
+
+    fn prune_missing_fonts(&self, scope: FontScope) -> FontResult<usize> {
+        if self.is_fake_registry_enabled() {
+            return Ok(0);
+        }
+
+        let font_urls = unsafe { ct_font_manager::CTFontManagerCopyAvailableFontURLs() };
+
+        if font_urls.is_null() {
+            return Ok(0);
+        }
+
+        let font_array: CFArray<CFURL> = unsafe { CFArray::wrap_under_get_rule(font_urls) };
+        let mut pruned = 0usize;
+        let mut failures = Vec::new();
+
+        for i in 0..font_array.len() {
+            if let Some(cf_url) = font_array.get(i) {
+                let path = cf_url.to_path();
+
+                if let Some(existing_path) = path.as_ref() {
+                    if scope_from_path(existing_path) != scope {
+                        continue;
+                    }
+
+                    // Skip registrations that still have a backing file
+                    if existing_path.exists() {
+                        continue;
+                    }
+                } else if scope == FontScope::System && !self.has_admin_privileges() {
+                    // Don't attempt system pruning without privileges
+                    continue;
+                }
+
+                let mut error: CFErrorRef = std::ptr::null_mut();
+                let ok = unsafe {
+                    CTFontManagerUnregisterFontsForURL(
+                        cf_url.as_concrete_TypeRef(),
+                        ct_scope(scope),
+                        &mut error,
+                    )
+                };
+
+                if ok {
+                    pruned += 1;
+                } else {
+                    failures.push(cf_error_to_string(error));
+                }
+            }
+        }
+
+        if failures.is_empty() {
+            Ok(pruned)
+        } else {
+            Err(FontError::RegistrationFailed(format!(
+                "Failed to prune some font registrations: {}",
+                failures.join("; ")
+            )))
+        }
     }
 
     fn clear_font_caches(&self, scope: FontScope) -> FontResult<()> {
+        if self.is_fake_registry_enabled() {
+            return Ok(());
+        }
+
+        let test_root = test_cache_root();
+        let home = user_home(&test_root)?;
+        let should_touch_system = test_root.is_none();
+
         match scope {
             FontScope::User => {
-                // Clear user font cache using atsutil
-                let output = std::process::Command::new("atsutil")
-                    .args(["databases", "-removeUser"])
-                    .output()
-                    .map_err(FontError::IoError)?;
+                if should_touch_system {
+                    // Clear user font cache using atsutil
+                    let output = std::process::Command::new("atsutil")
+                        .args(["databases", "-removeUser"])
+                        .output()
+                        .map_err(FontError::IoError)?;
 
-                if !output.status.success() {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    return Err(FontError::RegistrationFailed(format!(
-                        "Failed to clear user font cache: {}",
-                        stderr
-                    )));
+                    if !output.status.success() {
+                        let stderr = String::from_utf8_lossy(&output.stderr);
+                        return Err(FontError::RegistrationFailed(format!(
+                            "Failed to clear user font cache: {}",
+                            stderr
+                        )));
+                    }
+
+                    // Restart ATS server for user session
+                    let _ = std::process::Command::new("atsutil")
+                        .args(["server", "-shutdown"])
+                        .output();
+
+                    let _ = std::process::Command::new("atsutil")
+                        .args(["server", "-ping"])
+                        .output();
                 }
 
-                // Restart ATS server for user session
-                let _ = std::process::Command::new("atsutil")
-                    .args(["server", "-shutdown"])
-                    .output();
-
-                let _ = std::process::Command::new("atsutil")
-                    .args(["server", "-ping"])
-                    .output();
+                // Vendor caches (Adobe/Microsoft) are per-user; remove safely under the resolved home dir
+                clear_adobe_font_caches(&home)?;
+                clear_office_font_cache(&home)?;
             }
             FontScope::System => {
-                // System cache clearing requires admin privileges
-                if !self.has_admin_privileges() {
-                    return Err(FontError::PermissionDenied(
-                        "System cache clearing requires administrator privileges".to_string(),
-                    ));
+                if should_touch_system {
+                    // System cache clearing requires admin privileges
+                    if !self.has_admin_privileges() {
+                        return Err(FontError::PermissionDenied(
+                            "System cache clearing requires administrator privileges".to_string(),
+                        ));
+                    }
+
+                    // Clear system font cache using atsutil
+                    let output = std::process::Command::new("atsutil")
+                        .args(["databases", "-remove"])
+                        .output()
+                        .map_err(FontError::IoError)?;
+
+                    if !output.status.success() {
+                        let stderr = String::from_utf8_lossy(&output.stderr);
+                        return Err(FontError::RegistrationFailed(format!(
+                            "Failed to clear system font cache: {}",
+                            stderr
+                        )));
+                    }
+
+                    // Restart ATS server for system
+                    let _ = std::process::Command::new("atsutil")
+                        .args(["server", "-shutdown"])
+                        .output();
+
+                    let _ = std::process::Command::new("atsutil")
+                        .args(["server", "-ping"])
+                        .output();
                 }
-
-                // Clear system font cache using atsutil
-                let output = std::process::Command::new("atsutil")
-                    .args(["databases", "-remove"])
-                    .output()
-                    .map_err(FontError::IoError)?;
-
-                if !output.status.success() {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    return Err(FontError::RegistrationFailed(format!(
-                        "Failed to clear system font cache: {}",
-                        stderr
-                    )));
-                }
-
-                // Restart ATS server for system
-                let _ = std::process::Command::new("atsutil")
-                    .args(["server", "-shutdown"])
-                    .output();
-
-                let _ = std::process::Command::new("atsutil")
-                    .args(["server", "-ping"])
-                    .output();
             }
         }
 
@@ -341,12 +758,18 @@ impl FontManager for MacFontManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use core_foundation::dictionary::CFDictionary;
+    use core_foundation::number::CFNumber;
+    use core_foundation::string::CFString;
+    use core_foundation::url::CFURL;
+    use core_text::font_descriptor as ct_font_descriptor;
+    use std::fs;
     use std::path::PathBuf;
 
     #[test]
     fn test_mac_font_manager_creation() {
         let manager = MacFontManager::new();
-        assert_eq!(manager._private, ());
+        assert!(!manager.is_fake_registry_enabled());
     }
 
     #[test]
@@ -389,5 +812,175 @@ mod tests {
 
         let invalid_path = PathBuf::from("/tmp/test.txt");
         assert!(!validation::is_valid_font_extension(&invalid_path));
+    }
+
+    #[test]
+    fn descriptor_metadata_is_preferred_over_filename() {
+        let path = PathBuf::from("/Library/Fonts/TestSans-Bold.ttf");
+        let cf_url = CFURL::from_path(&path, false).expect("url");
+
+        let name_key =
+            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontNameAttribute) };
+        let display_key = unsafe {
+            CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontDisplayNameAttribute)
+        };
+        let family_key = unsafe {
+            CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontFamilyNameAttribute)
+        };
+        let style_key =
+            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontStyleNameAttribute) };
+        let url_key =
+            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontURLAttribute) };
+        let format_key =
+            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontFormatAttribute) };
+        let traits_key =
+            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontTraitsAttribute) };
+        let symbolic_key =
+            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontSymbolicTrait) };
+        let weight_key =
+            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontWeightTrait) };
+
+        let traits_dict: CFDictionary<CFString, core_foundation::base::CFType> =
+            CFDictionary::from_CFType_pairs(&[
+                (symbolic_key, CFNumber::from(0).as_CFType()),
+                (weight_key, CFNumber::from(0).as_CFType()),
+            ]);
+
+        let attrs: CFDictionary<CFString, core_foundation::base::CFType> =
+            CFDictionary::from_CFType_pairs(&[
+                (url_key, cf_url.as_CFType()),
+                (name_key, CFString::new("TestSans-Bold").as_CFType()),
+                (display_key, CFString::new("Test Sans Bold").as_CFType()),
+                (family_key, CFString::new("Test Sans").as_CFType()),
+                (style_key, CFString::new("Bold").as_CFType()),
+                (
+                    format_key,
+                    CFNumber::from(ct_font_descriptor::kCTFontFormatOpenTypeTrueType as i32)
+                        .as_CFType(),
+                ),
+                (traits_key, traits_dict.as_CFType()),
+            ]);
+
+        let descriptor = ct_font_descriptor::new_from_attributes(&attrs);
+        let info = descriptor_to_font_info(&descriptor).expect("font info");
+
+        assert_eq!(info.postscript_name, "TestSans-Bold");
+        assert_eq!(info.full_name, "Test Sans Bold");
+        assert_eq!(info.family_name, "Test Sans");
+        assert_eq!(info.style, "Bold");
+        assert_eq!(info.format.as_deref(), Some("OpenTypeTrueType"));
+        assert_eq!(info.scope, Some(FontScope::System));
+    }
+
+    #[test]
+    fn scope_detection_maps_user_and_system_paths() {
+        let user_path = PathBuf::from("/Users/demo/Library/Fonts/Custom.otf");
+        let system_path = PathBuf::from("/Library/Fonts/SystemFont.ttf");
+        let other_path = PathBuf::from("/tmp/random-font.ttf");
+
+        assert_eq!(scope_from_path(&user_path), FontScope::User);
+        assert_eq!(scope_from_path(&system_path), FontScope::System);
+        assert_eq!(scope_from_path(&other_path), FontScope::User);
+    }
+
+    #[test]
+    fn fake_registry_install_list_uninstall_round_trip() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let fake_root = temp.path().join("fake-root");
+        std::env::set_var("FONTLIFT_FAKE_REGISTRY_ROOT", &fake_root);
+
+        let manager = MacFontManager::new();
+        let source_font = temp.path().join("DemoFake.ttf");
+        fs::write(&source_font, b"dummy font").expect("write font");
+
+        manager
+            .install_font(&source_font, FontScope::User)
+            .expect("install in fake registry");
+
+        let installed_path = fake_root.join("Library/Fonts/DemoFake.ttf");
+        assert!(
+            installed_path.exists(),
+            "font should be copied into fake registry"
+        );
+
+        let listed = manager.list_installed_fonts().expect("list");
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].scope, Some(FontScope::User));
+
+        manager
+            .uninstall_font(&installed_path, FontScope::User)
+            .expect("uninstall from fake registry");
+        assert!(
+            !installed_path.exists(),
+            "font file should be removed in fake registry"
+        );
+
+        std::env::remove_var("FONTLIFT_FAKE_REGISTRY_ROOT");
+    }
+
+    #[test]
+    fn fake_registry_allows_system_scope_without_admin() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let fake_root = temp.path().join("fake-root");
+        std::env::set_var("FONTLIFT_FAKE_REGISTRY_ROOT", &fake_root);
+
+        let manager = MacFontManager::new();
+        let source_font = temp.path().join("DemoSystem.ttf");
+        fs::write(&source_font, b"dummy font").expect("write font");
+
+        manager
+            .install_font(&source_font, FontScope::System)
+            .expect("system install should bypass admin in fake mode");
+
+        let installed_path = fake_root.join("System/Library/Fonts/DemoSystem.ttf");
+        assert!(installed_path.exists());
+
+        std::env::remove_var("FONTLIFT_FAKE_REGISTRY_ROOT");
+    }
+
+    #[test]
+    fn clear_font_caches_removes_vendor_caches_under_override_root() {
+        use std::env;
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path();
+
+        let adobe_type_support = root.join("Library/Application Support/Adobe/TypeSupport/More");
+        fs::create_dir_all(&adobe_type_support).expect("adobe type support dir");
+        let adobe_list = adobe_type_support.join("AdobeFnt11.lst");
+        fs::write(&adobe_list, b"cache").expect("adobe list");
+
+        let adobe_cache_dir = root.join("Library/Caches/Adobe/Fonts");
+        fs::create_dir_all(&adobe_cache_dir).expect("adobe cache dir");
+        let adobe_cache_file = adobe_cache_dir.join("fonts.bin");
+        fs::write(&adobe_cache_file, b"cache").expect("adobe cache");
+
+        let office_cache_dir = root.join("Library/Group Containers/UBF8T346G9.Office/FontCache");
+        fs::create_dir_all(&office_cache_dir).expect("office cache dir");
+        let office_cache_file = office_cache_dir.join("fontcache.dat");
+        fs::write(&office_cache_file, b"cache").expect("office cache");
+
+        env::set_var("FONTLIFT_TEST_CACHE_ROOT", root);
+        let manager = MacFontManager::new();
+        manager
+            .clear_font_caches(FontScope::User)
+            .expect("clear caches");
+        env::remove_var("FONTLIFT_TEST_CACHE_ROOT");
+
+        assert!(
+            !adobe_list.exists(),
+            "Adobe font list cache should be removed"
+        );
+        assert!(
+            !adobe_cache_file.exists(),
+            "Adobe font cache file should be removed"
+        );
+        assert!(
+            fs::read_dir(&office_cache_dir)
+                .expect("office dir")
+                .next()
+                .is_none(),
+            "Office font cache directory should be emptied"
+        );
     }
 }

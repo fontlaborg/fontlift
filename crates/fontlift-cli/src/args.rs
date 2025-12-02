@@ -54,7 +54,7 @@ pub enum Commands {
         #[arg(short, long, help = "Show internal font names")]
         name: bool,
 
-        #[arg(short, long, help = "Sort output and remove duplicates")]
+        #[arg(short, long, help = "Remove duplicates; output is always sorted")]
         sorted: bool,
     },
 
@@ -129,6 +129,20 @@ pub enum Commands {
     Cleanup {
         #[arg(short, long, help = "Include system-wide cleanup (requires admin)")]
         admin: bool,
+
+        #[arg(
+            long,
+            help = "Only prune stale registrations; skip cache clearing",
+            conflicts_with = "cache_only"
+        )]
+        prune_only: bool,
+
+        #[arg(
+            long,
+            help = "Only clear caches; skip pruning stale registrations",
+            conflicts_with = "prune_only"
+        )]
+        cache_only: bool,
     },
 
     /// Generate shell completions

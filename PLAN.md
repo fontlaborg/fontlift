@@ -24,8 +24,8 @@
 
 ### WS1 — macOS parity (Swift → Rust)
 - Implement Core Text register/unregister with scope options; copy fonts into user/system dirs with system font protection and conflict detection/auto-resolve.
-- Implement listing via `CTFontManagerCopyAvailableFontURLs` + descriptor metadata (PostScript/full/family/style/format) and scope tagging.
-- Implement cleanup: prune missing registrations, clear ATS caches, clear Adobe/Microsoft caches; flags `--prune-only`, `--cache-only`, `--admin`.
+- Implement listing via `CTFontManagerCopyAvailableFontURLs` + descriptor metadata (PostScript/full/family/style/format) and scope tagging. *(Done 2025-12-02: descriptor-based listing with scope tagging and trait extraction.)*
+- Implement cleanup: prune missing registrations, clear ATS caches, clear Adobe/Microsoft caches; flags `--prune-only`, `--cache-only`, `--admin`. *(Done 2025-12-02: pruning + cache clearing wired with flags and dry-run support.)*
 - Add simulation/dry-run and fake registry mode for tests.
 
 ### WS2 — Windows parity (C++ → Rust)
@@ -45,6 +45,7 @@
 - Expose full surface: typed `FontInfo`, list/install/uninstall/remove/cleanup with scope/admin/prune/cache/dry-run options, name-based ops, JSON-friendly return values.
 - Add Fire-based CLI entry mirroring Rust CLI; keep behavior parity.
 - Ship `pyproject.toml` + `maturin` workflow for universal2 macOS and win64/aarch64 wheels; sync versioning with Cargo.
+- Progress 2025-12-02: `FontInfo` now exported as a PyO3 class with `.dict()` helper; remaining gaps include name-based ops, cleanup/prune toggles, Fire CLI parity, and wider flag coverage.
 
 ### WS5 — Tests, fixtures, and parity verification
 - Add font fixtures (TTF/OTF/TTC) and golden-output recordings from legacy binaries for list/install/uninstall/remove/cleanup.

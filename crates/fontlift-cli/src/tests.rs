@@ -1,7 +1,7 @@
 use super::*;
-use fontlift_core::FontInfo;
-use fontlift_core::{FontManager, FontScope};
 use clap_complete::Shell;
+use fontlift_core::FontInfo;
+use fontlift_core::{FontError, FontManager, FontScope};
 use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
@@ -70,7 +70,7 @@ fn list_renders_json_sorted_and_deduped() {
 }
 
 #[test]
-fn list_renders_lines_sorted_and_deduped() {
+fn list_renders_lines_sorted_and_deduped_by_default() {
     let fonts = vec![
         sample_font("/fonts/Beta.ttf", "Beta-Bold"),
         sample_font("/fonts/Alpha.ttf", "Alpha-Regular"),
@@ -80,7 +80,7 @@ fn list_renders_lines_sorted_and_deduped() {
     let opts = ListRenderOptions {
         show_path: true,
         show_name: false,
-        sorted: true,
+        sorted: false,
         json: false,
     };
 
@@ -97,6 +97,38 @@ fn list_renders_lines_sorted_and_deduped() {
             "/fonts/Beta.ttf".to_string()
         ],
         "dedupes identical paths and sorts deterministically"
+    );
+}
+
+#[test]
+fn list_renders_name_only_sorted_by_default() {
+    let fonts = vec![
+        sample_font("/fonts/Delta.ttf", "Delta"),
+        sample_font("/fonts/Alpha.ttf", "Alpha-Regular"),
+        sample_font("/fonts/Beta.ttf", "Beta-Bold"),
+    ];
+
+    let opts = ListRenderOptions {
+        show_path: false,
+        show_name: true,
+        sorted: false,
+        json: false,
+    };
+
+    let output = render_list_output(fonts, opts).expect("render");
+    let lines = match output {
+        ListRender::Lines(lines) => lines,
+        _ => panic!("expected line output"),
+    };
+
+    assert_eq!(
+        lines,
+        vec![
+            "Alpha-Regular".to_string(),
+            "Beta-Bold".to_string(),
+            "Delta".to_string()
+        ],
+        "sorts names deterministically even without --sorted"
     );
 }
 
@@ -118,6 +150,8 @@ fn collect_font_inputs_scans_directories_and_dedupes() {
 #[derive(Default)]
 struct RecordingManager {
     installs: Mutex<Vec<(PathBuf, FontScope)>>,
+    prunes: Mutex<Vec<FontScope>>,
+    cache_clears: Mutex<Vec<FontScope>>,
 }
 
 impl FontManager for RecordingManager {
@@ -158,7 +192,79 @@ impl FontManager for RecordingManager {
     }
 
     fn clear_font_caches(&self, _scope: FontScope) -> fontlift_core::FontResult<()> {
+        self.cache_clears.lock().expect("lock").push(_scope);
         Ok(())
+    }
+
+    fn prune_missing_fonts(&self, scope: FontScope) -> fontlift_core::FontResult<usize> {
+        self.prunes.lock().expect("lock").push(scope);
+        Ok(0)
+    }
+}
+
+#[derive(Default)]
+struct ScopedUninstallManager {
+    uninstall_scopes: Mutex<Vec<FontScope>>,
+}
+
+impl ScopedUninstallManager {
+    fn scopes_called(&self) -> Vec<FontScope> {
+        self.uninstall_scopes.lock().expect("lock").clone()
+    }
+}
+
+impl FontManager for ScopedUninstallManager {
+    fn install_font(
+        &self,
+        _path: &std::path::Path,
+        _scope: FontScope,
+    ) -> fontlift_core::FontResult<()> {
+        Ok(())
+    }
+
+    fn uninstall_font(
+        &self,
+        _path: &std::path::Path,
+        scope: FontScope,
+    ) -> fontlift_core::FontResult<()> {
+        self.uninstall_scopes.lock().expect("lock").push(scope);
+
+        match scope {
+            FontScope::System => Ok(()),
+            FontScope::User => Err(FontError::RegistrationFailed(
+                "not installed in user scope".to_string(),
+            )),
+        }
+    }
+
+    fn remove_font(
+        &self,
+        _path: &std::path::Path,
+        _scope: FontScope,
+    ) -> fontlift_core::FontResult<()> {
+        Ok(())
+    }
+
+    fn is_font_installed(&self, _path: &std::path::Path) -> fontlift_core::FontResult<bool> {
+        Ok(true)
+    }
+
+    fn list_installed_fonts(&self) -> fontlift_core::FontResult<Vec<FontInfo>> {
+        Ok(vec![FontInfo::new(
+            PathBuf::from("/Library/Fonts/ScopedUninstall.ttf"),
+            "ScopedUninstall".to_string(),
+            "Scoped Uninstall".to_string(),
+            "Scoped".to_string(),
+            "Regular".to_string(),
+        )])
+    }
+
+    fn clear_font_caches(&self, _scope: FontScope) -> fontlift_core::FontResult<()> {
+        Ok(())
+    }
+
+    fn prune_missing_fonts(&self, _scope: FontScope) -> fontlift_core::FontResult<usize> {
+        Ok(0)
     }
 }
 
@@ -184,6 +290,83 @@ fn dry_run_install_skips_invoking_manager() {
     assert!(
         manager.installs.lock().expect("lock").is_empty(),
         "dry-run should not call install_font"
+    );
+}
+
+#[test]
+fn cleanup_respects_prune_and_cache_flags() {
+    let runtime = Runtime::new().expect("runtime");
+    let base_opts = OperationOptions::new(false, true, false);
+
+    // default: both prune and cache clear
+    let manager = Arc::new(RecordingManager::default());
+    runtime
+        .block_on(handle_cleanup_command(
+            manager.clone(),
+            false,
+            false,
+            false,
+            base_opts,
+        ))
+        .expect("cleanup both");
+    assert_eq!(manager.prunes.lock().expect("lock").len(), 1);
+    assert_eq!(manager.cache_clears.lock().expect("lock").len(), 1);
+
+    // prune-only
+    let manager = Arc::new(RecordingManager::default());
+    runtime
+        .block_on(handle_cleanup_command(
+            manager.clone(),
+            false,
+            true,
+            false,
+            base_opts,
+        ))
+        .expect("prune-only");
+    assert_eq!(manager.prunes.lock().expect("lock").len(), 1);
+    assert!(
+        manager.cache_clears.lock().expect("lock").is_empty(),
+        "cache clear should be skipped"
+    );
+
+    // cache-only
+    let manager = Arc::new(RecordingManager::default());
+    runtime
+        .block_on(handle_cleanup_command(
+            manager.clone(),
+            false,
+            false,
+            true,
+            base_opts,
+        ))
+        .expect("cache-only");
+    assert!(
+        manager.prunes.lock().expect("lock").is_empty(),
+        "prune should be skipped"
+    );
+    assert_eq!(manager.cache_clears.lock().expect("lock").len(), 1);
+}
+
+#[test]
+fn uninstall_by_name_checks_both_scopes() {
+    let runtime = Runtime::new().expect("runtime");
+    let manager = Arc::new(ScopedUninstallManager::default());
+    let opts = OperationOptions::new(false, true, false);
+
+    runtime
+        .block_on(handle_uninstall_command(
+            manager.clone(),
+            Some("ScopedUninstall".to_string()),
+            Vec::new(),
+            false,
+            opts,
+        ))
+        .expect("uninstall should succeed after checking both scopes");
+
+    assert_eq!(
+        manager.scopes_called(),
+        vec![FontScope::User, FontScope::System],
+        "should attempt user then system scope"
     );
 }
 

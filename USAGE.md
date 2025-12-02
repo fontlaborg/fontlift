@@ -7,13 +7,13 @@ This guide provides comprehensive usage examples for FontLift, both as a library
 ### Basic Commands
 
 ```bash
-# List installed fonts
+# List installed fonts (sorted; path-only output is deduped)
 fontlift list
 
 # List as JSON (deterministic order, includes path + names)
 fontlift list --json
 
-# List with detailed information
+# List with detailed information (use --sorted to dedupe names/paths when combining)
 fontlift list --path --name --sorted
 
 # Install one or more fonts for current user
@@ -46,6 +46,12 @@ fontlift cleanup
 
 # Clear system caches (requires admin)
 fontlift cleanup --admin
+
+# Prune stale registrations without clearing caches
+fontlift cleanup --prune-only
+
+# Clear caches only (skip pruning)
+fontlift cleanup --cache-only
 
 # Generate shell completions (bash|zsh|fish|powershell|elvish)
 fontlift completions bash > /usr/local/etc/bash_completion.d/fontlift

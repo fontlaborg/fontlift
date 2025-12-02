@@ -69,6 +69,9 @@ for font in fonts {
 # Install a font
 fontlift install my-font.ttf
 
+# List installed fonts (sorted; path-only output is deduped)
+fontlift list
+
 # List installed fonts as deterministic JSON
 fontlift list --json
 
@@ -81,7 +84,7 @@ fontlift install my-font.ttf --dry-run --quiet
 # Install system-wide (requires admin)
 fontlift install my-font.ttf --admin
 
-# List installed fonts
+# List installed fonts with detailed fields (use --sorted to dedupe names/paths when combining)
 fontlift list --path --name --sorted
 
 # Uninstall a font
@@ -95,6 +98,12 @@ fontlift cleanup
 
 # Clear system caches (requires admin)
 fontlift cleanup --admin
+
+# Prune stale registrations without touching caches
+fontlift cleanup --prune-only
+
+# Clear caches only (skip pruning)
+fontlift cleanup --cache-only
 
 # Generate shell completions (bash|zsh|fish|powershell|elvish)
 fontlift completions bash > /usr/local/etc/bash_completion.d/fontlift

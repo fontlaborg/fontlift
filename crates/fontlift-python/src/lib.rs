@@ -5,7 +5,7 @@
 
 #![allow(non_local_definitions)]
 
-use fontlift_core::{FontManager, FontScope};
+use fontlift_core::{FontInfo, FontManager, FontScope};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -13,6 +13,78 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Python representation of `FontInfo` returned by Rust core
+#[pyclass(module = "fontlift._native", name = "FontInfo")]
+#[derive(Clone)]
+struct PyFontInfo {
+    #[pyo3(get)]
+    path: String,
+    #[pyo3(get)]
+    postscript_name: String,
+    #[pyo3(get)]
+    full_name: String,
+    #[pyo3(get)]
+    family_name: String,
+    #[pyo3(get)]
+    style: String,
+    #[pyo3(get)]
+    weight: Option<u16>,
+    #[pyo3(get)]
+    italic: Option<bool>,
+    #[pyo3(get)]
+    format: Option<String>,
+    #[pyo3(get)]
+    scope: Option<String>,
+}
+
+impl From<FontInfo> for PyFontInfo {
+    fn from(info: FontInfo) -> Self {
+        let scope = info.scope.map(|s| match s {
+            FontScope::User => "user".to_string(),
+            FontScope::System => "system".to_string(),
+        });
+        Self {
+            path: info.path.to_string_lossy().into_owned(),
+            postscript_name: info.postscript_name,
+            full_name: info.full_name,
+            family_name: info.family_name,
+            style: info.style,
+            weight: info.weight,
+            italic: info.italic,
+            format: info.format,
+            scope,
+        }
+    }
+}
+
+#[pymethods]
+impl PyFontInfo {
+    /// Return a JSON/dict-friendly representation of the font
+    #[pyo3(name = "dict")]
+    fn dict_py(&self, py: Python) -> PyResult<PyObject> {
+        let dict = PyDict::new(py);
+        dict.set_item("path", &self.path)?;
+        dict.set_item("postscript_name", &self.postscript_name)?;
+        dict.set_item("full_name", &self.full_name)?;
+        dict.set_item("family_name", &self.family_name)?;
+        dict.set_item("style", &self.style)?;
+        dict.set_item("weight", self.weight)?;
+        dict.set_item("italic", self.italic)?;
+        dict.set_item("format", &self.format)?;
+        dict.set_item("scope", &self.scope)?;
+        Ok(dict.into_py(py))
+    }
+
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!(
+            "FontInfo(path='{path}', postscript_name='{ps_name}', style='{style}')",
+            path = self.path,
+            ps_name = self.postscript_name,
+            style = self.style
+        ))
+    }
+}
 
 /// Python wrapper for fontlift manager
 #[pyclass]
@@ -39,13 +111,7 @@ impl FontliftManager {
 
         let mut result = Vec::new();
         for font in fonts {
-            let font_dict = PyDict::new(py);
-            font_dict.set_item("path", font.path.to_string_lossy())?;
-            font_dict.set_item("postscript_name", font.postscript_name)?;
-            font_dict.set_item("full_name", font.full_name)?;
-            font_dict.set_item("family_name", font.family_name)?;
-            font_dict.set_item("style", font.style)?;
-            result.push(font_dict.into_py(py));
+            result.push(PyFontInfo::from(font).into_py(py));
         }
 
         Ok(result)
@@ -177,17 +243,7 @@ fn list() -> PyResult<Vec<PyObject>> {
     let mut result = Vec::new();
     Python::with_gil(|py| {
         for font in fonts {
-            let font_dict = PyDict::new(py);
-            font_dict
-                .set_item("path", font.path.to_string_lossy())
-                .unwrap();
-            font_dict
-                .set_item("postscript_name", font.postscript_name)
-                .unwrap();
-            font_dict.set_item("full_name", font.full_name).unwrap();
-            font_dict.set_item("family_name", font.family_name).unwrap();
-            font_dict.set_item("style", font.style).unwrap();
-            result.push(font_dict.into_py(py));
+            result.push(PyFontInfo::from(font).into_py(py));
         }
     });
 
@@ -247,6 +303,7 @@ fn cleanup(admin: bool) -> PyResult<()> {
 /// Python module definition
 #[pymodule]
 fn _native(py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_class::<PyFontInfo>()?;
     m.add_class::<FontliftManager>()?;
     m.add_function(wrap_pyfunction!(install, m)?)?;
     m.add_function(wrap_pyfunction!(list, m)?)?;
@@ -264,6 +321,8 @@ fn _native(py: Python, m: &PyModule) -> PyResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pyo3::{types::PyDict, PyCell};
+    use std::path::PathBuf;
 
     #[test]
     fn test_manager_creation() {
@@ -272,5 +331,58 @@ mod tests {
         {
             let _manager = create_platform_manager();
         }
+    }
+
+    #[test]
+    fn py_font_info_exposes_fields_and_dict() {
+        Python::with_gil(|py| {
+            let font_info = FontInfo {
+                path: PathBuf::from("/Library/Fonts/Example.ttf"),
+                postscript_name: "ExamplePS".to_string(),
+                full_name: "Example Full".to_string(),
+                family_name: "Example".to_string(),
+                style: "Regular".to_string(),
+                weight: Some(400),
+                italic: Some(false),
+                format: Some("TTF".to_string()),
+                scope: Some(FontScope::System),
+            };
+
+            let py_obj = PyFontInfo::from(font_info).into_py(py);
+            let cell: &PyCell<PyFontInfo> = py_obj.as_ref(py).downcast().unwrap();
+            let borrowed = cell.borrow();
+
+            assert_eq!(borrowed.postscript_name, "ExamplePS");
+            assert_eq!(borrowed.family_name, "Example");
+            assert_eq!(borrowed.weight, Some(400));
+            assert_eq!(borrowed.italic, Some(false));
+            assert_eq!(borrowed.format.as_deref(), Some("TTF"));
+            assert_eq!(borrowed.scope.as_deref(), Some("system"));
+
+            let dict_obj = cell.call_method0("dict").unwrap();
+            let dict: &PyDict = dict_obj.downcast().unwrap();
+            let style: String = dict
+                .get_item("style")
+                .unwrap()
+                .expect("missing style")
+                .extract()
+                .unwrap();
+            let path: String = dict
+                .get_item("path")
+                .unwrap()
+                .expect("missing path")
+                .extract()
+                .unwrap();
+            let weight: u16 = dict
+                .get_item("weight")
+                .unwrap()
+                .expect("missing weight")
+                .extract()
+                .unwrap();
+
+            assert_eq!(style, "Regular");
+            assert_eq!(path, "/Library/Fonts/Example.ttf");
+            assert_eq!(weight, 400);
+        });
     }
 }

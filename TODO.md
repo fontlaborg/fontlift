@@ -3,8 +3,8 @@
 - [x] Audit legacy `fontlift-mac-cli` and `fontlift-win-cli` commands/flags/behaviors and update `FEATURE_MATRIX.md` with a parity checklist.
 - [x] Fix macOS build blockers (Core Text constants, CFDictionary construction) so `cargo test --workspace` passes on macOS; gate Windows code for non-Windows hosts.
 - [ ] Implement macOS install/uninstall/remove using Core Text register/unregister with scope options, safe copy to user/system dirs, conflict detection/auto-resolve, and system font protection.
-- [ ] Implement macOS listing via `CTFontManagerCopyAvailableFontURLs` with descriptor-based metadata and scope tagging.
-- [ ] Implement macOS cleanup (prune missing registrations + ATS/Adobe/Microsoft cache clearing) with `--prune-only`, `--cache-only`, `--admin` flags.
+- [x] Implement macOS listing via `CTFontManagerCopyAvailableFontURLs` with descriptor-based metadata and scope tagging.
+- [x] Implement macOS cleanup (prune missing registrations + ATS/Adobe/Microsoft cache clearing) with `--prune-only`, `--cache-only`, `--admin` flags.
 - [ ] Add macOS simulation/dry-run + fake registry mode to mirror Swift testing features.
 - [ ] Implement Windows install/uninstall/remove using registry + GDI, file copy to per-user/system fonts, admin detection, and conflict auto-removal.
 - [ ] Implement Windows listing from registry + fonts directory with metadata extraction, deduplication, and scope detection.
@@ -13,7 +13,7 @@
 - [x] Expand CLI to match legacy ergonomics: aliases, batch file/dir installs, name- and path-based uninstall/remove, `-p/-n/-s`, `--json`, `--dry-run`, `--quiet/--verbose`, deterministic sorting, and help text updates.
 - [x] Add CLI `list` JSON output with deterministic sorting and deduplication for repeat entries.
 - [x] Add shell completion generation via `fontlift completions <shell>` and align exit codes with legacy binaries.
-- [ ] Expand Python bindings: typed `FontInfo`, name-based operations, cleanup/prune toggles, scope/admin flags, JSON-friendly results, and Fire-based CLI mirroring Rust behavior.
+- [~] Expand Python bindings: typed `FontInfo` exposed to Python with `.dict()` for JSON, name-based operations/cleanup toggles/admin scope still pending; Fire CLI parity TBD.
 - [x] Add `pyproject.toml` + packaging workflow for platform wheels; sync Python versioning with git tags via hatch-vcs.
 - [ ] Create font fixtures (TTF/OTF/TTC) and golden-output recordings from legacy binaries for list/install/uninstall/remove/cleanup.
 - [ ] Add Rust integration tests per platform with temp dirs and admin-check mocks; add Python `pytest` integration via `maturin develop`.

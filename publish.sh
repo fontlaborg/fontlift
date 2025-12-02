@@ -30,7 +30,7 @@ cargo publish -p fontlift-cli
 cargo publish -p fontlift-python
 
 echo "Preparing Python wheel..."
-python3 -m pip install --upgrade pip hatchling hatchling-pyo3 hatch-vcs twine fire
+python3 -m pip install --upgrade pip hatchling hatchling-pyo3-plugin hatch-vcs twine fire
 hatch build -t wheel
 
 echo "Publishing to PyPI..."

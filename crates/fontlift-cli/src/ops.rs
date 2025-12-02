@@ -5,7 +5,7 @@ use serde_json::to_string_pretty;
 use std::collections::BTreeSet;
 use std::fs;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::args::Cli;
@@ -71,14 +71,54 @@ pub(crate) fn log_verbose(opts: &OperationOptions, message: &str) {
     }
 }
 
+fn scope_order(preferred: FontScope) -> [FontScope; 2] {
+    match preferred {
+        FontScope::User => [FontScope::User, FontScope::System],
+        FontScope::System => [FontScope::System, FontScope::User],
+    }
+}
+
+fn describe_scope_chain(preferred: FontScope) -> String {
+    scope_order(preferred)
+        .iter()
+        .map(|s| s.description())
+        .collect::<Vec<_>>()
+        .join(" then ")
+}
+
+fn uninstall_across_scopes(
+    manager: &Arc<dyn FontManager>,
+    path: &Path,
+    preferred_scope: FontScope,
+) -> Result<FontScope, FontError> {
+    let mut last_error: Option<FontError> = None;
+
+    for scope in scope_order(preferred_scope) {
+        match manager.uninstall_font(path, scope) {
+            Ok(()) => return Ok(scope),
+            Err(err) => last_error = Some(err),
+        }
+    }
+
+    if let Some(err) = last_error {
+        Err(err)
+    } else {
+        Err(FontError::RegistrationFailed(format!(
+            "Failed to uninstall font {} in any scope",
+            path.display()
+        )))
+    }
+}
+
 /// Prepare list output according to options (sorting/deduplication is deterministic)
 pub fn render_list_output(
     mut fonts: Vec<FontInfo>,
     opts: ListRenderOptions,
 ) -> Result<ListRender, FontError> {
-    let must_sort = opts.sorted || opts.json;
+    // JSON and explicitly sorted output should dedupe the underlying font records first
+    let must_dedupe_fonts = opts.sorted || opts.json;
 
-    if must_sort {
+    if must_dedupe_fonts {
         fonts = protection::dedupe_fonts(fonts);
     }
 
@@ -104,8 +144,10 @@ pub fn render_list_output(
         }
     }
 
-    if must_sort {
-        lines.sort();
+    // Always present the list in deterministic order; dedupe path-only output by default
+    lines.sort();
+
+    if (opts.show_path && !opts.show_name) || opts.sorted {
         lines.dedup();
     }
 
@@ -257,7 +299,7 @@ pub async fn handle_uninstall_command(
     admin: bool,
     opts: OperationOptions,
 ) -> Result<(), FontError> {
-    let scope = if admin {
+    let default_scope = if admin {
         FontScope::System
     } else {
         FontScope::User
@@ -272,20 +314,27 @@ pub async fn handle_uninstall_command(
             .iter()
             .find(|f| f.postscript_name == font_name || f.full_name == font_name)
         {
+            let starting_scope = font.scope.unwrap_or(default_scope);
+
             if opts.dry_run {
                 log_status(
                     &opts,
                     &format!(
-                        "DRY-RUN: would uninstall '{}' at {}",
+                        "DRY-RUN: would uninstall '{}' at {} (checking {})",
                         font_name,
-                        font.path.display()
+                        font.path.display(),
+                        describe_scope_chain(starting_scope)
                     ),
                 );
             } else {
-                manager.uninstall_font(&font.path, scope)?;
+                let used_scope = uninstall_across_scopes(&manager, &font.path, starting_scope)?;
                 log_status(
                     &opts,
-                    &format!("✅ Successfully uninstalled font '{}'", font_name),
+                    &format!(
+                        "✅ Successfully uninstalled font '{}' ({})",
+                        font_name,
+                        used_scope.description()
+                    ),
                 );
             }
         } else {
@@ -298,9 +347,9 @@ pub async fn handle_uninstall_command(
                 log_status(
                     &opts,
                     &format!(
-                        "DRY-RUN: would uninstall font at {} ({})",
+                        "DRY-RUN: would uninstall font at {} (checking {})",
                         path.display(),
-                        scope.description()
+                        describe_scope_chain(default_scope)
                     ),
                 );
                 continue;
@@ -311,8 +360,14 @@ pub async fn handle_uninstall_command(
                 &format!("Uninstalling font from path: {}", path.display()),
             );
 
-            manager.uninstall_font(&path, scope)?;
-            log_status(&opts, "✅ Successfully uninstalled font");
+            let used_scope = uninstall_across_scopes(&manager, &path, default_scope)?;
+            log_status(
+                &opts,
+                &format!(
+                    "✅ Successfully uninstalled font ({})",
+                    used_scope.description()
+                ),
+            );
         }
     }
 
@@ -393,6 +448,8 @@ pub async fn handle_remove_command(
 pub async fn handle_cleanup_command(
     manager: Arc<dyn FontManager>,
     admin: bool,
+    prune_only: bool,
+    cache_only: bool,
     opts: OperationOptions,
 ) -> Result<(), FontError> {
     let scope = if admin {
@@ -400,6 +457,9 @@ pub async fn handle_cleanup_command(
     } else {
         FontScope::User
     };
+
+    let run_prune = !cache_only;
+    let run_cache_clear = !prune_only;
 
     log_status(
         &opts,
@@ -410,15 +470,36 @@ pub async fn handle_cleanup_command(
     );
 
     if opts.dry_run {
+        let mut planned = Vec::new();
+        if run_prune {
+            planned.push("prune stale registrations");
+        }
+        if run_cache_clear {
+            planned.push("clear font caches");
+        }
         log_status(
             &opts,
-            &format!("DRY-RUN: would clear font caches ({})", scope.description()),
+            &format!(
+                "DRY-RUN: would {} ({})",
+                planned.join(" and "),
+                scope.description()
+            ),
         );
         return Ok(());
     }
 
-    manager.clear_font_caches(scope)?;
-    log_status(&opts, "✅ Successfully cleared font caches");
+    if run_prune {
+        let pruned = manager.prune_missing_fonts(scope)?;
+        log_verbose(
+            &opts,
+            &format!("Pruned {} stale font registration(s)", pruned),
+        );
+    }
+
+    if run_cache_clear {
+        manager.clear_font_caches(scope)?;
+        log_status(&opts, "✅ Successfully cleared font caches");
+    }
 
     Ok(())
 }

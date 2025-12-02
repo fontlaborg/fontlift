@@ -40,8 +40,12 @@ pub async fn run_cli(cli: Cli) -> Result<(), FontError> {
         } => {
             handle_remove_command(manager, name, font_inputs, admin, op_opts).await?;
         }
-        Commands::Cleanup { admin } => {
-            handle_cleanup_command(manager, admin, op_opts).await?;
+        Commands::Cleanup {
+            admin,
+            prune_only,
+            cache_only,
+        } => {
+            handle_cleanup_command(manager, admin, prune_only, cache_only, op_opts).await?;
         }
         Commands::Completions { shell } => {
             write_completions(shell, std::io::stdout())?;
