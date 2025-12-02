@@ -14,7 +14,7 @@
 - [x] Add CLI `list` JSON output with deterministic sorting and deduplication for repeat entries.
 - [x] Add shell completion generation via `fontlift completions <shell>` and align exit codes with legacy binaries.
 - [ ] Expand Python bindings: typed `FontInfo`, name-based operations, cleanup/prune toggles, scope/admin flags, JSON-friendly results, and Fire-based CLI mirroring Rust behavior.
-- [ ] Add `pyproject.toml` + `maturin` workflow for universal2 macOS and Windows wheels; sync Python versioning with Cargo.
+- [x] Add `pyproject.toml` + packaging workflow for platform wheels; sync Python versioning with git tags via hatch-vcs.
 - [ ] Create font fixtures (TTF/OTF/TTC) and golden-output recordings from legacy binaries for list/install/uninstall/remove/cleanup.
 - [ ] Add Rust integration tests per platform with temp dirs and admin-check mocks; add Python `pytest` integration via `maturin develop`.
 - [ ] Stand up CI matrix (macOS + Windows) running `cargo test`, CLI smoke tests with fixtures, and Python wheel build/test with coverage gates.

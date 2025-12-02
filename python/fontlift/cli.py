@@ -29,7 +29,7 @@ class FontliftCLI:
 
 def main(argv: list[str] | None = None) -> None:
     argv = argv if argv is not None else sys.argv[1:]
-    fire.Fire(FontliftCLI, command=argv)
+    fire.Fire(FontliftCLI, argv=argv)
 
 
 if __name__ == "__main__":

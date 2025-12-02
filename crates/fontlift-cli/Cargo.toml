@@ -8,6 +8,10 @@ license.workspace = true
 repository.workspace = true
 description = "CLI interface for fontlift"
 
+[[bin]]
+name = "fontlift"
+path = "src/main.rs"
+
 [dependencies]
 fontlift-core = { workspace = true }
 clap = { workspace = true }

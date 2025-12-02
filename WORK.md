@@ -11,3 +11,6 @@
 - Extended CLI ergonomics: batch file/dir install/uninstall/remove support, global `--dry-run/--quiet/--verbose` flags, and deterministic input collection.
 - Added CLI tests for directory expansion and dry-run no-op behavior; ran `cargo fmt` and `cargo test --workspace` (pass).
 - Updated README/USAGE to document multi-file installs and dry-run/quiet/verbose flags; checked off TODO/PLAN items for CLI ergonomics.
+- Added PyO3 build.rs to inject macOS dynamic lookup flags; `cargo test --workspace` now succeeds building `fontlift-python`.
+- Swapped Python module name to `fontlift._native`, added hatch-vcs-based pyproject with Fire CLI `fontliftpy`, and added Python package scaffolding.
+- Introduced release GitHub Action for tag-based releases (wheels + crates) and manual `publish.sh` helper; added hatch-friendly build steps to `build.sh`.

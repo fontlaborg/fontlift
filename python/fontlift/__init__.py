@@ -15,6 +15,7 @@ FontliftManager = _native.FontliftManager  # re-export
 def list_fonts() -> List[Dict[str, Any]]:
     return _native.list()
 
+list = list_fonts  # alias for CLI parity
 
 def install(font_path: str, admin: bool = False) -> None:
     _native.install(font_path, admin)
@@ -35,6 +36,7 @@ def cleanup(admin: bool = False) -> None:
 __all__ = [
     "FontliftManager",
     "list_fonts",
+    "list",
     "install",
     "uninstall",
     "remove",
