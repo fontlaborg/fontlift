@@ -37,7 +37,9 @@
 - *Progress 2025-12-03:* Listing now prefers name table metadata via `read-fonts` (PostScript/family/subfamily/full name) for registry + directory entries with scope tagging and deduplication.
 - *Progress 2025-12-03:* Added cross-platform unit coverage for Adobe cache discovery/removal and ProgramFiles vs ProgramFiles(x86) deduplication to harden cleanup logic pending Windows host validation.
 - *Progress 2025-12-03:* Registry values are stored as filenames when installed under Fonts roots and normalized back to absolute paths for listing/uninstall; cleanup now stops both FontCache and optional WPF font cache services before deleting cache files.
+- *Progress 2025-12-03:* CLI cleanup now downgrades user-scope cache-clear `PermissionDenied` errors to warnings so default `fontlift cleanup` succeeds without `--admin` while keeping system-scope failures fatal.
 - *Progress 2025-12-03:* Registry unregister/prune now normalize filename-only entries (case-insensitive) to prevent false positives and stale values when removing/pruning fonts.
+- *Progress 2025-12-03:* Registry value matching helper now builds on non-Windows hosts so `cargo test -p fontlift-platform-win` stays green cross-platform while Windows validation remains pending.
 
 ### WS3 — Unified CLI ergonomics
 - Align commands/flags with legacy binaries: aliases, batch install/remove, name- and path-based operations, JSON output, quiet/verbose, dry-run, deterministic sorting.

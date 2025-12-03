@@ -13,8 +13,8 @@
 - Publish crates in dependency order (core → platform crates → CLI → Python helper crates if any).
 
 ## Python wheels
-- Ensure the Python extension builds locally: `maturin develop -m crates/fontlift-python/Cargo.toml --features extension-module`.
-- Build and upload release wheels with `maturin publish -m crates/fontlift-python/Cargo.toml --features extension-module` (uses the same command to build and push to PyPI). citeturn0search5turn0search7
+- Ensure the Python extension builds locally: `maturin develop -m crates/fontlift-python/Cargo.toml --features python-bindings`.
+- Build and upload release wheels with `maturin publish -m crates/fontlift-python/Cargo.toml --features python-bindings` (uses the same command to build and push to PyPI).
 - If using CI, prefer trusted secretless publishing; otherwise supply a short-lived PyPI token.
 
 ## GitHub release

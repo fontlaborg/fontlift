@@ -557,8 +557,16 @@ pub async fn handle_cleanup_command(
     }
 
     if run_cache_clear {
-        manager.clear_font_caches(scope)?;
-        log_status(&opts, "✅ Successfully cleared font caches");
+        match manager.clear_font_caches(scope) {
+            Ok(()) => log_status(&opts, "✅ Successfully cleared font caches"),
+            Err(FontError::PermissionDenied(msg)) if scope == FontScope::User => {
+                log_status(
+                    &opts,
+                    &format!("⚠️  Skipping cache clear (requires admin): {}", msg),
+                );
+            }
+            Err(err) => return Err(err),
+        }
     }
 
     Ok(())

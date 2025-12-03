@@ -363,6 +363,29 @@ impl WinFontManager {
 
         Ok(removed)
     }
+
+    /// Determine whether a registry value refers to the given path (handles filename-only entries)
+    fn registry_value_matches_path(
+        &self,
+        registry_value: &str,
+        path: &Path,
+        scope: FontScope,
+    ) -> bool {
+        let normalized = self
+            .normalize_registry_path(registry_value, scope)
+            .unwrap_or_else(|_| PathBuf::from(registry_value));
+
+        if paths_equal_case_insensitive(&normalized, path) {
+            return true;
+        }
+
+        match (normalized.file_name(), path.file_name()) {
+            (Some(existing), Some(target)) => existing
+                .to_string_lossy()
+                .eq_ignore_ascii_case(&target.to_string_lossy()),
+            _ => false,
+        }
+    }
 }
 
 #[cfg(windows)]
@@ -694,29 +717,6 @@ impl WinFontManager {
     }
 
     /// Determine whether a registry value refers to the given path (handles filename-only entries)
-    #[cfg(any(windows, test))]
-    fn registry_value_matches_path(
-        &self,
-        registry_value: &str,
-        path: &Path,
-        scope: FontScope,
-    ) -> bool {
-        let normalized = self
-            .normalize_registry_path(registry_value, scope)
-            .unwrap_or_else(|_| PathBuf::from(registry_value));
-
-        if paths_equal_case_insensitive(&normalized, path) {
-            return true;
-        }
-
-        match (normalized.file_name(), path.file_name()) {
-            (Some(existing), Some(target)) => existing
-                .to_string_lossy()
-                .eq_ignore_ascii_case(&target.to_string_lossy()),
-            _ => false,
-        }
-    }
-
     /// Unregister font from Windows Registry
     fn unregister_font_from_registry(&self, path: &Path, scope: FontScope) -> FontResult<()> {
         let registry_key = self.registry_key(scope, KEY_SET_VALUE)?;

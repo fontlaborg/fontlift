@@ -246,6 +246,48 @@ impl FontManager for ScopedUninstallManager {
     }
 }
 
+#[derive(Default)]
+struct DenyCacheManager {
+    prunes: Mutex<usize>,
+    cache_attempts: Mutex<usize>,
+}
+
+impl FontManager for DenyCacheManager {
+    fn install_font(&self, _source: &FontliftFontSource) -> fontlift_core::FontResult<()> {
+        Err(FontError::UnsupportedOperation("install not used in test".into()))
+    }
+
+    fn uninstall_font(&self, _source: &FontliftFontSource) -> fontlift_core::FontResult<()> {
+        Err(FontError::UnsupportedOperation("uninstall not used in test".into()))
+    }
+
+    fn remove_font(&self, _source: &FontliftFontSource) -> fontlift_core::FontResult<()> {
+        Err(FontError::UnsupportedOperation("remove not used in test".into()))
+    }
+
+    fn is_font_installed(&self, _source: &FontliftFontSource) -> fontlift_core::FontResult<bool> {
+        Ok(false)
+    }
+
+    fn list_installed_fonts(
+        &self,
+    ) -> fontlift_core::FontResult<Vec<FontliftFontFaceInfo>> {
+        Ok(vec![])
+    }
+
+    fn clear_font_caches(&self, _scope: FontScope) -> fontlift_core::FontResult<()> {
+        *self.cache_attempts.lock().expect("lock") += 1;
+        Err(FontError::PermissionDenied(
+            "cache clearing requires admin".to_string(),
+        ))
+    }
+
+    fn prune_missing_fonts(&self, _scope: FontScope) -> fontlift_core::FontResult<usize> {
+        *self.prunes.lock().expect("lock") += 1;
+        Ok(1)
+    }
+}
+
 #[test]
 fn dry_run_install_skips_invoking_manager() {
     let runtime = Runtime::new().expect("runtime");
@@ -325,6 +367,33 @@ fn cleanup_respects_prune_and_cache_flags() {
         "prune should be skipped"
     );
     assert_eq!(manager.cache_clears.lock().expect("lock").len(), 1);
+}
+
+#[test]
+fn cleanup_skips_cache_clear_permission_denied_on_windows_user_scope() {
+    let runtime = Runtime::new().expect("runtime");
+    let manager = Arc::new(DenyCacheManager::default());
+    let base_opts = OperationOptions::new(false, true, false);
+
+    let result = runtime.block_on(handle_cleanup_command(
+        manager.clone(),
+        false, // admin
+        false, // prune_only
+        false, // cache_only
+        base_opts,
+    ));
+
+    assert!(result.is_ok(), "cleanup should not fail when cache clear needs admin");
+    assert_eq!(
+        *manager.prunes.lock().expect("lock"),
+        1,
+        "prune should run"
+    );
+    assert_eq!(
+        *manager.cache_attempts.lock().expect("lock"),
+        1,
+        "cache clear should be attempted once"
+    );
 }
 
 #[test]

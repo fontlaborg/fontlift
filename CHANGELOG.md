@@ -1,7 +1,9 @@
 # Changelog
 
 ## Unreleased
+- Made `fontlift-python` bindings opt-in via a `python-bindings` feature so default workspace builds no longer require a host Python toolchain; `pyproject.toml` and build scripts enable the feature for maturin wheel builds.
 - Switched Python packaging to the `maturin` build backend with an explicit crate manifest path to silence pep517 build warnings and align pip builds with the Rust extension.
+- Fixed Windows registry value matching helper gating so `fontlift-platform-win` tests compile on non-Windows hosts, keeping cross-platform test runs green.
 - Windows manager now supports optional out-of-process validation (matching macOS) via `WinFontManager::with_validation` and Python `strict=True`, rejecting malformed fonts before registry/GDI changes.
 - Windows install/remove operations are now journaled (CopyFile/RegisterFont and UnregisterFont/DeleteFile) to participate in `fontlift doctor` crash recovery.
 - Windows registry pruning/unregister now normalizes filename-only entries and matches case-insensitively, preventing stale registry values when fonts live under Fonts roots.
@@ -17,6 +19,7 @@
 - Core now exposes conflict detection (path/PostScript/family+style) and Windows installs auto-unregister/remove duplicate registry/file entries before copying, while refusing to overwrite protected system font paths.
 - Windows cleanup now also purges Adobe font cache manifests (`AdobeFnt*.lst`) under common Program Files Adobe TypeSupport/TypeSpt/PDFL roots to mirror legacy cache clearing.
 - Windows cleanup now prunes missing registry font entries and clears the FontCache service (stop → delete cache files/FNTCACHE.DAT → start), improving parity with the legacy C++ CLI; user-scope cleanup now explicitly requires `--admin` on Windows.
+- CLI cleanup now downgrades user-scope cache-clear `PermissionDenied` responses to warnings so `fontlift cleanup` succeeds without `--admin` while system-scope cache clears still fail without elevation; added a CLI unit test to lock behavior.
 - macOS installs now copy fonts into the target scope directory and auto-resolve Core Text "already registered"/duplicate-name errors by unregistering and retrying the registration path; reinstalling in fake/user scopes replaces the installed file to keep upgrades deterministic.
 - `is_font_installed` now checks both the scope target path and Core Text registered URLs, and fake-registry tests are serialized to avoid environment races.
 - CLI list output is now always sorted; path-only output is deduplicated by default and `--sorted` now focuses on deduping combined name/path views.

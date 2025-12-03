@@ -17,7 +17,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 fontlift-core = { workspace = true }
-pyo3.workspace = true
+pyo3 = { workspace = true, optional = true }
 thiserror.workspace = true
 anyhow.workspace = true
 log.workspace = true
@@ -31,8 +31,8 @@ fontlift-platform-mac = { workspace = true }
 fontlift-platform-win = { workspace = true }
 
 [features]
-extension-module = ["pyo3/extension-module"]
-default = ["extension-module"]
+python-bindings = ["pyo3", "pyo3/extension-module"]
+default = []
 
 [build-dependencies]
 pyo3-build-config = "0.24.1"

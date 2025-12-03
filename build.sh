@@ -447,7 +447,7 @@ build_python_bindings() {
 	cd "$SCRIPT_DIR"
 	
 	# Build Python bindings from the Python crate manifest (workspace root lacks a package table)
-	maturin develop -m "$manifest_path" $build_flags --features extension-module
+	maturin develop -m "$manifest_path" $build_flags --features python-bindings
 	if [ $? -eq 0 ]; then
 		print_status "Python bindings built and installed successfully"
 	else
@@ -700,7 +700,7 @@ main() {
 	fi
 	
 	if [ "$BUILD_ALL" == "yes" ] || [ "$BUILD_PYTHON" == "yes" ]; then
-		build_component "fontlift-python" "extension-module" "$BUILD_MODE"
+		build_component "fontlift-python" "python-bindings" "$BUILD_MODE"
 	fi
 	
 	# Build Python bindings if requested

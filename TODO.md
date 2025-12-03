@@ -10,11 +10,13 @@
   - Conflict detection now auto-uninstalls conflicting registry/file entries before copying while protecting system font paths.
   - Registry values are now normalized to the installed scope (filenames for Fonts roots; relative registry entries resolve to absolute paths), and uninstall/remove can resolve renamed entries via registry lookups.
   - Registry cleanup now matches filename-only entries case-insensitively when unregistering and pruning, preventing orphaned entries from surviving installs/removes.
+  - Registry value matcher now builds on non-Windows hosts, keeping `cargo test -p fontlift-platform-win` green cross-platform.
 - [x] Implement Windows listing from registry + fonts directory with metadata extraction, deduplication, and scope detection.
 - [~] Implement Windows cleanup (registry prune, FontCache service reset, Adobe cache clearing) with `--prune-only`, `--cache-only`, `--admin` and exit-code parity.
   - Registry pruning and FontCache service stop/clear/start paths implemented; AdobeFnt*.lst purge added under Program Files; needs validation on a Windows host.
   - Added cross-platform unit coverage for Adobe cache discovery/removal and ProgramFiles/ProgramFiles(x86) deduplication to reduce cleanup regressions.
   - Cache clearing now stops/starts both `FontCache` and `FontCache3.0.0.0` (best-effort when the WPF cache service is absent).
+  - CLI cleanup now treats user-scope cache clear `PermissionDenied` errors as warnings to keep default `fontlift cleanup` usable without `--admin`; system-scope still fails without elevation.
 - [x] Add cross-platform conflict detection in `fontlift-core`; duplicate handling and system-font protection helpers added.
   - Conflict detection helper added and wired into Windows installs to auto-remove duplicate registrations/files before copying.
 - [x] Expand CLI to match legacy ergonomics: aliases, batch file/dir installs, name- and path-based uninstall/remove, `-p/-n/-s`, `--json`, `--dry-run`, `--quiet/--verbose`, deterministic sorting, and help text updates.

@@ -27,6 +27,6 @@ fontliftpy = "fontlift.cli:main"
 [tool.maturin]
 manifest-path = "crates/fontlift-python/Cargo.toml"
 python-source = "python"
-features = ["extension-module"]
+features = ["python-bindings"]
 module-name = "fontlift._native"
 strip = true
