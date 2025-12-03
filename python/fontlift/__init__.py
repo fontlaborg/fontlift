@@ -121,7 +121,7 @@ __all__ = [
     "cleanup",
 ]
 
-# Hatch-vcs will write the version from the git tag; fall back to the Rust
-# crate version if the dynamic metadata isn't injected (e.g., editable builds).
+# Maturin exposes __version__ from the Cargo crate metadata; keep a fallback so
+# importorskip consumers degrade gracefully when the native module is missing.
 version = getattr(_native, "__version__", None)
 __version__ = version

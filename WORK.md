@@ -10,6 +10,7 @@
 
 ### Latest Changes
 
+- Swapped the pyproject build backend to `maturin` with explicit manifest/python-source settings to silence pep517 warnings; rebuilt via `maturin develop -m crates/fontlift-python/Cargo.toml` and reran `pytest python/tests` (5 passing).
 - Added `help_text_includes_all_commands` test verifying all 7 commands appear in CLI help
 - Added `shell_completions_generate_for_all_shells` test for Bash/Zsh/Fish/PowerShell/Elvish
 - Added `fontlift doctor` and validation docs to USAGE.md

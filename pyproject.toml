@@ -1,11 +1,6 @@
 [build-system]
-requires = [
-  "hatchling>=1.25",
-  # Use the published hatchling plugin for PyO3 wheels; package name is `hatchling-pyo3-plugin`
-  "hatchling-pyo3-plugin>=0.1.1",
-  "hatch-vcs>=0.4",
-]
-build-backend = "hatchling.build"
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
 
 [project]
 name = "fontlift"
@@ -29,14 +24,9 @@ dynamic = ["version"]
 [project.scripts]
 fontliftpy = "fontlift.cli:main"
 
-[tool.hatch.version]
-source = "vcs"
-tag-pattern = "^v(?P<version>\\d+\\.\\d+\\.\\d+)$"
-
-[tool.hatch.build.targets.wheel]
-packages = ["python/fontlift"]
-
-[tool.hatch.build.hooks.pyo3]
+[tool.maturin]
+manifest-path = "crates/fontlift-python/Cargo.toml"
+python-source = "python"
 features = ["extension-module"]
 module-name = "fontlift._native"
 strip = true

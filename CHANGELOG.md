@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Switched Python packaging to the `maturin` build backend with an explicit crate manifest path to silence pep517 build warnings and align pip builds with the Rust extension.
 - Python Fire CLI now mirrors the Rust surface (JSON list rendering, quiet/verbose/dry-run status messaging) and `list_fonts` returns dictionaries; added pure-Python list rendering helpers with tests.
 - Added Atkinson Hyperlegible OTF/TTC fixtures plus Windows metadata tests to cover TTC collections alongside TTF parsing.
 - Added README packaging notes covering build.sh outputs, Windows prerequisites, and maturin wheel builds.
