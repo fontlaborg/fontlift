@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- build.sh now runs maturin against the `crates/fontlift-python` manifest so Python binding builds no longer fail with a workspace `missing field package` error.
 - Core now exposes conflict detection (path/PostScript/family+style) and Windows installs auto-unregister/remove duplicate registry/file entries before copying, while refusing to overwrite protected system font paths.
 - Windows cleanup now also purges Adobe font cache manifests (`AdobeFnt*.lst`) under common Program Files Adobe TypeSupport/TypeSpt/PDFL roots to mirror legacy cache clearing.
 - Windows cleanup now prunes missing registry font entries and clears the FontCache service (stop → delete cache files/FNTCACHE.DAT → start), improving parity with the legacy C++ CLI; user-scope cleanup now explicitly requires `--admin` on Windows.

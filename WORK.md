@@ -1,4 +1,6 @@
 ## 2025-12-03
+- Fixed build script Python binding step to point maturin at the Python crate manifest instead of the workspace root so `maturin develop` no longer fails with "missing field package".
+- `maturin develop -m crates/fontlift-python/Cargo.toml --features extension-module` (pass; PyO3 deprecation warnings and missing `PyInit_fontlift_python` symbol warning unchanged).
 - Added cross-platform conflict detection helper (path/PostScript/family+style) with unit coverage and wired Windows installs to auto-unregister/remove conflicting registry/file entries while protecting system font paths; user-scope copies now replace existing files safely.
 - Tests: `cargo test --workspace --exclude fontlift-python`.
 - Hardened macOS cache cleanup test by serializing env mutations and clearing fake-registry/test-cache env vars via guard; `clear_font_caches_removes_vendor_caches_under_override_root` now passes reliably.

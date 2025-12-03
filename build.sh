@@ -411,7 +411,8 @@ run_tests() {
 # Function to build Python bindings
 build_python_bindings() {
 	local build_mode=$1
-	
+	local manifest_path="$SCRIPT_DIR/crates/fontlift-python/Cargo.toml"
+
 	print_step "Building Python bindings..."
 	
 	if command_exists hatch; then
@@ -445,8 +446,8 @@ build_python_bindings() {
 	
 	cd "$SCRIPT_DIR"
 	
-	# Build Python bindings
-	maturin develop $build_flags --features extension-module
+	# Build Python bindings from the Python crate manifest (workspace root lacks a package table)
+	maturin develop -m "$manifest_path" $build_flags --features extension-module
 	if [ $? -eq 0 ]; then
 		print_status "Python bindings built and installed successfully"
 	else
@@ -488,7 +489,7 @@ create_packages() {
 			fi
 		elif command_exists maturin; then
 			print_substep "Building Python wheel..."
-			maturin build --release --out "$dist_dir"
+			maturin build -m "$SCRIPT_DIR/crates/fontlift-python/Cargo.toml" --release --out "$dist_dir"
 			if [ $? -eq 0 ]; then
 				print_status "Python wheel created"
 			else
