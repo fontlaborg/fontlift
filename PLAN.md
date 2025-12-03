@@ -23,15 +23,17 @@
 - [x] Gate Windows-specific code to compile cleanly on macOS; add minimal mock stubs for non-target hosts to keep tests green.
 
 ### WS1 — macOS parity (Swift → Rust)
-- Implement Core Text register/unregister with scope options; copy fonts into user/system dirs with system font protection and conflict detection/auto-resolve.
+- Implement Core Text register/unregister with scope options; copy fonts into user/system dirs with system font protection and conflict detection/auto-resolve. *(Done 2025-12-03: installs now copy into scope-specific dirs, auto-unregister/retry on CT conflicts, replace-on-reinstall in fake/user scopes, and `is_font_installed` inspects Core Text registrations/paths.)*
 - Implement listing via `CTFontManagerCopyAvailableFontURLs` + descriptor metadata (PostScript/full/family/style/format) and scope tagging. *(Done 2025-12-02: descriptor-based listing with scope tagging and trait extraction.)*
 - Implement cleanup: prune missing registrations, clear ATS caches, clear Adobe/Microsoft caches; flags `--prune-only`, `--cache-only`, `--admin`. *(Done 2025-12-02: pruning + cache clearing wired with flags and dry-run support.)*
-- Add simulation/dry-run and fake registry mode for tests.
+- Add simulation/dry-run and fake registry mode for tests. *(Done 2025-12-03: `FONTLIFT_FAKE_REGISTRY_ROOT` plus CLI dry-run paths.)*
 
 ### WS2 — Windows parity (C++ → Rust)
 - Wire install/uninstall/remove to registry + GDI with file copy to per-user/system fonts, admin detection, conflict auto-removal.
 - Implement listing from registry + fonts directory with metadata, deduplication, and scope detection.
 - Implement cleanup: prune missing registry entries, clear FontCache service data, clear Adobe caches; support `--prune-only`, `--cache-only`, `--admin` and exit-code parity.
+- *Progress 2025-12-03:* Registry pruning and FontCache stop/clear/start flow implemented; AdobeFnt*.lst purging added under Program Files; still pending validation on Windows hosts.
+- *Progress 2025-12-03:* Install path now auto-detects conflicts (path/PostScript/family-style) and unregisters/removes duplicates before copy, while refusing to touch protected system font paths.
 
 ### WS3 — Unified CLI ergonomics
 - Align commands/flags with legacy binaries: aliases, batch install/remove, name- and path-based operations, JSON output, quiet/verbose, dry-run, deterministic sorting.
@@ -45,7 +47,7 @@
 - Expose full surface: typed `FontliftFontSource`/`FontliftFontFaceInfo`, list/install/uninstall/remove/cleanup with scope/admin/prune/cache/dry-run options, name-based ops, JSON-friendly return values.
 - Add Fire-based CLI entry mirroring Rust CLI; keep behavior parity.
 - Ship `pyproject.toml` + `maturin` workflow for universal2 macOS and win64/aarch64 wheels; sync versioning with Cargo.
-- Progress 2025-12-03: PyO3 exports `FontSource` + `FontFaceInfo` classes (scope/format/face_index metadata), list/install/uninstall/remove now route through `FontliftFontSource`; remaining gaps include name-based ops, cleanup/prune toggles, Fire CLI parity, and wheel packaging.
+- Progress 2025-12-03: PyO3 exports `FontSource` + `FontFaceInfo` classes (scope/format/face_index metadata), list/install/uninstall/remove now route through `FontliftFontSource`; cleanup/prune/cache toggles added to Python API; name-based uninstall/remove with dry-run support and Fire CLI cleanup toggles are wired; remaining gaps include Fire CLI output/flag parity (quiet/verbose/JSON) and validating wheel packaging on macOS/Windows.
 
 ### WS5 — Tests, fixtures, and parity verification
 - Add font fixtures (TTF/OTF/TTC) and golden-output recordings from legacy binaries for list/install/uninstall/remove/cleanup.

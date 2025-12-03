@@ -6,14 +6,23 @@
 use fontlift_core::{
     FontError, FontManager, FontResult, FontScope, FontliftFontFaceInfo, FontliftFontSource,
 };
+#[cfg(windows)]
+use fontlift_core::conflicts;
+
+#[cfg(any(windows, test))]
+use std::path::PathBuf;
 
 #[cfg(windows)]
 use fontlift_core::validation;
 #[cfg(windows)]
-use std::path::{Path, PathBuf};
+use std::collections::BTreeSet;
+#[cfg(windows)]
+use std::path::Path;
 
 #[cfg(windows)]
 use std::fs;
+#[cfg(windows)]
+use std::process::Command;
 
 #[cfg(windows)]
 use windows::{
@@ -26,6 +35,25 @@ use windows::{
 use winreg::enums::*;
 #[cfg(windows)]
 use winreg::RegKey;
+
+#[cfg(windows)]
+const FONTS_REGISTRY_KEY: &str = r"Software\Microsoft\Windows NT\CurrentVersion\Fonts";
+#[cfg(windows)]
+const FONT_CACHE_DIR: &str = r"ServiceProfiles\\LocalService\\AppData\\Local\\FontCache";
+
+/// Common Adobe font cache roots under Program Files variants
+#[cfg(any(windows, test))]
+fn adobe_cache_roots(program_files_dirs: &[PathBuf]) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+
+    for base in program_files_dirs {
+        roots.push(base.join("Common Files/Adobe/TypeSpt"));
+        roots.push(base.join("Common Files/Adobe/TypeSupport"));
+        roots.push(base.join("Common Files/Adobe/PDFL"));
+    }
+
+    roots
+}
 
 /// Windows font manager using Windows Registry and GDI APIs
 pub struct WinFontManager {
@@ -47,22 +75,134 @@ impl Default for WinFontManager {
 
 #[cfg(windows)]
 impl WinFontManager {
-    /// Get Windows fonts directory
-    fn get_fonts_directory(&self) -> FontResult<PathBuf> {
-        if let Ok(windir) = std::env::var("WINDIR") {
-            return Ok(PathBuf::from(windir).join("Fonts"));
+    fn program_files_roots(&self) -> Vec<PathBuf> {
+        let mut roots = Vec::new();
+
+        if let Ok(pf) = std::env::var("ProgramFiles") {
+            roots.push(PathBuf::from(pf));
         }
 
-        Ok(PathBuf::from(r"C:\Windows\Fonts"))
+        if let Ok(pf86) = std::env::var("ProgramFiles(x86)") {
+            let candidate = PathBuf::from(&pf86);
+            let lower_candidate = pf86.to_lowercase();
+            let already_present = roots
+                .iter()
+                .any(|p| p.to_string_lossy().to_lowercase() == lower_candidate);
+            if !already_present {
+                roots.push(candidate);
+            }
+        }
+
+        roots
+    }
+
+    fn delete_matching_files(
+        &self,
+        root: &Path,
+        predicate: impl Fn(&Path) -> bool,
+    ) -> FontResult<usize> {
+        if !root.exists() {
+            return Ok(0);
+        }
+
+        let mut removed = 0usize;
+        let mut stack = vec![root.to_path_buf()];
+
+        while let Some(dir) = stack.pop() {
+            let entries = match fs::read_dir(&dir) {
+                Ok(entries) => entries,
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(err) => return Err(FontError::IoError(err)),
+            };
+
+            for entry in entries {
+                let entry = entry.map_err(FontError::IoError)?;
+                let path = entry.path();
+
+                if path.is_dir() {
+                    stack.push(path);
+                    continue;
+                }
+
+                if predicate(&path) {
+                    match fs::remove_file(&path) {
+                        Ok(_) => removed += 1,
+                        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+                        Err(err) => return Err(FontError::IoError(err)),
+                    }
+                }
+            }
+        }
+
+        Ok(removed)
+    }
+
+    fn clear_adobe_font_caches(&self) -> FontResult<usize> {
+        let mut removed = 0usize;
+
+        for root in adobe_cache_roots(&self.program_files_roots()) {
+            removed += self.delete_matching_files(&root, |path| {
+                path.file_name()
+                    .and_then(|n| n.to_str())
+                    .map(|name| name.starts_with("AdobeFnt") && name.ends_with(".lst"))
+                    .unwrap_or(false)
+            })?;
+        }
+
+        Ok(removed)
+    }
+
+    fn system_root(&self) -> PathBuf {
+        std::env::var("WINDIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from(r"C:\Windows"))
+    }
+
+    /// Get Windows fonts directory
+    fn get_fonts_directory(&self) -> FontResult<PathBuf> {
+        Ok(self.system_root().join("Fonts"))
+    }
+
+    fn user_fonts_directory(&self) -> FontResult<PathBuf> {
+        let local_appdata = std::env::var("LOCALAPPDATA").map_err(|_| {
+            FontError::PermissionDenied(
+                "Cannot determine LOCALAPPDATA directory for per-user fonts".to_string(),
+            )
+        })?;
+
+        Ok(PathBuf::from(local_appdata).join(r"Microsoft\Windows\Fonts"))
     }
 
     /// Check if path is in system font directory
     fn is_system_font_path(&self, path: &Path) -> bool {
-        let path_str = path.to_string_lossy().to_lowercase();
-        path_str.starts_with(r"c:\windows\fonts")
-            || path_str.contains("system32")
-            || path_str.contains("syswow64")
-            || path_str.starts_with(r"c:\windows\system32")
+        let lower = path.to_string_lossy().to_lowercase();
+        let root = self.system_root().to_string_lossy().to_lowercase();
+        lower.starts_with(format!(r"{}\fonts", root).as_str())
+            || lower.starts_with(format!(r"{}\system32", root).as_str())
+            || lower.starts_with(format!(r"{}\syswow64", root).as_str())
+    }
+
+    fn path_starts_with_case_insensitive(&self, root: &Path, candidate: &Path) -> bool {
+        let root_str = root.to_string_lossy().to_lowercase();
+        let cand = candidate.to_string_lossy().to_lowercase();
+        cand.starts_with(&root_str)
+    }
+
+    fn scope_for_path(&self, path: &Path) -> FontScope {
+        if self.is_system_font_path(path) {
+            FontScope::System
+        } else {
+            FontScope::User
+        }
+    }
+
+    fn is_in_installation_roots(&self, path: &Path) -> FontResult<bool> {
+        let user_root = self.user_fonts_directory()?;
+        let system_root = self.get_fonts_directory()?;
+        Ok(
+            self.path_starts_with_case_insensitive(&user_root, path)
+                || self.path_starts_with_case_insensitive(&system_root, path),
+        )
     }
 
     /// Extract font information using basic filename parsing as fallback
@@ -99,6 +239,120 @@ impl WinFontManager {
         std::env::var("USERNAME").unwrap_or_default().to_uppercase() == "ADMINISTRATOR"
     }
 
+    fn registry_key(&self, scope: FontScope, access: REGSAM) -> FontResult<RegKey> {
+        let hive = match scope {
+            FontScope::User => HKEY_CURRENT_USER,
+            FontScope::System => HKEY_LOCAL_MACHINE,
+        };
+
+        RegKey::predef(hive)
+            .open_subkey_with_flags(FONTS_REGISTRY_KEY, access)
+            .map_err(|e| FontError::RegistrationFailed(format!("Cannot open registry key: {}", e)))
+    }
+
+    fn registry_entries(&self, scope: FontScope) -> FontResult<Vec<(String, PathBuf)>> {
+        let key = self.registry_key(scope, KEY_READ)?;
+        let mut entries = Vec::new();
+
+        for entry in key.enum_values().flatten() {
+            let name = entry.0;
+            if let Ok(path_str) = key.get_value::<String, _>(&name) {
+                entries.push((name, PathBuf::from(path_str)));
+            }
+        }
+
+        Ok(entries)
+    }
+
+    fn resolve_installed_path(
+        &self,
+        source: &FontliftFontSource,
+        preferred_scope: FontScope,
+    ) -> FontResult<(PathBuf, FontScope)> {
+        let candidate = &source.path;
+        if candidate.exists() {
+            return Ok((candidate.clone(), preferred_scope));
+        }
+
+        let file_name = candidate
+            .file_name()
+            .ok_or_else(|| FontError::FontNotFound(candidate.clone()))?;
+
+        let scopes = [
+            preferred_scope,
+            if preferred_scope == FontScope::User {
+                FontScope::System
+            } else {
+                FontScope::User
+            },
+        ];
+
+        for scope in scopes {
+            let base = match scope {
+                FontScope::User => self.user_fonts_directory()?,
+                FontScope::System => self.get_fonts_directory()?,
+            };
+            let candidate_path = base.join(file_name);
+            if candidate_path.exists() {
+                return Ok((candidate_path, scope));
+            }
+        }
+
+        Err(FontError::FontNotFound(candidate.clone()))
+    }
+
+    fn stop_font_cache_service(&self) -> FontResult<()> {
+        let output = Command::new("sc")
+            .args(["stop", "FontCache"])
+            .output()
+            .map_err(FontError::IoError)?;
+
+        if !output.status.success() {
+            return Err(FontError::RegistrationFailed(
+                "Failed to stop FontCache service (requires administrator privileges)".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    fn start_font_cache_service(&self) -> FontResult<()> {
+        let output = Command::new("sc")
+            .args(["start", "FontCache"])
+            .output()
+            .map_err(FontError::IoError)?;
+
+        if !output.status.success() {
+            return Err(FontError::RegistrationFailed(
+                "Failed to start FontCache service after cache clear".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    fn clear_font_cache_files(&self) -> FontResult<()> {
+        let root = self.system_root();
+        let cache_dir = root.join(FONT_CACHE_DIR);
+        if cache_dir.exists() {
+            if let Ok(entries) = std::fs::read_dir(&cache_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_file() {
+                        std::fs::remove_file(&path).map_err(FontError::IoError)?;
+                    }
+                }
+            }
+        }
+
+        let system_cache = root.join(r"System32\FNTCACHE.DAT");
+        if system_cache.exists() {
+            std::fs::remove_file(&system_cache).map_err(FontError::IoError)?;
+        }
+
+        Ok(())
+    }
+
     /// Copy font to target directory based on scope
     fn copy_font_to_target_directory(
         &self,
@@ -106,14 +360,7 @@ impl WinFontManager {
         scope: FontScope,
     ) -> FontResult<PathBuf> {
         let target_dir = match scope {
-            FontScope::User => {
-                let local_appdata = std::env::var("LOCALAPPDATA").map_err(|_| {
-                    FontError::PermissionDenied(
-                        "Cannot determine LOCALAPPDATA directory".to_string(),
-                    )
-                })?;
-                PathBuf::from(local_appdata).join("Microsoft\\Windows\\Fonts")
-            }
+            FontScope::User => self.user_fonts_directory()?,
             FontScope::System => {
                 if !self.has_admin_privileges() {
                     return Err(FontError::PermissionDenied(
@@ -130,7 +377,11 @@ impl WinFontManager {
 
         let target_path = target_dir.join(source_path.file_name().unwrap());
         if target_path.exists() {
-            return Err(FontError::AlreadyInstalled(target_path.clone()));
+            if self.is_system_font_path(&target_path) {
+                return Err(FontError::SystemFontProtection(target_path.clone()));
+            }
+
+            fs::remove_file(&target_path).map_err(FontError::IoError)?;
         }
 
         fs::copy(source_path, &target_path).map_err(FontError::IoError)?;
@@ -180,6 +431,37 @@ impl WinFontManager {
         Ok(())
     }
 
+    fn unregister_known_locations(&self, path: &Path, scope: FontScope) -> FontResult<()> {
+        // best-effort cleanup in both scopes to mirror legacy behavior
+        let _ = self.unregister_font_from_registry(path, scope);
+        let other_scope = if scope == FontScope::User {
+            FontScope::System
+        } else {
+            FontScope::User
+        };
+        let _ = self.unregister_font_from_registry(path, other_scope);
+        Ok(())
+    }
+
+    fn remove_conflicting_install(&self, font: &FontliftFontFaceInfo) -> FontResult<()> {
+        let path = &font.source.path;
+        let scope = font.source.scope.unwrap_or_else(|| self.scope_for_path(path));
+
+        if self.is_system_font_path(path) {
+            return Err(FontError::SystemFontProtection(path.clone()));
+        }
+
+        // best-effort GDI + registry cleanup before removing the file
+        let _ = self.unregister_font_from_gdi(path);
+        self.unregister_known_locations(path, scope)?;
+
+        if self.is_in_installation_roots(path)? && path.exists() {
+            fs::remove_file(path).map_err(FontError::IoError)?;
+        }
+
+        Ok(())
+    }
+
     /// Register font in Windows Registry
     fn register_font_in_registry(
         &self,
@@ -187,18 +469,7 @@ impl WinFontManager {
         font_info: &FontliftFontFaceInfo,
         scope: FontScope,
     ) -> FontResult<()> {
-        let hive = match scope {
-            FontScope::User => HKEY_CURRENT_USER,
-            FontScope::System => HKEY_LOCAL_MACHINE,
-        };
-
-        let key_path = r"Software\Microsoft\Windows NT\CurrentVersion\Fonts";
-
-        let registry_key = RegKey::predef(hive)
-            .open_subkey_with_flags(key_path, KEY_SET_VALUE)
-            .map_err(|e| {
-                FontError::RegistrationFailed(format!("Cannot open registry key: {}", e))
-            })?;
+        let registry_key = self.registry_key(scope, KEY_SET_VALUE)?;
 
         let registry_name = format!(
             "{} ({})",
@@ -218,18 +489,7 @@ impl WinFontManager {
 
     /// Unregister font from Windows Registry
     fn unregister_font_from_registry(&self, path: &Path, scope: FontScope) -> FontResult<()> {
-        let hive = match scope {
-            FontScope::User => HKEY_CURRENT_USER,
-            FontScope::System => HKEY_LOCAL_MACHINE,
-        };
-
-        let key_path = r"Software\Microsoft\Windows NT\CurrentVersion\Fonts";
-
-        let registry_key = RegKey::predef(hive)
-            .open_subkey_with_flags(key_path, KEY_SET_VALUE)
-            .map_err(|e| {
-                FontError::RegistrationFailed(format!("Cannot open registry key: {}", e))
-            })?;
+        let registry_key = self.registry_key(scope, KEY_SET_VALUE)?;
 
         let path_str = path.to_string_lossy().to_string();
 
@@ -253,35 +513,16 @@ impl WinFontManager {
     fn enumerate_fonts_from_registry(&self) -> FontResult<Vec<FontliftFontFaceInfo>> {
         let mut fonts = Vec::new();
 
-        let locations = vec![
-            (
-                HKEY_CURRENT_USER,
-                r"Software\Microsoft\Windows NT\CurrentVersion\Fonts",
-            ),
-            (
-                HKEY_LOCAL_MACHINE,
-                r"Software\Microsoft\Windows NT\CurrentVersion\Fonts",
-            ),
-        ];
-
-        for (hive, key_path) in locations {
-            if let Ok(registry_key) =
-                RegKey::predef(hive).open_subkey_with_flags(key_path, KEY_READ)
-            {
-                for (value_name, value_data) in registry_key
-                    .enum_values()
-                    .filter_map(|(name, data)| data.ok().map(|d| (name, d)))
-                {
-                    if let Ok(font_path) = registry_key.get_value::<String, _>(&value_name) {
-                        let path = PathBuf::from(font_path);
-                        if path.exists() && validation::is_valid_font_extension(&path) {
-                            if let Ok(mut font_info) = self.get_font_info_from_path(&path) {
-                                if let Some(paren_pos) = value_name.find('(') {
-                                    font_info.family_name =
-                                        value_name[..paren_pos].trim().to_string();
-                                }
-                                fonts.push(font_info);
+        for scope in [FontScope::User, FontScope::System] {
+            if let Ok(entries) = self.registry_entries(scope) {
+                for (value_name, path) in entries {
+                    if path.exists() && validation::is_valid_font_extension(&path) {
+                        if let Ok(mut font_info) = self.get_font_info_from_path(&path) {
+                            if let Some(paren_pos) = value_name.find('(') {
+                                font_info.family_name = value_name[..paren_pos].trim().to_string();
                             }
+                            font_info.source.scope = Some(scope);
+                            fonts.push(font_info);
                         }
                     }
                 }
@@ -325,7 +566,24 @@ impl FontManager for WinFontManager {
 
         let mut font_info = self.get_font_info_from_path(path)?;
         font_info.source.scope = Some(scope);
+
+        // Remove conflicting installs (same PostScript or family/style) before copying
+        let installed_fonts = self.list_installed_fonts()?;
+        let conflicts = conflicts::detect_conflicts(&installed_fonts, &font_info);
+        for conflict in conflicts {
+            self.remove_conflicting_install(conflict)?;
+        }
+
         let target_path = self.copy_font_to_target_directory(path, scope)?;
+
+        if self.registry_entries(scope)?.iter().any(|(_, existing)| {
+            existing
+                .to_string_lossy()
+                .eq_ignore_ascii_case(&target_path.to_string_lossy())
+        }) {
+            return Err(FontError::AlreadyInstalled(target_path));
+        }
+
         self.register_font_with_gdi(&target_path)?;
         self.register_font_in_registry(&target_path, &font_info, scope)?;
 
@@ -333,54 +591,102 @@ impl FontManager for WinFontManager {
     }
 
     fn uninstall_font(&self, source: &FontliftFontSource) -> FontResult<()> {
-        let scope = source.scope.unwrap_or(FontScope::User);
-        let path = &source.path;
-        validation::validate_font_file(path)?;
-        self.validate_system_operation(scope)?;
+        let preferred_scope = source.scope.unwrap_or(FontScope::User);
+        let (installed_path, installed_scope) =
+            self.resolve_installed_path(source, preferred_scope)?;
 
-        if !path.exists() {
-            return Err(FontError::FontNotFound(path.to_path_buf()));
-        }
+        self.validate_system_operation(installed_scope)?;
 
-        self.unregister_font_from_gdi(path)?;
-        self.unregister_font_from_registry(path, scope)?;
+        self.unregister_font_from_gdi(&installed_path)?;
+        self.unregister_font_from_registry(&installed_path, installed_scope)?;
+
+        // Best-effort cleanup of duplicate registrations in the opposite scope
+        let other_scope = if installed_scope == FontScope::User {
+            FontScope::System
+        } else {
+            FontScope::User
+        };
+        let _ = self.unregister_font_from_registry(&installed_path, other_scope);
 
         Ok(())
     }
 
     fn remove_font(&self, source: &FontliftFontSource) -> FontResult<()> {
-        let scope = source.scope.unwrap_or(FontScope::User);
-        let path = &source.path;
-        self.uninstall_font(source)?;
+        let preferred_scope = source.scope.unwrap_or(FontScope::User);
+        let (installed_path, installed_scope) =
+            self.resolve_installed_path(source, preferred_scope)?;
 
-        if self.is_system_font_path(path) {
-            return Err(FontError::SystemFontProtection(path.to_path_buf()));
+        if self.is_system_font_path(&installed_path) {
+            return Err(FontError::SystemFontProtection(installed_path));
         }
 
-        std::fs::remove_file(path).map_err(FontError::IoError)?;
+        let resolved_source =
+            FontliftFontSource::new(installed_path.clone()).with_scope(Some(installed_scope));
+        self.uninstall_font(&resolved_source)?;
+
+        std::fs::remove_file(installed_path).map_err(FontError::IoError)?;
 
         Ok(())
     }
 
     fn is_font_installed(&self, source: &FontliftFontSource) -> FontResult<bool> {
-        Ok(source.path.exists())
+        let mut candidates = vec![source.path.clone()];
+
+        if let Some(file_name) = source.path.file_name() {
+            candidates.push(self.user_fonts_directory()?.join(file_name));
+            candidates.push(self.get_fonts_directory()?.join(file_name));
+        }
+
+        for candidate in &candidates {
+            if candidate.exists() {
+                return Ok(true);
+            }
+        }
+
+        for scope in [FontScope::User, FontScope::System] {
+            if let Ok(entries) = self.registry_entries(scope) {
+                if entries.iter().any(|(_, path)| {
+                    candidates.iter().any(|candidate| {
+                        path.to_string_lossy()
+                            .eq_ignore_ascii_case(&candidate.to_string_lossy())
+                    })
+                }) {
+                    return Ok(true);
+                }
+            }
+        }
+
+        Ok(false)
     }
 
     fn list_installed_fonts(&self) -> FontResult<Vec<FontliftFontFaceInfo>> {
         let mut fonts = Vec::new();
+        let mut seen: BTreeSet<String> = BTreeSet::new();
 
-        if let Ok(reg_fonts) = self.enumerate_fonts_from_registry() {
-            fonts.extend(reg_fonts);
+        let mut push_if_new = |mut font: FontliftFontFaceInfo| {
+            let key = font.source.path.to_string_lossy().to_lowercase();
+            if seen.insert(key) {
+                fonts.push(font);
+            }
+        };
+
+        for font in self.enumerate_fonts_from_registry()? {
+            push_if_new(font);
         }
 
-        let fonts_dir = self.get_fonts_directory()?;
-        if let Ok(entries) = std::fs::read_dir(&fonts_dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_file() && validation::is_valid_font_extension(&path) {
-                    if !fonts.iter().any(|f| f.source.path == path) {
-                        if let Ok(font_info) = self.get_font_info_from_path(&path) {
-                            fonts.push(font_info);
+        let sources = vec![
+            (FontScope::User, self.user_fonts_directory()?),
+            (FontScope::System, self.get_fonts_directory()?),
+        ];
+
+        for (scope, dir) in sources {
+            if let Ok(entries) = std::fs::read_dir(&dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_file() && validation::is_valid_font_extension(&path) {
+                        if let Ok(mut info) = self.get_font_info_from_path(&path) {
+                            info.source.scope = Some(scope);
+                            push_if_new(info);
                         }
                     }
                 }
@@ -393,33 +699,10 @@ impl FontManager for WinFontManager {
     fn clear_font_caches(&self, scope: FontScope) -> FontResult<()> {
         match scope {
             FontScope::User => {
-                let user_cache_dir = PathBuf::from(
-                    std::env::var("LOCALAPPDATA")
-                        .unwrap_or_else(|_| "C:\\Users\\Default\\AppData\\Local".to_string()),
-                )
-                .join("Microsoft\\Windows\\Fonts");
-
-                if user_cache_dir.exists() {
-                    if let Ok(entries) = std::fs::read_dir(&user_cache_dir) {
-                        for entry in entries.flatten() {
-                            let path = entry.path();
-                            let is_cache = path
-                                .extension()
-                                .map_or(false, |ext| ext == "cache" || ext == "dat");
-                            if path.is_file() && is_cache {
-                                std::fs::remove_file(path).map_err(FontError::IoError)?;
-                            }
-                        }
-                    }
-                }
-
-                let _ = std::process::Command::new("net")
-                    .args(&["stop", "fontcache"])
-                    .output();
-
-                let _ = std::process::Command::new("net")
-                    .args(&["start", "fontcache"])
-                    .output();
+                return Err(FontError::PermissionDenied(
+                    "Font cache clearing requires administrator privileges on Windows; rerun with --admin"
+                        .to_string(),
+                ));
             }
             FontScope::System => {
                 if !self.has_admin_privileges() {
@@ -428,43 +711,39 @@ impl FontManager for WinFontManager {
                     ));
                 }
 
-                let output = std::process::Command::new("net")
-                    .args(&["stop", "fontcache"])
-                    .output()
-                    .map_err(FontError::IoError)?;
-
-                if !output.status.success() {
-                    return Err(FontError::RegistrationFailed(
-                        "Failed to stop font cache service".to_string(),
-                    ));
-                }
-
-                let system_cache_dir = PathBuf::from(r"C:\Windows\System32\FntCache");
-                if system_cache_dir.exists() {
-                    if let Ok(entries) = std::fs::read_dir(&system_cache_dir) {
-                        for entry in entries.flatten() {
-                            let path = entry.path();
-                            if path.is_file() {
-                                std::fs::remove_file(path).map_err(FontError::IoError)?;
-                            }
-                        }
-                    }
-                }
-
-                let output = std::process::Command::new("net")
-                    .args(&["start", "fontcache"])
-                    .output()
-                    .map_err(FontError::IoError)?;
-
-                if !output.status.success() {
-                    return Err(FontError::RegistrationFailed(
-                        "Failed to start font cache service".to_string(),
-                    ));
-                }
+                self.stop_font_cache_service()?;
+                self.clear_font_cache_files()?;
+                let _ = self.clear_adobe_font_caches()?;
+                self.start_font_cache_service()?;
             }
         }
 
         Ok(())
+    }
+
+    fn prune_missing_fonts(&self, scope: FontScope) -> FontResult<usize> {
+        self.validate_system_operation(scope)?;
+
+        let key = self.registry_key(scope, KEY_READ | KEY_SET_VALUE)?;
+        let mut removed = 0usize;
+
+        for value in key.enum_values().flatten() {
+            let name = value.0;
+            if let Ok(path_str) = key.get_value::<String, _>(&name) {
+                let path = PathBuf::from(path_str);
+                if !path.exists() || !validation::is_valid_font_extension(&path) {
+                    key.delete_value(name).map_err(|e| {
+                        FontError::RegistrationFailed(format!(
+                            "Cannot delete registry value for missing font: {}",
+                            e
+                        ))
+                    })?;
+                    removed += 1;
+                }
+            }
+        }
+
+        Ok(removed)
     }
 }
 
@@ -509,6 +788,19 @@ mod tests {
     fn test_win_font_manager_creation() {
         let manager = WinFontManager::new();
         assert_eq!(manager._private, ());
+    }
+
+    #[test]
+    fn adobe_cache_roots_cover_common_type_support_paths() {
+        let bases = vec![PathBuf::from("C:/Program Files")];
+        let roots = adobe_cache_roots(&bases);
+
+        assert!(roots
+            .iter()
+            .any(|p| p.to_string_lossy().ends_with("Adobe/TypeSpt")));
+        assert!(roots
+            .iter()
+            .any(|p| p.to_string_lossy().ends_with("Adobe/TypeSupport")));
     }
 
     #[cfg(windows)]

@@ -19,20 +19,40 @@ def list_fonts() -> List[Dict[str, Any]]:
 
 list = list_fonts  # alias for CLI parity
 
-def install(font_path: str, admin: bool = False) -> None:
+def install(font_path: str, admin: bool = False, dry_run: bool = False) -> None:
+    if dry_run:
+        return
     _native.install(font_path, admin)
 
 
-def uninstall(font_path: str, admin: bool = False) -> None:
-    _native.uninstall(font_path, admin)
+def uninstall(
+    font_path: str | None = None,
+    *,
+    name: str | None = None,
+    admin: bool = False,
+    dry_run: bool = False,
+) -> None:
+    _native.uninstall(font_path, name, admin, dry_run)
 
 
-def remove(font_path: str, admin: bool = False) -> None:
-    _native.remove(font_path, admin)
+def remove(
+    font_path: str | None = None,
+    *,
+    name: str | None = None,
+    admin: bool = False,
+    dry_run: bool = False,
+) -> None:
+    _native.remove(font_path, name, admin, dry_run)
 
 
-def cleanup(admin: bool = False) -> None:
-    _native.cleanup(admin)
+def cleanup(
+    admin: bool = False,
+    *,
+    prune: bool = True,
+    cache: bool = True,
+    dry_run: bool = False,
+) -> None:
+    _native.cleanup(admin, prune, cache, dry_run)
 
 
 __all__ = [

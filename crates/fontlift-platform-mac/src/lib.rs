@@ -26,6 +26,8 @@ use core_text::font_manager as ct_font_manager;
 type CTFontManagerScope = u32;
 const K_CT_FONT_MANAGER_SCOPE_PERSISTENT: CTFontManagerScope = 2; // aligns with user scope
 const K_CT_FONT_MANAGER_SCOPE_USER: CTFontManagerScope = 2;
+const K_CT_FONT_MANAGER_ERROR_ALREADY_REGISTERED: isize = 105;
+const K_CT_FONT_MANAGER_ERROR_DUPLICATED_NAME: isize = 305;
 
 fn test_cache_root() -> Option<PathBuf> {
     env::var_os("FONTLIFT_TEST_CACHE_ROOT").map(PathBuf::from)
@@ -209,6 +211,16 @@ fn scope_from_path(path: &Path) -> FontScope {
     }
 }
 
+fn normalize_path(path: &Path) -> String {
+    let mut normalized = path.to_string_lossy().replace('\\', "/").to_lowercase();
+
+    while normalized.contains("//") {
+        normalized = normalized.replace("//", "/");
+    }
+
+    normalized
+}
+
 fn font_format_to_string(format: CTFontFormat) -> Option<String> {
     match format {
         ct_font_descriptor::kCTFontFormatOpenTypePostScript => {
@@ -220,6 +232,18 @@ fn font_format_to_string(format: CTFontFormat) -> Option<String> {
         ct_font_descriptor::kCTFontFormatBitmap => Some("Bitmap".to_string()),
         _ => None,
     }
+}
+
+fn is_conflict_error(err: &CFError) -> bool {
+    let domain = err.domain().to_string();
+    if !domain.contains("CTFontManagerErrorDomain") {
+        return false;
+    }
+
+    matches!(
+        err.code(),
+        K_CT_FONT_MANAGER_ERROR_ALREADY_REGISTERED | K_CT_FONT_MANAGER_ERROR_DUPLICATED_NAME
+    )
 }
 
 fn descriptor_to_font_face_info(descriptor: &CTFontDescriptor) -> Option<FontliftFontFaceInfo> {
@@ -310,6 +334,18 @@ impl MacFontManager {
         Ok(target_dir)
     }
 
+    fn installed_target_path(
+        &self,
+        source: &FontliftFontSource,
+        scope: FontScope,
+    ) -> FontResult<PathBuf> {
+        let file_name = source.path.file_name().ok_or_else(|| {
+            FontError::InvalidFormat("Font path must include a file name".to_string())
+        })?;
+
+        Ok(self.target_directory(scope)?.join(file_name))
+    }
+
     /// Extract font information using basic filename parsing as fallback
     fn get_font_info_from_path(&self, path: &Path) -> FontResult<FontliftFontFaceInfo> {
         validation::validate_font_file(path)?;
@@ -334,8 +370,12 @@ impl MacFontManager {
         &self,
         source_path: &Path,
         scope: FontScope,
-    ) -> FontResult<()> {
+        replace_existing: bool,
+    ) -> FontResult<PathBuf> {
         let target_dir = self.target_directory(scope)?;
+        let file_name = source_path.file_name().ok_or_else(|| {
+            FontError::InvalidFormat("Font path must include a file name".to_string())
+        })?;
 
         if scope == FontScope::System
             && !self.is_fake_registry_enabled()
@@ -352,20 +392,24 @@ impl MacFontManager {
         }
 
         // Check if font already exists in target location
-        let target_path = target_dir.join(source_path.file_name().unwrap());
+        let target_path = target_dir.join(file_name);
         if target_path.exists() {
-            return Err(FontError::AlreadyInstalled(target_path));
+            if replace_existing {
+                fs::remove_file(&target_path).map_err(FontError::IoError)?;
+            } else {
+                return Err(FontError::AlreadyInstalled(target_path));
+            }
         }
 
         // Copy font file
         fs::copy(source_path, &target_path).map_err(FontError::IoError)?;
 
-        Ok(())
+        Ok(target_path)
     }
 
     fn install_font_core_text(&self, path: &Path, scope: FontScope) -> FontResult<()> {
-        // Get font info for validation
-        let _font_info = self.get_font_info_from_path(path)?;
+        // Validate the font prior to registration
+        validation::validate_font_file(path)?;
 
         // Convert path to CFURL for Core Text
         let cf_url = match CFURL::from_path(path, false) {
@@ -388,48 +432,70 @@ impl MacFontManager {
         };
 
         if result {
-            self.copy_font_to_target_directory(path, scope)?;
-            Ok(())
-        } else {
-            let message = cf_error_to_string(error);
-            Err(FontError::RegistrationFailed(format!(
-                "Core Text failed to register font {}: {}",
-                path.display(),
-                message
-            )))
+            return Ok(());
         }
+
+        if error.is_null() {
+            return Err(FontError::RegistrationFailed(format!(
+                "Core Text failed to register font {}",
+                path.display()
+            )));
+        }
+
+        let conflict_error = unsafe { CFError::wrap_under_get_rule(error) };
+        if is_conflict_error(&conflict_error) {
+            let mut unregister_error: CFErrorRef = std::ptr::null_mut();
+            let unregistered = unsafe {
+                CTFontManagerUnregisterFontsForURL(
+                    cf_url.as_concrete_TypeRef(),
+                    ct_scope(scope),
+                    &mut unregister_error,
+                )
+            };
+
+            if !unregistered {
+                return Err(FontError::RegistrationFailed(format!(
+                    "Existing font conflict could not be resolved for {}: {}",
+                    path.display(),
+                    cf_error_to_string(unregister_error)
+                )));
+            }
+
+            let mut retry_error: CFErrorRef = std::ptr::null_mut();
+            let retry = unsafe {
+                CTFontManagerRegisterFontsForURL(
+                    cf_url.as_concrete_TypeRef(),
+                    ct_scope(scope),
+                    &mut retry_error,
+                )
+            };
+
+            if retry {
+                return Ok(());
+            }
+
+            return Err(FontError::RegistrationFailed(format!(
+                "Core Text failed to register font {} after resolving conflict: {}",
+                path.display(),
+                cf_error_to_string(retry_error)
+            )));
+        }
+
+        Err(FontError::RegistrationFailed(format!(
+            "Core Text failed to register font {}: {}",
+            path.display(),
+            conflict_error.description()
+        )))
     }
 
     fn install_font_fake(&self, source: &FontliftFontSource, scope: FontScope) -> FontResult<()> {
         let path = &source.path;
-        let target_dir = self.target_directory(scope)?;
-        let file_name = path.file_name().ok_or_else(|| {
-            FontError::InvalidFormat("Font path is missing a filename".to_string())
-        })?;
-
-        if !target_dir.exists() {
-            fs::create_dir_all(&target_dir).map_err(FontError::IoError)?;
-        }
-
-        let target_path = target_dir.join(file_name);
-        if target_path.exists() {
-            return Err(FontError::AlreadyInstalled(target_path));
-        }
-
-        fs::copy(path, &target_path).map_err(FontError::IoError)?;
+        self.copy_font_to_target_directory(path, scope, true)?;
         Ok(())
     }
 
     fn uninstall_font_fake(&self, source: &FontliftFontSource, scope: FontScope) -> FontResult<()> {
-        let path = &source.path;
-        let target_dir = self.target_directory(scope)?;
-        let Some(file_name) = path.file_name() else {
-            return Err(FontError::InvalidFormat(
-                "Font path is missing a filename".to_string(),
-            ));
-        };
-
-        let target_path = target_dir.join(file_name);
+        let target_path = self.installed_target_path(source, scope)?;
         if target_path.exists() {
             std::fs::remove_file(&target_path).map_err(FontError::IoError)?;
             Ok(())
@@ -498,33 +564,50 @@ impl FontManager for MacFontManager {
             return Err(FontError::SystemFontProtection(path.to_path_buf()));
         }
 
+        let target_path = self.installed_target_path(source, scope)?;
+        let replace_existing = self.is_fake_registry_enabled() || scope == FontScope::User;
+
         if self.is_fake_registry_enabled() {
             return self.install_font_fake(source, scope);
         }
-        self.install_font_core_text(path, scope)
+
+        let (target_path, created_copy) = if target_path == *path {
+            (target_path, false)
+        } else {
+            (
+                self.copy_font_to_target_directory(path, scope, replace_existing)?,
+                true,
+            )
+        };
+
+        let result = self.install_font_core_text(&target_path, scope);
+        if result.is_err() && created_copy {
+            let _ = fs::remove_file(&target_path);
+        }
+        result
     }
 
     fn uninstall_font(&self, source: &FontliftFontSource) -> FontResult<()> {
         let scope = source.scope.unwrap_or(FontScope::User);
-        let path = &source.path;
-        validation::validate_font_file(path)?;
         self.validate_system_operation(scope)?;
 
-        if !path.exists() {
-            return Err(FontError::FontNotFound(path.to_path_buf()));
-        }
+        let target_path = self.installed_target_path(source, scope)?;
 
         if self.is_fake_registry_enabled() {
             return self.uninstall_font_fake(source, scope);
         }
 
+        if !target_path.exists() {
+            return Err(FontError::FontNotFound(target_path));
+        }
+
         // Convert path to CFURL for Core Text
-        let cf_url = match CFURL::from_path(path, false) {
+        let cf_url = match CFURL::from_path(&target_path, false) {
             Some(url) => url,
             None => {
                 return Err(FontError::InvalidFormat(format!(
                     "Cannot create CFURL from path: {}",
-                    path.display()
+                    target_path.display()
                 )))
             }
         };
@@ -544,33 +627,61 @@ impl FontManager for MacFontManager {
             let message = cf_error_to_string(error);
             Err(FontError::RegistrationFailed(format!(
                 "Core Text failed to unregister font {}: {}",
-                path.display(),
+                target_path.display(),
                 message
             )))
         }
     }
 
     fn remove_font(&self, source: &FontliftFontSource) -> FontResult<()> {
-        let _scope = source.scope.unwrap_or(FontScope::User);
-        let path = &source.path;
-        // First uninstall the font
-        self.uninstall_font(source)?;
+        let scope = source.scope.unwrap_or(FontScope::User);
+        let target_path = self.installed_target_path(source, scope)?;
+        let installed_source = FontliftFontSource::new(target_path.clone()).with_scope(Some(scope));
 
-        // Then delete the file if it's not in a system directory
-        if self.is_system_font_path(path) {
-            return Err(FontError::SystemFontProtection(path.to_path_buf()));
+        self.uninstall_font(&installed_source)?;
+
+        if self.is_system_font_path(&target_path) && !self.is_fake_registry_enabled() {
+            return Err(FontError::SystemFontProtection(target_path));
         }
 
-        std::fs::remove_file(path).map_err(FontError::IoError)?;
+        if target_path.exists() {
+            std::fs::remove_file(&target_path).map_err(FontError::IoError)?;
+        }
 
         Ok(())
     }
 
     fn is_font_installed(&self, source: &FontliftFontSource) -> FontResult<bool> {
-        let path = &source.path;
-        // For now, just check if the file exists
-        // TODO: Implement actual installation checking
-        Ok(path.exists())
+        let scope = source.scope.unwrap_or(FontScope::User);
+        let target_path = self.installed_target_path(source, scope)?;
+
+        if self.is_fake_registry_enabled() {
+            return Ok(target_path.exists());
+        }
+
+        if target_path.exists() {
+            return Ok(true);
+        }
+
+        let font_urls = unsafe { ct_font_manager::CTFontManagerCopyAvailableFontURLs() };
+        if font_urls.is_null() {
+            return Ok(false);
+        }
+
+        let font_array: CFArray<CFURL> = unsafe { CFArray::wrap_under_get_rule(font_urls) };
+        let normalized_target = normalize_path(&target_path);
+
+        for i in 0..font_array.len() {
+            if let Some(cf_url) = font_array.get(i) {
+                if let Some(path) = cf_url.to_path() {
+                    if normalize_path(&path) == normalized_target {
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+
+        Ok(false)
     }
 
     fn list_installed_fonts(&self) -> FontResult<Vec<FontliftFontFaceInfo>> {
@@ -782,6 +893,12 @@ mod tests {
     use core_text::font_descriptor as ct_font_descriptor;
     use std::fs;
     use std::path::PathBuf;
+    use std::sync::{Mutex, OnceLock};
+
+    fn fake_env_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
 
     #[test]
     fn test_mac_font_manager_creation() {
@@ -903,6 +1020,7 @@ mod tests {
 
     #[test]
     fn fake_registry_install_list_uninstall_round_trip() {
+        let _env_lock = fake_env_lock().lock().expect("env lock");
         let temp = tempfile::tempdir().expect("tempdir");
         let fake_root = temp.path().join("fake-root");
         std::env::set_var("FONTLIFT_FAKE_REGISTRY_ROOT", &fake_root);
@@ -943,6 +1061,7 @@ mod tests {
 
     #[test]
     fn fake_registry_allows_system_scope_without_admin() {
+        let _env_lock = fake_env_lock().lock().expect("env lock");
         let temp = tempfile::tempdir().expect("tempdir");
         let fake_root = temp.path().join("fake-root");
         std::env::set_var("FONTLIFT_FAKE_REGISTRY_ROOT", &fake_root);
@@ -965,8 +1084,109 @@ mod tests {
     }
 
     #[test]
+    fn is_font_installed_tracks_fake_registry_state() {
+        struct EnvGuard;
+        impl Drop for EnvGuard {
+            fn drop(&mut self) {
+                std::env::remove_var("FONTLIFT_FAKE_REGISTRY_ROOT");
+            }
+        }
+
+        let _lock = fake_env_lock().lock().expect("env lock");
+        let _guard = EnvGuard;
+        let temp = tempfile::tempdir().expect("tempdir");
+        let fake_root = temp.path().join("fake-root");
+        std::env::set_var("FONTLIFT_FAKE_REGISTRY_ROOT", &fake_root);
+
+        let manager = MacFontManager::new();
+        let source_font = temp.path().join("DemoFake.ttf");
+        fs::write(&source_font, b"dummy font").expect("write font");
+
+        let source = FontliftFontSource::new(source_font.clone()).with_scope(Some(FontScope::User));
+
+        assert!(
+            !manager
+                .is_font_installed(&source)
+                .expect("check before install"),
+            "font should not be marked installed before copying"
+        );
+
+        manager
+            .install_font(&source)
+            .expect("install in fake registry");
+        assert!(
+            manager
+                .is_font_installed(&source)
+                .expect("check after install"),
+            "font should be marked installed after copy"
+        );
+
+        let installed_source =
+            FontliftFontSource::new(fake_root.join("Library/Fonts/DemoFake.ttf"))
+                .with_scope(Some(FontScope::User));
+
+        manager
+            .uninstall_font(&installed_source)
+            .expect("uninstall from fake registry");
+
+        assert!(
+            !manager
+                .is_font_installed(&source)
+                .expect("check after uninstall"),
+            "font should be absent after uninstall"
+        );
+    }
+
+    #[test]
+    fn reinstall_overwrites_existing_file_in_fake_registry() {
+        struct EnvGuard;
+        impl Drop for EnvGuard {
+            fn drop(&mut self) {
+                std::env::remove_var("FONTLIFT_FAKE_REGISTRY_ROOT");
+            }
+        }
+
+        let _lock = fake_env_lock().lock().expect("env lock");
+        let _guard = EnvGuard;
+        let temp = tempfile::tempdir().expect("tempdir");
+        let fake_root = temp.path().join("fake-root");
+        std::env::set_var("FONTLIFT_FAKE_REGISTRY_ROOT", &fake_root);
+
+        let manager = MacFontManager::new();
+        let source_font = temp.path().join("DemoFake.ttf");
+
+        fs::write(&source_font, b"version-one").expect("write v1");
+        let source = FontliftFontSource::new(source_font.clone()).with_scope(Some(FontScope::User));
+        manager.install_font(&source).expect("initial install");
+
+        fs::write(&source_font, b"version-two").expect("write v2");
+        manager
+            .install_font(&source)
+            .expect("reinstall should replace");
+
+        let installed_path = fake_root.join("Library/Fonts/DemoFake.ttf");
+        let contents = fs::read(&installed_path).expect("read installed copy");
+        assert_eq!(
+            contents, b"version-two",
+            "reinstall should replace the existing file in fake registry"
+        );
+    }
+
+    #[test]
     fn clear_font_caches_removes_vendor_caches_under_override_root() {
         use std::env;
+
+        struct EnvGuard;
+        impl Drop for EnvGuard {
+            fn drop(&mut self) {
+                env::remove_var("FONTLIFT_FAKE_REGISTRY_ROOT");
+                env::remove_var("FONTLIFT_TEST_CACHE_ROOT");
+            }
+        }
+
+        let _lock = fake_env_lock().lock().expect("env lock");
+        let _guard = EnvGuard;
+        env::remove_var("FONTLIFT_FAKE_REGISTRY_ROOT");
 
         let tmp = tempfile::tempdir().expect("tempdir");
         let root = tmp.path();
@@ -991,7 +1211,6 @@ mod tests {
         manager
             .clear_font_caches(FontScope::User)
             .expect("clear caches");
-        env::remove_var("FONTLIFT_TEST_CACHE_ROOT");
 
         assert!(
             !adobe_list.exists(),

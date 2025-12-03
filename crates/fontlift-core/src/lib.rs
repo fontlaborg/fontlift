@@ -352,6 +352,56 @@ pub mod protection {
 
         fonts
     }
+
+    // Re-export for shared conflict detection helpers without exposing normalization publicly
+    pub(crate) fn normalize_for_tests(path: &Path) -> String {
+        normalize(path)
+    }
+}
+
+/// Conflict detection helpers shared across platforms.
+pub mod conflicts {
+    use super::*;
+    use std::collections::BTreeSet;
+    use std::path::Path;
+
+    fn normalize(path: &Path) -> String {
+        protection::normalize_for_tests(path)
+    }
+
+    /// Detect conflicting fonts by path, PostScript name, or family+style (case-insensitive).
+    /// Returns unique references to installed fonts that should be removed or updated
+    /// before installing `candidate`.
+    pub fn detect_conflicts<'a>(
+        installed: &'a [FontliftFontFaceInfo],
+        candidate: &FontliftFontFaceInfo,
+    ) -> Vec<&'a FontliftFontFaceInfo> {
+        let candidate_path = normalize(&candidate.source.path);
+        let candidate_post = candidate.postscript_name.to_lowercase();
+        let candidate_family = candidate.family_name.to_lowercase();
+        let candidate_style = candidate.style.to_lowercase();
+
+        let mut seen_paths = BTreeSet::new();
+
+        installed
+            .iter()
+            .filter(|font| {
+                let path = normalize(&font.source.path);
+                let same_path = path == candidate_path;
+                let same_post = font.postscript_name.eq_ignore_ascii_case(&candidate_post);
+                let same_family_style = font
+                    .family_name
+                    .eq_ignore_ascii_case(&candidate_family)
+                    && font.style.eq_ignore_ascii_case(&candidate_style);
+
+                same_path || same_post || same_family_style
+            })
+            .filter(|font| {
+                // guarantee unique paths in output for predictable handling
+                seen_paths.insert(normalize(&font.source.path))
+            })
+            .collect()
+    }
 }
 
 /// Default font manager implementation that returns "not implemented" errors
@@ -510,6 +560,54 @@ mod tests {
         assert_eq!(info.family_name, "Arial");
         assert_eq!(info.style, "Bold");
         assert_eq!(info.source.format, Some("TTF".to_string()));
+    }
+
+    #[test]
+    fn detects_conflicts_by_path_postscript_and_family_style() {
+        let installed = vec![
+            FontliftFontFaceInfo::new(
+                FontliftFontSource::new(PathBuf::from("/fonts/alpha-regular.ttf")),
+                "AlphaPS".into(),
+                "Alpha Regular".into(),
+                "Alpha".into(),
+                "Regular".into(),
+            ),
+            FontliftFontFaceInfo::new(
+                FontliftFontSource::new(PathBuf::from("/fonts/alpha-bold.ttf")),
+                "AlphaBoldPS".into(),
+                "Alpha Bold".into(),
+                "Alpha".into(),
+                "Bold".into(),
+            ),
+            // different path but same family/style should count as conflict
+            FontliftFontFaceInfo::new(
+                FontliftFontSource::new(PathBuf::from("/other/alpha-regular.ttf")),
+                "DifferentPS".into(),
+                "Alpha Regular".into(),
+                "Alpha".into(),
+                "Regular".into(),
+            ),
+        ];
+
+        let candidate = FontliftFontFaceInfo::new(
+            FontliftFontSource::new(PathBuf::from("/Fonts/ALPHA-Regular.ttf")),
+            "AlphaPS".into(),
+            "Alpha Regular".into(),
+            "Alpha".into(),
+            "Regular".into(),
+        );
+
+        let conflicts = conflicts::detect_conflicts(&installed, &candidate);
+
+        let paths: Vec<String> = conflicts
+            .into_iter()
+            .map(|f| f.source.path.to_string_lossy().to_lowercase())
+            .collect();
+
+        assert_eq!(paths.len(), 2);
+        assert!(paths.contains(&"/fonts/alpha-regular.ttf".to_string()));
+        assert!(paths.contains(&"/other/alpha-regular.ttf".to_string()));
+        assert!(paths.iter().all(|p| p.contains("alpha")));
     }
 
     #[test]

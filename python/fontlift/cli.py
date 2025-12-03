@@ -14,17 +14,37 @@ class FontliftCLI:
         for font in fonts:
             print(f"{font['family_name']} - {font['style']} ({font['path']})")
 
-    def install(self, path: str, admin: bool = False) -> None:
-        install(path, admin)
+    def install(self, path: str, admin: bool = False, dry_run: bool = False) -> None:
+        install(path, admin=admin, dry_run=dry_run)
 
-    def uninstall(self, path: str, admin: bool = False) -> None:
-        uninstall(path, admin)
+    def uninstall(
+        self,
+        path: str | None = None,
+        *,
+        name: str | None = None,
+        admin: bool = False,
+        dry_run: bool = False,
+    ) -> None:
+        uninstall(path, name=name, admin=admin, dry_run=dry_run)
 
-    def remove(self, path: str, admin: bool = False) -> None:
-        remove(path, admin)
+    def remove(
+        self,
+        path: str | None = None,
+        *,
+        name: str | None = None,
+        admin: bool = False,
+        dry_run: bool = False,
+    ) -> None:
+        remove(path, name=name, admin=admin, dry_run=dry_run)
 
-    def cleanup(self, admin: bool = False) -> None:
-        cleanup(admin)
+    def cleanup(
+        self,
+        admin: bool = False,
+        prune: bool = True,
+        cache: bool = True,
+        dry_run: bool = False,
+    ) -> None:
+        cleanup(admin=admin, prune=prune, cache=cache, dry_run=dry_run)
 
 
 def main(argv: list[str] | None = None) -> None:
