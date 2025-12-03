@@ -17,3 +17,18 @@
 - Added `validation_strictness_presets_parse` test for lenient/normal/paranoid CLI flags
 - Added `no_validate_flag_parses` test for `--no-validate` flag
 - Fixed CI workflow: changed Python build from `maturin develop` to `uv pip install -e .`
+
+### Windows validation + journal wiring
+
+- Added optional validation config to `WinFontManager` (mirroring macOS) and enabled strict installs for Python `strict=True`; Windows install/remove now journal Copy/Register and Unregister/Delete for doctor recovery.
+- Tests: `cargo test --workspace` (fails linking `fontlift-python` to system Python libs on this host); `cargo test -p fontlift-platform-win` passes (13 tests).
+
+### Windows registry normalization + cache service coverage
+
+- Registry values now store filenames when installing into Fonts roots, and registry entries normalize relative paths back to absolute scope paths for listing/uninstall/resolve.
+- Uninstall/remove will now resolve renamed registry entries by matching filenames across scopes.
+- Cache cleanup stops/starts both `FontCache` and optional `FontCache3.0.0.0` services before deleting cache files; added unit coverage for registry path normalization.
+
+#### Tests
+- cargo fmt
+- cargo test -p fontlift-platform-win

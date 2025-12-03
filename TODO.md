@@ -8,10 +8,12 @@
 - [x] Add macOS simulation/dry-run + fake registry mode to mirror Swift testing features (`FONTLIFT_FAKE_REGISTRY_ROOT`, CLI `--dry-run`).
 - [~] Implement Windows install/uninstall/remove using registry + GDI, file copy to per-user/system fonts, admin detection, and conflict auto-removal.
   - Conflict detection now auto-uninstalls conflicting registry/file entries before copying while protecting system font paths.
+  - Registry values are now normalized to the installed scope (filenames for Fonts roots; relative registry entries resolve to absolute paths), and uninstall/remove can resolve renamed entries via registry lookups.
 - [x] Implement Windows listing from registry + fonts directory with metadata extraction, deduplication, and scope detection.
 - [~] Implement Windows cleanup (registry prune, FontCache service reset, Adobe cache clearing) with `--prune-only`, `--cache-only`, `--admin` and exit-code parity.
   - Registry pruning and FontCache service stop/clear/start paths implemented; AdobeFnt*.lst purge added under Program Files; needs validation on a Windows host.
   - Added cross-platform unit coverage for Adobe cache discovery/removal and ProgramFiles/ProgramFiles(x86) deduplication to reduce cleanup regressions.
+  - Cache clearing now stops/starts both `FontCache` and `FontCache3.0.0.0` (best-effort when the WPF cache service is absent).
 - [x] Add cross-platform conflict detection in `fontlift-core`; duplicate handling and system-font protection helpers added.
   - Conflict detection helper added and wired into Windows installs to auto-remove duplicate registrations/files before copying.
 - [x] Expand CLI to match legacy ergonomics: aliases, batch file/dir installs, name- and path-based uninstall/remove, `-p/-n/-s`, `--json`, `--dry-run`, `--quiet/--verbose`, deterministic sorting, and help text updates.
@@ -35,7 +37,7 @@
 - [x] Create `fontlift-validator` binary crate with `read-fonts` parsing, max-size/timeout enforcement, and JSON output.
 - [x] Add `validation_ext` module to `fontlift-core` with `ValidatorConfig` and `validate_and_introspect` API.
 - [x] Wire validator into macOS `MacFontManager::install_font` for pre-flight validation. *(Manager now validates when `validation_config` is set; CLI also pre-validates.)*
-- [ ] Wire validator into Windows `WinFontManager::install_font` when Windows parity is complete.
+- [x] Wire validator into Windows `WinFontManager::install_font` when Windows parity is complete.
 - [x] Expose `strict`/`validation_config` in Python bindings (`install`, `cleanup`). *(Added `strict=False` parameter to `install()` and `FontliftManager.install_font()`.)*
 - [x] Add CLI `--no-validate` and `--validation-strictness {lenient,normal,paranoid}` flags.
 - [x] Add unit tests for malformed fonts, max-size, and timeout behaviour.
@@ -49,7 +51,7 @@
 - [x] Implement `recover_incomplete_operations` with roll-forward/rollback policy per action type.
 - [x] Wire journal into `MacFontManager::install_font` (CopyFile, RegisterFont actions).
 - [x] Wire journal into `MacFontManager::remove_font` (UnregisterFont, DeleteFile actions).
-- [ ] Wire journal into Windows manager when fully implemented.
+- [x] Wire journal into Windows manager when fully implemented.
 - [x] Add CLI `fontlift doctor` command for manual recovery.
 - [x] Add unit tests for journal entry lifecycle and recovery logic.
 - [x] Add integration tests with fault injection (panic mid-install) and recovery verification.

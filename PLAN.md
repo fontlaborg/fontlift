@@ -36,6 +36,7 @@
 - *Progress 2025-12-03:* Install path now auto-detects conflicts (path/PostScript/family-style) and unregisters/removes duplicates before copy, while refusing to touch protected system font paths.
 - *Progress 2025-12-03:* Listing now prefers name table metadata via `read-fonts` (PostScript/family/subfamily/full name) for registry + directory entries with scope tagging and deduplication.
 - *Progress 2025-12-03:* Added cross-platform unit coverage for Adobe cache discovery/removal and ProgramFiles vs ProgramFiles(x86) deduplication to harden cleanup logic pending Windows host validation.
+- *Progress 2025-12-03:* Registry values are stored as filenames when installed under Fonts roots and normalized back to absolute paths for listing/uninstall; cleanup now stops both FontCache and optional WPF font cache services before deleting cache files.
 
 ### WS3 — Unified CLI ergonomics
 - Align commands/flags with legacy binaries: aliases, batch install/remove, name- and path-based operations, JSON output, quiet/verbose, dry-run, deterministic sorting.
@@ -78,7 +79,7 @@
   - Early call to `validate_single` before copy/registration when `validation_config` is set on manager.
   - Abort with `FontError::InvalidFormat` if validation fails.
   - Manager exposes `with_validation(config)` constructor and `set_validation_config()` setter.
-- [ ] Wire validator into Windows install path (`WinFontManager::install_font`) when fleshing out Windows parity.
+- [x] Wire validator into Windows install path (`WinFontManager::install_font`) when fleshing out Windows parity.
 - [x] Expose validation config in Python bindings:
   - Added `strict: bool = False` parameter on `install()` function and `FontliftManager.install_font()` method.
   - When `strict=True`, creates manager with `ValidatorConfig::default()` for out-of-process validation.
@@ -112,7 +113,7 @@
   - Build actions list: CopyFile (if needed), RegisterFont.
   - Call `record_operation`, execute actions with `mark_step` after each, then `mark_completed`.
 - [x] Wire journal into `MacFontManager::remove_font` (UnregisterFont → DeleteFile).
-- [ ] Wire journal into Windows manager when fully implemented.
+- [x] Wire journal into Windows manager when fully implemented.
 - [x] Add CLI `fontlift doctor` command:
   - Runs `recover_incomplete_operations` and prints actions taken.
   - Optionally auto-run at process start (behind flag or env var).

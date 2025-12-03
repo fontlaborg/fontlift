@@ -414,9 +414,13 @@ fn create_platform_manager_with_validation(
 
     #[cfg(target_os = "windows")]
     {
-        // Windows manager doesn't support validation config yet
-        let _ = validation_config;
-        Arc::new(fontlift_platform_win::WinFontManager::new())
+        if let Some(config) = validation_config {
+            Arc::new(fontlift_platform_win::WinFontManager::with_validation(
+                config,
+            ))
+        } else {
+            Arc::new(fontlift_platform_win::WinFontManager::new())
+        }
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
