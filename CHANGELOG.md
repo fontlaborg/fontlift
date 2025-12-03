@@ -1,6 +1,14 @@
 # Changelog
 
 ## Unreleased
+- Python Fire CLI now mirrors the Rust surface (JSON list rendering, quiet/verbose/dry-run status messaging) and `list_fonts` returns dictionaries; added pure-Python list rendering helpers with tests.
+- Added Atkinson Hyperlegible OTF/TTC fixtures plus Windows metadata tests to cover TTC collections alongside TTF parsing.
+- Added README packaging notes covering build.sh outputs, Windows prerequisites, and maturin wheel builds.
+- Added `RELEASE_CHECKLIST.md` with Rust crates + PyPI + GitHub release steps and refreshed the feature matrix to reflect current CLI parity and Windows validation gaps.
+- Added GitHub Actions CI matrix (macOS 14, Windows) running rustfmt/clippy, platform-scoped cargo tests, and `maturin develop` + `pytest` for the Python bindings.
+- Updated README/USAGE/FEATURE_MATRIX with current macOS parity, Windows validation status, and Python cleanup toggles.
+- Added macOS fake-registry integration tests that round-trip install/list/uninstall through the CLI handlers and assert deterministic JSON output; Python bindings now ship a pytest harness that skips cleanly unless the extension is built via `maturin develop`.
+- Python cdylib now builds as `_native` to match the `fontlift._native` module, eliminating the PyInit symbol warning; bindings now use `into_pyobject` instead of deprecated `into_py`, and README Python examples import `fontlift`.
 - build.sh now runs maturin against the `crates/fontlift-python` manifest so Python binding builds no longer fail with a workspace `missing field package` error.
 - Core now exposes conflict detection (path/PostScript/family+style) and Windows installs auto-unregister/remove duplicate registry/file entries before copying, while refusing to overwrite protected system font paths.
 - Windows cleanup now also purges Adobe font cache manifests (`AdobeFnt*.lst`) under common Program Files Adobe TypeSupport/TypeSpt/PDFL roots to mirror legacy cache clearing.

@@ -10,6 +10,12 @@ FontLift provides:
 - **CLI Tool**: Command-line interface for font operations
 - **Python Bindings**: PyO3 bindings for Python integration
 
+## Status (2025-12-03)
+- macOS: Parity with the Swift CLI including install/uninstall/remove, descriptor-based listing, cleanup with prune/cache toggles, and fake-registry/dry-run support.
+- Windows: Registry + GDI install/uninstall/list and cache cleanup (FontCache + Adobe) are implemented; needs validation on a Windows host and golden-output capture.
+- Python: Bindings expose `FontliftFontSource`/`FontliftFontFaceInfo`, name-based operations, cleanup toggles, and a Fire CLI; wheels build via `maturin`.
+- CI: GitHub Actions matrix on macOS 14 and Windows runs `cargo fmt`, `cargo clippy`, platform-scoped tests, and `maturin develop` + `pytest` for Python bindings.
+
 ## Architecture
 
 The project is organized into several crates:
@@ -112,10 +118,10 @@ fontlift completions bash > /usr/local/etc/bash_completion.d/fontlift
 ### Python Integration
 
 ```python
-import fontlift_python
+import fontlift
 
 # Create manager
-manager = fontlift_python.FontliftManager()
+manager = fontlift.FontliftManager()
 
 # List fonts
 fonts = manager.list_fonts()
@@ -126,9 +132,13 @@ for font in fonts:
 manager.install_font("my-font.ttf")
 
 # Or use functional API
-fontlift_python.install("my-font.ttf", admin=False)
-fontlift_python.list()
-fontlift_python.cleanup(False)
+fontlift.install("my-font.ttf", admin=False)
+fontlift.list()
+fontlift.cleanup(prune=True, cache=True, admin=False, dry_run=True)
+
+# Fire CLI mirror with JSON/quiet/verbose/dry-run toggles (parity with Rust CLI)
+# fontliftpy list --json --path --name --sorted
+# fontliftpy install my-font.ttf --dry_run True --quiet True
 ```
 
 ## Platform-Specific Details
@@ -183,6 +193,13 @@ cargo build -p fontlift-cli
 # Build Python bindings
 cargo build -p fontlift-python
 ```
+
+### Packaging (CLI + Python wheels)
+
+- Windows: run from the "x64 Native Tools" developer prompt with Visual Studio Build Tools installed; ensure Python 3.12+ is on PATH for PyO3.
+- Cross-platform build helper: `./build.sh` will run fmt/clippy, build the workspace, and, when `maturin` is available, emit wheels via `crates/fontlift-python/Cargo.toml` into `dist-<mode>-<platform>-<arch>/`.
+- Python wheels only: `maturin build -m crates/fontlift-python/Cargo.toml --release -o dist`.
+- CLI release artifacts: `cargo build -p fontlift-cli --release` produces `target/release/fontlift`/`fontlift.exe` ready for packaging or signing.
 
 ## Testing
 

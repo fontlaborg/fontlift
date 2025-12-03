@@ -33,3 +33,5 @@ fontlift-platform-win = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3.0"
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+serde_json = { workspace = true }

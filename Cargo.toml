@@ -6,6 +6,7 @@ members = [
   "crates/fontlift-platform-mac",
   "crates/fontlift-platform-win",
   "crates/fontlift-python",
+  "crates/fontlift-validator",
 ]
 
 [workspace.package]
@@ -29,7 +30,10 @@ fontlift-core = { path = "crates/fontlift-core" }
 fontlift-platform-mac = { path = "crates/fontlift-platform-mac" }
 fontlift-platform-win = { path = "crates/fontlift-platform-win" }
 fontlift-python = { path = "crates/fontlift-python" }
+fontlift-validator = { path = "crates/fontlift-validator" }
 log = "0.4"
+read-fonts = "0.26"
+uuid = { version = "1.11", features = ["v4", "serde"] }
 pyo3 = { version = "0.24.1", features = ["extension-module"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

@@ -266,6 +266,12 @@ pub mod validation {
     }
 }
 
+/// Extended validation via out-of-process validator
+pub mod validation_ext;
+
+/// Transactional operation journal for crash-safe operations
+pub mod journal;
+
 /// Font cache management utilities
 pub mod cache {
 
@@ -389,9 +395,7 @@ pub mod conflicts {
                 let path = normalize(&font.source.path);
                 let same_path = path == candidate_path;
                 let same_post = font.postscript_name.eq_ignore_ascii_case(&candidate_post);
-                let same_family_style = font
-                    .family_name
-                    .eq_ignore_ascii_case(&candidate_family)
+                let same_family_style = font.family_name.eq_ignore_ascii_case(&candidate_family)
                     && font.style.eq_ignore_ascii_case(&candidate_style);
 
                 same_path || same_post || same_family_style

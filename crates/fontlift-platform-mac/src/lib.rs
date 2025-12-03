@@ -4,8 +4,10 @@
 //! implementing the same functionality as the Swift CLI but in Rust.
 
 use fontlift_core::{
-    protection, validation, FontError, FontManager, FontResult, FontScope, FontliftFontFaceInfo,
-    FontliftFontSource,
+    journal::{self, JournalAction},
+    protection, validation,
+    validation_ext::{self, ValidatorConfig},
+    FontError, FontManager, FontResult, FontScope, FontliftFontFaceInfo, FontliftFontSource,
 };
 use std::env;
 use std::fs;
@@ -298,13 +300,32 @@ fn descriptor_to_font_face_info(descriptor: &CTFontDescriptor) -> Option<Fontlif
 /// macOS font manager using Core Text APIs
 pub struct MacFontManager {
     fake_root: Option<PathBuf>,
+    /// Optional validation config for pre-install validation
+    validation_config: Option<ValidatorConfig>,
 }
 
 impl MacFontManager {
     /// Create a new macOS font manager
     pub fn new() -> Self {
         let fake_root = std::env::var_os("FONTLIFT_FAKE_REGISTRY_ROOT").map(PathBuf::from);
-        Self { fake_root }
+        Self {
+            fake_root,
+            validation_config: None,
+        }
+    }
+
+    /// Create a manager with validation enabled
+    pub fn with_validation(config: ValidatorConfig) -> Self {
+        let fake_root = std::env::var_os("FONTLIFT_FAKE_REGISTRY_ROOT").map(PathBuf::from);
+        Self {
+            fake_root,
+            validation_config: Some(config),
+        }
+    }
+
+    /// Enable validation on this manager
+    pub fn set_validation_config(&mut self, config: Option<ValidatorConfig>) {
+        self.validation_config = config;
     }
 
     /// Whether the manager should avoid CoreText and operate against a fake registry root
@@ -560,6 +581,11 @@ impl FontManager for MacFontManager {
         validation::validate_font_file(path)?;
         self.validate_system_operation(scope)?;
 
+        // Out-of-process validation if configured
+        if let Some(ref config) = self.validation_config {
+            validation_ext::validate_single(path, config)?;
+        }
+
         if self.is_system_font_path(path) && !self.is_fake_registry_enabled() {
             return Err(FontError::SystemFontProtection(path.to_path_buf()));
         }
@@ -571,19 +597,66 @@ impl FontManager for MacFontManager {
             return self.install_font_fake(source, scope);
         }
 
-        let (target_path, created_copy) = if target_path == *path {
-            (target_path, false)
+        // Build journal actions
+        let needs_copy = target_path != *path;
+        let mut actions = Vec::new();
+        if needs_copy {
+            actions.push(JournalAction::CopyFile {
+                from: path.clone(),
+                to: target_path.clone(),
+            });
+        }
+        actions.push(JournalAction::RegisterFont {
+            path: target_path.clone(),
+            scope,
+        });
+
+        // Record operation in journal
+        let mut journal = journal::load_journal().unwrap_or_default();
+        let entry_id =
+            journal.record_operation(actions, Some(format!("Install {}", path.display())));
+        journal::save_journal(&journal)?;
+
+        // Step 0: Copy file (if needed)
+        let (target_path, created_copy) = if needs_copy {
+            let result = self.copy_font_to_target_directory(path, scope, replace_existing);
+            match result {
+                Ok(copied_path) => {
+                    // Mark step 0 complete
+                    let mut j = journal::load_journal().unwrap_or_default();
+                    let _ = j.mark_step(entry_id, 1);
+                    let _ = journal::save_journal(&j);
+                    (copied_path, true)
+                }
+                Err(e) => {
+                    // Cleanup journal entry on failure
+                    let mut j = journal::load_journal().unwrap_or_default();
+                    let _ = j.mark_completed(entry_id);
+                    let _ = journal::save_journal(&j);
+                    return Err(e);
+                }
+            }
         } else {
-            (
-                self.copy_font_to_target_directory(path, scope, replace_existing)?,
-                true,
-            )
+            (target_path, false)
         };
 
+        // Step 1 (or 0 if no copy): Register font
         let result = self.install_font_core_text(&target_path, scope);
-        if result.is_err() && created_copy {
-            let _ = fs::remove_file(&target_path);
+
+        // Update journal
+        let mut j = journal::load_journal().unwrap_or_default();
+        if result.is_ok() {
+            let _ = j.mark_completed(entry_id);
+        } else {
+            // Rollback: delete copied file on registration failure
+            if created_copy {
+                let _ = fs::remove_file(&target_path);
+            }
+            // Mark as completed (failed, but nothing to recover)
+            let _ = j.mark_completed(entry_id);
         }
+        let _ = journal::save_journal(&j);
+
         result
     }
 
@@ -638,15 +711,62 @@ impl FontManager for MacFontManager {
         let target_path = self.installed_target_path(source, scope)?;
         let installed_source = FontliftFontSource::new(target_path.clone()).with_scope(Some(scope));
 
-        self.uninstall_font(&installed_source)?;
-
         if self.is_system_font_path(&target_path) && !self.is_fake_registry_enabled() {
             return Err(FontError::SystemFontProtection(target_path));
         }
 
+        // Skip journaling for fake registry
+        if self.is_fake_registry_enabled() {
+            self.uninstall_font(&installed_source)?;
+            if target_path.exists() {
+                std::fs::remove_file(&target_path).map_err(FontError::IoError)?;
+            }
+            return Ok(());
+        }
+
+        // Build journal actions: UnregisterFont → DeleteFile
+        let actions = vec![
+            JournalAction::UnregisterFont {
+                path: target_path.clone(),
+                scope,
+            },
+            JournalAction::DeleteFile {
+                path: target_path.clone(),
+            },
+        ];
+
+        // Record operation in journal
+        let mut journal = journal::load_journal().unwrap_or_default();
+        let entry_id =
+            journal.record_operation(actions, Some(format!("Remove {}", target_path.display())));
+        journal::save_journal(&journal)?;
+
+        // Step 0: Unregister font
+        let unregister_result = self.uninstall_font(&installed_source);
+        if let Err(e) = unregister_result {
+            // Mark completed (nothing to recover from unregister failure)
+            let mut j = journal::load_journal().unwrap_or_default();
+            let _ = j.mark_completed(entry_id);
+            let _ = journal::save_journal(&j);
+            return Err(e);
+        }
+
+        // Mark step 0 complete
+        {
+            let mut j = journal::load_journal().unwrap_or_default();
+            let _ = j.mark_step(entry_id, 1);
+            let _ = journal::save_journal(&j);
+        }
+
+        // Step 1: Delete file
         if target_path.exists() {
             std::fs::remove_file(&target_path).map_err(FontError::IoError)?;
         }
+
+        // Mark operation completed
+        let mut j = journal::load_journal().unwrap_or_default();
+        let _ = j.mark_completed(entry_id);
+        let _ = journal::save_journal(&j);
 
         Ok(())
     }

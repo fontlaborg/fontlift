@@ -1,8 +1,10 @@
 use clap::CommandFactory;
 use clap_complete::{generate, Shell};
 use fontlift_core::{
-    protection, validation, FontError, FontManager, FontScope, FontliftFontFaceInfo,
-    FontliftFontSource,
+    journal::{self, JournalAction, RecoveryPolicy},
+    protection, validation,
+    validation_ext::{self, ValidatorConfig},
+    FontError, FontManager, FontScope, FontliftFontFaceInfo, FontliftFontSource,
 };
 use serde_json::to_string_pretty;
 use std::collections::BTreeSet;
@@ -11,7 +13,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::args::Cli;
+use crate::args::{Cli, ValidationStrictness};
 
 /// List rendering options resolved from CLI flags
 #[derive(Debug, Clone, Copy)]
@@ -262,11 +264,22 @@ pub async fn handle_list_command(
     Ok(())
 }
 
+/// Convert CLI strictness to core config
+fn to_core_strictness(s: ValidationStrictness) -> validation_ext::ValidationStrictness {
+    match s {
+        ValidationStrictness::Lenient => validation_ext::ValidationStrictness::Lenient,
+        ValidationStrictness::Normal => validation_ext::ValidationStrictness::Normal,
+        ValidationStrictness::Paranoid => validation_ext::ValidationStrictness::Paranoid,
+    }
+}
+
 /// Handle the install command
 pub async fn handle_install_command(
     manager: Arc<dyn FontManager>,
     font_inputs: Vec<PathBuf>,
     admin: bool,
+    validate: bool,
+    strictness: ValidationStrictness,
     opts: OperationOptions,
 ) -> Result<(), FontError> {
     let scope = if admin {
@@ -276,6 +289,40 @@ pub async fn handle_install_command(
     };
 
     let targets = collect_font_inputs(&font_inputs)?;
+
+    // Optional pre-flight validation using out-of-process validator
+    if validate {
+        log_verbose(&opts, "Running out-of-process font validation...");
+        let config = ValidatorConfig::from_strictness(to_core_strictness(strictness));
+
+        match validation_ext::validate_and_introspect(&targets, &config) {
+            Ok(results) => {
+                for (i, result) in results.iter().enumerate() {
+                    if let Err(e) = result {
+                        log_status(
+                            &opts,
+                            &format!("⚠️  Validation failed for {}: {}", targets[i].display(), e),
+                        );
+                        if !opts.dry_run {
+                            return Err(FontError::InvalidFormat(format!(
+                                "Font validation failed: {}",
+                                targets[i].display()
+                            )));
+                        }
+                    } else {
+                        log_verbose(&opts, &format!("✓ Validated: {}", targets[i].display()));
+                    }
+                }
+            }
+            Err(e) => {
+                // Validator not available - warn but continue
+                log_verbose(
+                    &opts,
+                    &format!("⚠️  Validation skipped (validator unavailable): {}", e),
+                );
+            }
+        }
+    }
 
     for path in targets {
         log_verbose(&opts, &format!("Scope: {}", scope.description()));
@@ -512,6 +559,126 @@ pub async fn handle_cleanup_command(
     if run_cache_clear {
         manager.clear_font_caches(scope)?;
         log_status(&opts, "✅ Successfully cleared font caches");
+    }
+
+    Ok(())
+}
+
+/// Handle the doctor command (recover from interrupted operations)
+pub async fn handle_doctor_command(preview: bool, opts: OperationOptions) -> Result<(), FontError> {
+    log_status(&opts, "Checking for interrupted operations...");
+
+    let journal = journal::load_journal()?;
+    let incomplete = journal.incomplete_entries();
+
+    if incomplete.is_empty() {
+        log_status(&opts, "✅ No interrupted operations found");
+        return Ok(());
+    }
+
+    log_status(
+        &opts,
+        &format!("Found {} interrupted operation(s)", incomplete.len()),
+    );
+
+    for entry in &incomplete {
+        log_status(
+            &opts,
+            &format!("\nOperation {} (started {:?}):", entry.id, entry.started_at),
+        );
+        if let Some(desc) = &entry.description {
+            log_status(&opts, &format!("  Description: {}", desc));
+        }
+        log_status(
+            &opts,
+            &format!(
+                "  Progress: step {} of {}",
+                entry.current_step,
+                entry.actions.len()
+            ),
+        );
+
+        for (i, action) in entry.remaining_actions().iter().enumerate() {
+            let step_num = entry.current_step + i + 1;
+            log_status(&opts, &format!("  [{}] {}", step_num, action.description()));
+        }
+    }
+
+    if preview || opts.dry_run {
+        log_status(
+            &opts,
+            "\nDRY-RUN: would attempt recovery of above operations",
+        );
+        return Ok(());
+    }
+
+    log_status(&opts, "\nAttempting recovery...");
+
+    let results = journal::recover_incomplete_operations(|action, policy| {
+        log_verbose(&opts, &format!("  {:?}: {}", policy, action.description()));
+
+        // Execute recovery based on policy
+        match (action, policy) {
+            (_, RecoveryPolicy::Skip) => Ok(true),
+            (JournalAction::CopyFile { from, to }, RecoveryPolicy::RollForward) => {
+                if to.exists() {
+                    Ok(true)
+                } else if from.exists() {
+                    std::fs::copy(from, to)
+                        .map(|_| true)
+                        .map_err(FontError::IoError)
+                } else {
+                    Ok(false)
+                }
+            }
+            (JournalAction::DeleteFile { path }, RecoveryPolicy::RollForward) => {
+                if path.exists() {
+                    std::fs::remove_file(path)
+                        .map(|_| true)
+                        .map_err(FontError::IoError)
+                } else {
+                    Ok(true)
+                }
+            }
+            (JournalAction::RegisterFont { .. }, RecoveryPolicy::RollForward) => {
+                // Font registration recovery needs the manager - skip for now
+                log_verbose(
+                    &opts,
+                    "  (font registration recovery requires manual intervention)",
+                );
+                Ok(false)
+            }
+            (JournalAction::UnregisterFont { .. }, RecoveryPolicy::RollForward) => {
+                // Font unregistration recovery needs the manager - skip for now
+                log_verbose(
+                    &opts,
+                    "  (font unregistration recovery requires manual intervention)",
+                );
+                Ok(false)
+            }
+            (JournalAction::ClearCache { .. }, _) => Ok(true),
+            _ => Ok(false),
+        }
+    })?;
+
+    let succeeded = results.iter().filter(|r| r.success).count();
+    let failed = results.len() - succeeded;
+
+    if failed > 0 {
+        log_status(
+            &opts,
+            &format!(
+                "⚠️  Recovery completed with {} success, {} failure(s)",
+                succeeded, failed
+            ),
+        );
+    } else if succeeded > 0 {
+        log_status(
+            &opts,
+            &format!("✅ Successfully recovered {} action(s)", succeeded),
+        );
+    } else {
+        log_status(&opts, "✅ No recovery actions needed");
     }
 
     Ok(())

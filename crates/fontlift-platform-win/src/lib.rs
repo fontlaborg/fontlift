@@ -3,23 +3,20 @@
 //! This module provides Windows-specific font management using Windows APIs,
 //! implementing the same functionality as the C++ CLI but in Rust.
 
+#[cfg(windows)]
+use fontlift_core::conflicts;
+use fontlift_core::validation;
 use fontlift_core::{
     FontError, FontManager, FontResult, FontScope, FontliftFontFaceInfo, FontliftFontSource,
 };
-#[cfg(windows)]
-use fontlift_core::conflicts;
+use read_fonts::{tables::name::NameId, FileRef, FontRef, TableProvider};
 
-#[cfg(any(windows, test))]
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-#[cfg(windows)]
-use fontlift_core::validation;
 #[cfg(windows)]
 use std::collections::BTreeSet;
-#[cfg(windows)]
-use std::path::Path;
 
-#[cfg(windows)]
+#[cfg(any(windows, test))]
 use std::fs;
 #[cfg(windows)]
 use std::process::Command;
@@ -73,7 +70,110 @@ impl Default for WinFontManager {
     }
 }
 
-#[cfg(windows)]
+#[cfg_attr(not(windows), allow(dead_code))]
+impl WinFontManager {
+    fn system_root(&self) -> PathBuf {
+        std::env::var("WINDIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from(r"C:\\Windows"))
+    }
+
+    fn path_starts_with_case_insensitive(&self, root: &Path, candidate: &Path) -> bool {
+        let root_str = root.to_string_lossy().to_lowercase();
+        let cand = candidate.to_string_lossy().to_lowercase();
+        cand.starts_with(&root_str)
+    }
+
+    fn scope_for_path(&self, path: &Path) -> FontScope {
+        if self.is_system_font_path(path) {
+            FontScope::System
+        } else {
+            FontScope::User
+        }
+    }
+
+    fn is_system_font_path(&self, path: &Path) -> bool {
+        let lower = path.to_string_lossy().to_lowercase();
+        let root = self.system_root().to_string_lossy().to_lowercase();
+        lower.starts_with(format!(r"{}\\fonts", root).as_str())
+            || lower.starts_with(format!(r"{}\\system32", root).as_str())
+            || lower.starts_with(format!(r"{}\\syswow64", root).as_str())
+    }
+
+    /// Extract font information using font metadata when available, with filename fallback.
+    fn get_font_info_from_path(&self, path: &Path) -> FontResult<FontliftFontFaceInfo> {
+        validation::validate_font_file(path)?;
+
+        let mut info = validation::extract_basic_info_from_path(path);
+        info.source.scope = Some(self.scope_for_path(path));
+
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(|s| s.to_ascii_lowercase())
+            .unwrap_or_default();
+
+        if matches!(ext.as_str(), "ttf" | "otf" | "ttc" | "otc") {
+            if let Ok(data) = std::fs::read(path) {
+                if let Ok(file) = FileRef::new(&data) {
+                    // Prefer first font in the file/collection for metadata
+                    if let Some(Ok(font)) = file.fonts().next() {
+                        enrich_from_fontref(&mut info, &font);
+                    }
+                }
+            }
+        }
+
+        Ok(info)
+    }
+}
+
+#[cfg_attr(not(windows), allow(dead_code))]
+fn enrich_from_fontref(info: &mut FontliftFontFaceInfo, font: &FontRef<'_>) {
+    if let Some(ps) = name_string(font, NameId::POSTSCRIPT_NAME) {
+        info.postscript_name = ps;
+    }
+    if let Some(family) = name_string(font, NameId::FAMILY_NAME) {
+        info.family_name = family;
+    }
+    if let Some(subfamily) = name_string(font, NameId::SUBFAMILY_NAME) {
+        info.style = subfamily;
+    }
+    if let Some(full) = name_string(font, NameId::FULL_NAME) {
+        info.full_name = full;
+    }
+}
+
+#[cfg_attr(not(windows), allow(dead_code))]
+fn name_string(font: &FontRef<'_>, name_id: NameId) -> Option<String> {
+    let name = font.name().ok()?;
+    let data = name.string_data();
+
+    let mut fallback: Option<String> = None;
+
+    for record in name.name_record() {
+        if record.name_id() != name_id {
+            continue;
+        }
+
+        let Ok(name_str) = record.string(data) else {
+            continue;
+        };
+        let rendered = name_str.to_string();
+
+        if record.is_unicode() {
+            return Some(rendered);
+        }
+
+        if fallback.is_none() {
+            fallback = Some(rendered);
+        }
+    }
+
+    fallback
+}
+
+#[cfg(any(windows, test))]
 impl WinFontManager {
     fn program_files_roots(&self) -> Vec<PathBuf> {
         let mut roots = Vec::new();
@@ -151,13 +251,10 @@ impl WinFontManager {
 
         Ok(removed)
     }
+}
 
-    fn system_root(&self) -> PathBuf {
-        std::env::var("WINDIR")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| PathBuf::from(r"C:\Windows"))
-    }
-
+#[cfg(windows)]
+impl WinFontManager {
     /// Get Windows fonts directory
     fn get_fonts_directory(&self) -> FontResult<PathBuf> {
         Ok(self.system_root().join("Fonts"))
@@ -173,45 +270,11 @@ impl WinFontManager {
         Ok(PathBuf::from(local_appdata).join(r"Microsoft\Windows\Fonts"))
     }
 
-    /// Check if path is in system font directory
-    fn is_system_font_path(&self, path: &Path) -> bool {
-        let lower = path.to_string_lossy().to_lowercase();
-        let root = self.system_root().to_string_lossy().to_lowercase();
-        lower.starts_with(format!(r"{}\fonts", root).as_str())
-            || lower.starts_with(format!(r"{}\system32", root).as_str())
-            || lower.starts_with(format!(r"{}\syswow64", root).as_str())
-    }
-
-    fn path_starts_with_case_insensitive(&self, root: &Path, candidate: &Path) -> bool {
-        let root_str = root.to_string_lossy().to_lowercase();
-        let cand = candidate.to_string_lossy().to_lowercase();
-        cand.starts_with(&root_str)
-    }
-
-    fn scope_for_path(&self, path: &Path) -> FontScope {
-        if self.is_system_font_path(path) {
-            FontScope::System
-        } else {
-            FontScope::User
-        }
-    }
-
     fn is_in_installation_roots(&self, path: &Path) -> FontResult<bool> {
         let user_root = self.user_fonts_directory()?;
         let system_root = self.get_fonts_directory()?;
-        Ok(
-            self.path_starts_with_case_insensitive(&user_root, path)
-                || self.path_starts_with_case_insensitive(&system_root, path),
-        )
-    }
-
-    /// Extract font information using basic filename parsing as fallback
-    fn get_font_info_from_path(&self, path: &Path) -> FontResult<FontliftFontFaceInfo> {
-        validation::validate_font_file(path)?;
-
-        let mut info = validation::extract_basic_info_from_path(path);
-        info.source.scope = Some(FontScope::User);
-        Ok(info)
+        Ok(self.path_starts_with_case_insensitive(&user_root, path)
+            || self.path_starts_with_case_insensitive(&system_root, path))
     }
 
     /// Check if current user has admin privileges
@@ -445,7 +508,10 @@ impl WinFontManager {
 
     fn remove_conflicting_install(&self, font: &FontliftFontFaceInfo) -> FontResult<()> {
         let path = &font.source.path;
-        let scope = font.source.scope.unwrap_or_else(|| self.scope_for_path(path));
+        let scope = font
+            .source
+            .scope
+            .unwrap_or_else(|| self.scope_for_path(path));
 
         if self.is_system_font_path(path) {
             return Err(FontError::SystemFontProtection(path.clone()));
@@ -782,7 +848,9 @@ impl FontManager for WinFontManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
     use std::path::PathBuf;
+    use tempfile::TempDir;
 
     #[test]
     fn test_win_font_manager_creation() {
@@ -801,6 +869,50 @@ mod tests {
         assert!(roots
             .iter()
             .any(|p| p.to_string_lossy().ends_with("Adobe/TypeSupport")));
+    }
+
+    #[test]
+    fn program_files_roots_deduplicates_case_insensitive_paths() {
+        let manager = WinFontManager::new();
+        let temp = TempDir::new().expect("tempdir");
+        let upper = temp.path().to_string_lossy().to_uppercase();
+        let _guard_pf = EnvGuard::set("ProgramFiles", temp.path());
+        let _guard_pf86 = EnvGuard::set("ProgramFiles(x86)", upper);
+
+        let roots = manager.program_files_roots();
+        assert_eq!(roots.len(), 1);
+        assert_eq!(roots[0], temp.path());
+    }
+
+    #[test]
+    fn clear_adobe_font_caches_removes_lst_files_under_program_files_variants() {
+        let manager = WinFontManager::new();
+        let pf = TempDir::new().expect("pf dir");
+        let pf86 = TempDir::new().expect("pf86 dir");
+
+        let typesupport = pf.path().join("Common Files/Adobe/TypeSupport");
+        fs::create_dir_all(&typesupport).unwrap();
+        let keep = typesupport.join("ReadMe.txt");
+        fs::write(&keep, b"keep").unwrap();
+        let lst_one = typesupport.join("AdobeFnt11.lst");
+        fs::write(&lst_one, b"dummy").unwrap();
+
+        let pdfl = pf86.path().join("Common Files/Adobe/PDFL/9.9");
+        fs::create_dir_all(&pdfl).unwrap();
+        let lst_two = pdfl.join("AdobeFnt12.lst");
+        fs::write(&lst_two, b"dummy").unwrap();
+
+        let _guard_pf = EnvGuard::set("ProgramFiles", pf.path());
+        let _guard_pf86 = EnvGuard::set("ProgramFiles(x86)", pf86.path());
+
+        let removed = manager
+            .clear_adobe_font_caches()
+            .expect("cache cleanup should succeed");
+
+        assert_eq!(removed, 2);
+        assert!(!lst_one.exists());
+        assert!(!lst_two.exists());
+        assert!(keep.exists());
     }
 
     #[cfg(windows)]
@@ -838,5 +950,82 @@ mod tests {
             result,
             Err(FontError::UnsupportedOperation(msg)) if msg.contains("only available on Windows")
         ));
+    }
+
+    #[test]
+    fn get_font_info_from_path_extracts_metadata_from_fixture() {
+        let manager = WinFontManager::new();
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/fixtures/fonts/AtkinsonHyperlegible-Regular.ttf");
+
+        let info = manager
+            .get_font_info_from_path(&fixture)
+            .expect("metadata should parse");
+
+        assert_eq!(info.family_name, "Atkinson Hyperlegible");
+        assert_eq!(info.style, "Regular");
+        assert_eq!(info.full_name, "Atkinson Hyperlegible Regular");
+        assert_eq!(info.postscript_name, "AtkinsonHyperlegible-Regular");
+        assert_eq!(info.source.format.as_deref(), Some("TTF"));
+    }
+
+    #[test]
+    fn get_font_info_from_path_extracts_metadata_from_otf_fixture() {
+        let manager = WinFontManager::new();
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/fixtures/fonts/AtkinsonHyperlegible-Regular.otf");
+
+        let info = manager
+            .get_font_info_from_path(&fixture)
+            .expect("metadata should parse");
+
+        assert_eq!(info.family_name, "Atkinson Hyperlegible");
+        assert_eq!(info.style, "Regular");
+        assert_eq!(info.full_name, "Atkinson Hyperlegible Regular");
+        assert_eq!(info.postscript_name, "AtkinsonHyperlegible-Regular");
+        assert_eq!(info.source.format.as_deref(), Some("OTF"));
+    }
+
+    #[test]
+    fn get_font_info_from_path_extracts_metadata_from_ttc_fixture() {
+        let manager = WinFontManager::new();
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/fixtures/fonts/AtkinsonHyperlegible-Regular.ttc");
+
+        let info = manager
+            .get_font_info_from_path(&fixture)
+            .expect("metadata should parse");
+
+        assert!(info
+            .family_name
+            .replace(' ', "")
+            .contains("AtkinsonHyperlegible"));
+        assert_eq!(info.style, "Regular");
+        assert!(info.full_name.to_lowercase().contains("atkinson"));
+        assert_eq!(info.postscript_name, "AtkinsonHyperlegible-Regular");
+        assert_eq!(info.source.format.as_deref(), Some("TTC"));
+    }
+
+    struct EnvGuard {
+        key: &'static str,
+        previous: Option<String>,
+    }
+
+    impl EnvGuard {
+        fn set(key: &'static str, value: impl AsRef<std::ffi::OsStr>) -> Self {
+            let previous = std::env::var(key).ok();
+            std::env::set_var(key, value);
+            Self { key, previous }
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            if let Some(prev) = &self.previous {
+                std::env::set_var(self.key, prev);
+            } else {
+                std::env::remove_var(self.key);
+            }
+        }
     }
 }

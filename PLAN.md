@@ -34,6 +34,8 @@
 - Implement cleanup: prune missing registry entries, clear FontCache service data, clear Adobe caches; support `--prune-only`, `--cache-only`, `--admin` and exit-code parity.
 - *Progress 2025-12-03:* Registry pruning and FontCache stop/clear/start flow implemented; AdobeFnt*.lst purging added under Program Files; still pending validation on Windows hosts.
 - *Progress 2025-12-03:* Install path now auto-detects conflicts (path/PostScript/family-style) and unregisters/removes duplicates before copy, while refusing to touch protected system font paths.
+- *Progress 2025-12-03:* Listing now prefers name table metadata via `read-fonts` (PostScript/family/subfamily/full name) for registry + directory entries with scope tagging and deduplication.
+- *Progress 2025-12-03:* Added cross-platform unit coverage for Adobe cache discovery/removal and ProgramFiles vs ProgramFiles(x86) deduplication to harden cleanup logic pending Windows host validation.
 
 ### WS3 — Unified CLI ergonomics
 - Align commands/flags with legacy binaries: aliases, batch install/remove, name- and path-based operations, JSON output, quiet/verbose, dry-run, deterministic sorting.
@@ -47,17 +49,78 @@
 - Expose full surface: typed `FontliftFontSource`/`FontliftFontFaceInfo`, list/install/uninstall/remove/cleanup with scope/admin/prune/cache/dry-run options, name-based ops, JSON-friendly return values.
 - Add Fire-based CLI entry mirroring Rust CLI; keep behavior parity.
 - Ship `pyproject.toml` + `maturin` workflow for universal2 macOS and win64/aarch64 wheels; sync versioning with Cargo.
-- Progress 2025-12-03: PyO3 exports `FontSource` + `FontFaceInfo` classes (scope/format/face_index metadata), list/install/uninstall/remove now route through `FontliftFontSource`; cleanup/prune/cache toggles added to Python API; name-based uninstall/remove with dry-run support and Fire CLI cleanup toggles are wired; remaining gaps include Fire CLI output/flag parity (quiet/verbose/JSON) and validating wheel packaging on macOS/Windows.
+- Progress 2025-12-03: PyO3 exports `FontSource` + `FontFaceInfo` classes (scope/format/face_index metadata), list/install/uninstall/remove now route through `FontliftFontSource`; cleanup/prune/cache toggles added to Python API; name-based uninstall/remove with dry-run support and Fire CLI cleanup toggles are wired; Fire CLI now mirrors Rust JSON list rendering and quiet/verbose/dry-run messaging; remaining gap is validating wheel packaging on macOS/Windows.
 
-### WS5 — Tests, fixtures, and parity verification
 - Add font fixtures (TTF/OTF/TTC) and golden-output recordings from legacy binaries for list/install/uninstall/remove/cleanup.
-- Add Rust integration tests per platform using temp dirs and admin-check mocks; add Python `pytest` integration via `maturin develop`.
-- Stand up CI matrix (macOS + Windows) running `cargo test`, CLI smoke tests with fixtures, and Python wheel build/test; enforce coverage (>80% initial).
+- *Progress 2025-12-03:* Added Atkinson Hyperlegible TTF/OTF/TTC fixtures under `tests/fixtures/fonts`; golden outputs remain.
+- Add Rust integration tests per platform using temp dirs and admin-check mocks; add Python `pytest` integration via `maturin develop`. *(Done 2025-12-03: macOS fake-registry integration coverage plus pytest harness with import skips when the extension isn't built.)*
+- Stand up CI matrix (macOS + Windows) running `cargo test`, CLI smoke tests with fixtures, and Python wheel build/test; enforce coverage (>80% initial). *(Done 2025-12-03: Added GitHub Actions CI for macOS 14 + Windows runners with rustfmt/clippy, platform-scoped cargo test, maturin develop, and pytest against the Python bindings.)*
 
 ### WS6 — Documentation & release
-- Update README/USAGE/FEATURE_MATRIX with parity status, flags, migration guide, and Python examples.
+- Update README/USAGE/FEATURE_MATRIX with parity status, flags, migration guide, and Python examples. *(Updated 2025-12-03: added packaging section documenting build.sh wheel output and Windows prerequisites.)*
 - Harden build script (`build.sh`) and Windows packaging and document prerequisites.
-- Publish release checklist, CHANGELOG entries, and distribution plan (crates.io, GitHub releases with binaries, PyPI wheels).
+- Publish release checklist, CHANGELOG entries, and distribution plan (crates.io, GitHub releases with binaries, PyPI wheels). *(Done 2025-12-03: added RELEASE_CHECKLIST.md for Rust crates + PyPI/GitHub steps.)*
+
+### WS7 — Out-of-process font validation pipeline (Security/Robustness)
+**Goal:** Move all "dangerous" font parsing into a separate, short-lived, resource-limited helper process using `read-fonts` for structural validation before the OS font stack ever sees the bytes.
+
+- [x] Create `fontlift-validator` binary crate (`crates/fontlift-validator`) as a small helper process:
+  - Accept list of paths + optional config (max size, timeout, allowed formats) via CLI flags or JSON stdin.
+  - Use `read-fonts` to structurally parse fonts and extract metadata (PostScript name, family, style, weight, italic).
+  - Enforce resource limits: max file size (default 64MB), timeout watchdog, extension + MIME sniffing.
+  - Return JSON array of `{ ok: bool, info?: FontliftFontFaceInfo, error?: String }`.
+  - Sanitize error strings (no internal paths/stack traces).
+- [x] Add `validation_ext` module to `fontlift-core`:
+  - `ValidatorConfig { max_file_size_bytes, timeout_ms, allow_collections }`.
+  - `validate_and_introspect(paths, config) -> FontResult<Vec<Result<FontliftFontFaceInfo, FontError>>>`.
+  - Spawn validator child process, send paths/config over stdin, parse JSON response.
+- [x] Wire validator into macOS install path (`MacFontManager::install_font`):
+  - Early call to `validate_single` before copy/registration when `validation_config` is set on manager.
+  - Abort with `FontError::InvalidFormat` if validation fails.
+  - Manager exposes `with_validation(config)` constructor and `set_validation_config()` setter.
+- [ ] Wire validator into Windows install path (`WinFontManager::install_font`) when fleshing out Windows parity.
+- [x] Expose validation config in Python bindings:
+  - Added `strict: bool = False` parameter on `install()` function and `FontliftManager.install_font()` method.
+  - When `strict=True`, creates manager with `ValidatorConfig::default()` for out-of-process validation.
+- [x] Expose validation in CLI:
+  - `--no-validate` flag (default: validate on install).
+  - `--validation-strictness {lenient,normal,paranoid}` presets.
+  - Batch validation for installs (amortize process overhead).
+- [x] Add unit tests:
+  - Known-bad font samples (random binary with `.ttf` extension) → clean error, no crash.
+  - Max size / timeout behaviour with dummy files.
+- [x] Add integration tests:
+  - Malformed font fixture + `fontlift install` → fails with `InvalidFormat`, no CT registration.
+  - Tests in `crates/fontlift-cli/tests/macos_fake_registry_tests.rs` verify CLI and manager-level validation.
+
+### WS8 — Transactional operation journal for crash-safe install/remove
+**Goal:** Wrap multi-step operations (copy, register, unregister, delete, clear cache) in a small operation journal so interrupted operations can be auto-repaired on next run.
+
+- [x] Add `journal` module to `fontlift-core`:
+  - `JournalAction` enum: `CopyFile { from, to }`, `RegisterFont { path, scope }`, `UnregisterFont { path, scope }`, `DeleteFile { path }`, `ClearCache { scope }`.
+  - `JournalEntry { id: Uuid, started_at, completed, actions: Vec<JournalAction>, current_step: usize }`.
+  - Journal file location: macOS `~/Library/Application Support/FontLift/journal.json`, Windows `%LOCALAPPDATA%\FontLift\journal.json`.
+  - Atomic write pattern (write to `.tmp` then rename).
+- [x] Implement journal helpers:
+  - `journal_path() -> PathBuf` (platform-specific).
+  - `load_journal() -> Vec<JournalEntry>`, `save_journal(&[JournalEntry])`.
+  - `record_operation(actions) -> JournalEntry`, `mark_step(entry_id, step)`, `mark_completed(entry_id)`.
+- [x] Implement crash recovery logic:
+  - `recover_incomplete_operations<F>(manager, handler)` iterates incomplete entries and rolls forward or back.
+  - Policy per action: CopyFile (check exists/size), RegisterFont (check is_font_installed), UnregisterFont (retry if still installed), DeleteFile (delete if exists).
+- [x] Wire journal into `MacFontManager::install_font`:
+  - Build actions list: CopyFile (if needed), RegisterFont.
+  - Call `record_operation`, execute actions with `mark_step` after each, then `mark_completed`.
+- [x] Wire journal into `MacFontManager::remove_font` (UnregisterFont → DeleteFile).
+- [ ] Wire journal into Windows manager when fully implemented.
+- [x] Add CLI `fontlift doctor` command:
+  - Runs `recover_incomplete_operations` and prints actions taken.
+  - Optionally auto-run at process start (behind flag or env var).
+- [x] Add unit tests:
+  - Simulate starting entry, advancing steps, calling recovery → verify expected rollback/forward.
+- [x] Add integration tests:
+  - `mac_fake_registry_doctor_recovers_incomplete_copy`: simulates crash after CopyFile record, verifies doctor recovery.
+  - `mac_fake_registry_doctor_recovers_incomplete_delete`: simulates crash after DeleteFile record, verifies recovery.
 
 ## Milestones
 - **M1:** Build passes on macOS and parity checklist completed (WS0).

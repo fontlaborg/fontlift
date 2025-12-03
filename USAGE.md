@@ -55,6 +55,25 @@ fontlift cleanup --cache-only
 
 # Generate shell completions (bash|zsh|fish|powershell|elvish)
 fontlift completions bash > /usr/local/etc/bash_completion.d/fontlift
+
+# Recover from interrupted operations (crash recovery)
+fontlift doctor
+
+# Preview what would be recovered without taking action
+fontlift doctor --preview
+```
+
+### Font Validation
+
+```bash
+# Install with out-of-process validation (default)
+fontlift install /path/to/font.ttf
+
+# Skip validation (faster, less safe)
+fontlift install /path/to/font.ttf --no-validate
+
+# Use stricter validation
+fontlift install /path/to/font.ttf --validation-strictness paranoid
 ```
 
 ## Library Usage
@@ -135,10 +154,10 @@ fn create_font_manager() -> Arc<dyn FontManager> {
 ### Basic Python Usage
 
 ```python
-import fontlift_python
+import fontlift
 
 # Create manager
-manager = fontlift_python.FontliftManager()
+manager = fontlift.FontliftManager()
 
 # List fonts
 fonts = manager.list_fonts()
@@ -149,10 +168,21 @@ for font in fonts:
 manager.install_font("my-font.ttf")
 
 # Functional API
-fontlift_python.install("my-font.ttf", admin=False)
-fontlift_python.list()
-fontlift_python.cleanup(False)
+fontlift.install("my-font.ttf", admin=False)
+fontlift.list()
+fontlift.cleanup(admin=False)
+
+# Cleanup with toggles and dry-run support
+fontlift.cleanup(prune=True, cache=True, admin=False, dry_run=True)
+
+# Fire CLI mirror with JSON/quiet/verbose/dry-run toggles (matches Rust CLI)
+# fontliftpy list --json --path --name --sorted
+# fontliftpy install my-font.ttf --dry_run True --quiet True
 ```
+
+Notes:
+- Windows install/remove/cleanup honor `admin` to pick system scope; calls that require elevation will raise `PermissionDenied`.
+- macOS supports fake-registry/dry-run paths for tests via `FONTLIFT_FAKE_REGISTRY_ROOT`.
 
 ## Error Handling
 

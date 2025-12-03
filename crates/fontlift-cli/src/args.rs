@@ -1,7 +1,19 @@
 use clap::error::ErrorKind;
-use clap::{Parser, Subcommand, ValueHint};
+use clap::{Parser, Subcommand, ValueEnum, ValueHint};
 use clap_complete::Shell;
 use std::path::PathBuf;
+
+/// Validation strictness presets for font installation
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
+pub enum ValidationStrictness {
+    /// Lenient: larger size limits (128MB), longer timeouts (10s)
+    Lenient,
+    /// Normal: default settings (64MB, 5s timeout)
+    #[default]
+    Normal,
+    /// Paranoid: strict limits (32MB, 2s timeout)
+    Paranoid,
+}
 
 /// Font management CLI tool
 #[derive(Parser)]
@@ -76,6 +88,17 @@ pub enum Commands {
             help = "Install at system level (all users, requires admin)"
         )]
         admin: bool,
+
+        #[arg(long, help = "Skip out-of-process font validation")]
+        no_validate: bool,
+
+        #[arg(
+            long,
+            value_enum,
+            default_value = "normal",
+            help = "Validation strictness preset"
+        )]
+        validation_strictness: ValidationStrictness,
     },
 
     /// Uninstall fonts (keeping files)
@@ -150,6 +173,14 @@ pub enum Commands {
         /// Target shell (bash, zsh, fish, powershell, elvish)
         #[arg(value_enum, help = "Shell to generate completions for")]
         shell: Shell,
+    },
+
+    /// Recover from interrupted operations
+    #[command(alias = "d")]
+    Doctor {
+        /// Show what would be recovered without taking action
+        #[arg(long, help = "Preview recovery actions without executing")]
+        preview: bool,
     },
 }
 

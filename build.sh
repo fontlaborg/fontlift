@@ -392,7 +392,7 @@ run_tests() {
 	# Test Python bindings if built
 	local platform_info=$(get_platform_info)
 	local dylib_suffix=$(echo "$platform_info" | cut -d: -f3)
-	local python_path="target/$build_mode/libfontlift_python$dylib_suffix"
+	local python_path="target/$build_mode/lib_native$dylib_suffix"
 	
 	if [ -f "$SCRIPT_DIR/$python_path" ]; then
 		print_substep "Testing Python bindings..."
@@ -568,7 +568,7 @@ verify_installation() {
 	fi
 	
 	# Verify Python bindings
-	local python_path="target/$build_mode/libfontlift_python$dylib_suffix"
+	local python_path="target/$build_mode/lib_native$dylib_suffix"
 	if [ -f "$python_path" ]; then
 		print_substep "Python bindings verified at $python_path"
 	else
@@ -733,7 +733,7 @@ main() {
 	fi
 	
 	if [ "$BUILD_ALL" == "yes" ] || [ "$BUILD_PYTHON" == "yes" ]; then
-		print_status "Python module location: target/$BUILD_MODE/libfontlift_python$dylib_suffix"
+		print_status "Python module location: target/$BUILD_MODE/lib_native$dylib_suffix"
 	fi
 	
 	echo ""

@@ -261,6 +261,8 @@ fn dry_run_install_skips_invoking_manager() {
             manager.clone(),
             vec![font.clone()],
             false,
+            false, // no validation
+            ValidationStrictness::Normal,
             opts,
         ))
         .expect("dry run install");
@@ -386,6 +388,10 @@ fn subcommand_aliases_match_legacy() {
     // cleanup alias
     let cli = Cli::try_parse_from(["fontlift", "c"]).expect("alias c");
     assert!(matches!(cli.command, Commands::Cleanup { .. }));
+
+    // doctor alias
+    let cli = Cli::try_parse_from(["fontlift", "d"]).expect("alias d");
+    assert!(matches!(cli.command, Commands::Doctor { .. }));
 }
 
 #[test]
@@ -399,4 +405,137 @@ fn clap_error_exit_codes_match_legacy() {
         exit_code_for_clap_error(ErrorKind::MissingRequiredArgument),
         1
     );
+}
+
+#[test]
+fn validation_strictness_presets_parse() {
+    // Default is Normal
+    let cli = Cli::try_parse_from(["fontlift", "install", "font.ttf"]).expect("default strictness");
+    let Commands::Install {
+        validation_strictness,
+        ..
+    } = cli.command
+    else {
+        panic!("expected Install");
+    };
+    assert!(matches!(
+        validation_strictness,
+        ValidationStrictness::Normal
+    ));
+
+    // Explicit lenient
+    let cli = Cli::try_parse_from([
+        "fontlift",
+        "install",
+        "font.ttf",
+        "--validation-strictness",
+        "lenient",
+    ])
+    .expect("lenient");
+    let Commands::Install {
+        validation_strictness,
+        ..
+    } = cli.command
+    else {
+        panic!("expected Install");
+    };
+    assert!(matches!(
+        validation_strictness,
+        ValidationStrictness::Lenient
+    ));
+
+    // Explicit paranoid
+    let cli = Cli::try_parse_from([
+        "fontlift",
+        "install",
+        "font.ttf",
+        "--validation-strictness",
+        "paranoid",
+    ])
+    .expect("paranoid");
+    let Commands::Install {
+        validation_strictness,
+        ..
+    } = cli.command
+    else {
+        panic!("expected Install");
+    };
+    assert!(matches!(
+        validation_strictness,
+        ValidationStrictness::Paranoid
+    ));
+}
+
+#[test]
+fn no_validate_flag_parses() {
+    let cli =
+        Cli::try_parse_from(["fontlift", "install", "font.ttf", "--no-validate"]).expect("parse");
+    let Commands::Install { no_validate, .. } = cli.command else {
+        panic!("expected Install");
+    };
+    assert!(no_validate, "--no-validate should set flag to true");
+}
+
+#[test]
+fn help_text_includes_all_commands() {
+    use clap::CommandFactory;
+
+    let mut cmd = Cli::command();
+    let help = cmd.render_help().to_string();
+
+    // Verify all main commands are listed in help
+    assert!(help.contains("list"), "help should mention list command");
+    assert!(
+        help.contains("install"),
+        "help should mention install command"
+    );
+    assert!(
+        help.contains("uninstall"),
+        "help should mention uninstall command"
+    );
+    assert!(
+        help.contains("remove"),
+        "help should mention remove command"
+    );
+    assert!(
+        help.contains("cleanup"),
+        "help should mention cleanup command"
+    );
+    assert!(
+        help.contains("doctor"),
+        "help should mention doctor command"
+    );
+    assert!(
+        help.contains("completions"),
+        "help should mention completions command"
+    );
+}
+
+#[test]
+fn shell_completions_generate_for_all_shells() {
+    use clap_complete::Shell;
+
+    // Test all supported shells generate valid completions
+    for shell in [
+        Shell::Bash,
+        Shell::Zsh,
+        Shell::Fish,
+        Shell::PowerShell,
+        Shell::Elvish,
+    ] {
+        let mut buffer = Vec::new();
+        write_completions(shell, &mut buffer).expect(&format!("{:?} completions", shell));
+        let script = String::from_utf8(buffer).expect("utf8");
+        assert!(
+            !script.is_empty(),
+            "{:?} completions should not be empty",
+            shell
+        );
+        // All shells should include the binary name
+        assert!(
+            script.contains("fontlift"),
+            "{:?} completions should reference fontlift",
+            shell
+        );
+    }
 }

@@ -4,11 +4,12 @@
 mod args;
 mod ops;
 
-pub use args::{exit_code_for_clap_error, Cli, Commands};
+pub use args::{exit_code_for_clap_error, Cli, Commands, ValidationStrictness};
 pub use ops::{
-    collect_font_inputs, create_font_manager, handle_cleanup_command, handle_install_command,
-    handle_list_command, handle_remove_command, handle_uninstall_command, render_list_output,
-    write_completions, ListRender, ListRenderOptions, OperationOptions, OutputOptions,
+    collect_font_inputs, create_font_manager, handle_cleanup_command, handle_doctor_command,
+    handle_install_command, handle_list_command, handle_remove_command, handle_uninstall_command,
+    render_list_output, write_completions, ListRender, ListRenderOptions, OperationOptions,
+    OutputOptions,
 };
 
 use clap::Parser;
@@ -23,8 +24,21 @@ pub async fn run_cli(cli: Cli) -> Result<(), FontError> {
         Commands::List { path, name, sorted } => {
             handle_list_command(manager, path, name, sorted, cli.json).await?;
         }
-        Commands::Install { font_inputs, admin } => {
-            handle_install_command(manager, font_inputs, admin, op_opts).await?;
+        Commands::Install {
+            font_inputs,
+            admin,
+            no_validate,
+            validation_strictness,
+        } => {
+            handle_install_command(
+                manager,
+                font_inputs,
+                admin,
+                !no_validate,
+                validation_strictness,
+                op_opts,
+            )
+            .await?;
         }
         Commands::Uninstall {
             name,
@@ -49,6 +63,9 @@ pub async fn run_cli(cli: Cli) -> Result<(), FontError> {
         }
         Commands::Completions { shell } => {
             write_completions(shell, std::io::stdout())?;
+        }
+        Commands::Doctor { preview } => {
+            handle_doctor_command(preview, op_opts).await?;
         }
     }
 

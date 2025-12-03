@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "fontlift-list-output",
+  "title": "FontLift List Output Schema",
+  "description": "Expected JSON output structure for fontlift list --json",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["source"],
+    "properties": {
+      "postscript_name": {
+        "type": ["string", "null"],
+        "description": "PostScript name of the font face"
+      },
+      "full_name": {
+        "type": ["string", "null"],
+        "description": "Full display name of the font"
+      },
+      "family_name": {
+        "type": ["string", "null"],
+        "description": "Font family name"
+      },
+      "style": {
+        "type": ["string", "null"],
+        "description": "Font style (e.g., Regular, Bold, Italic)"
+      },
+      "weight": {
+        "type": ["integer", "null"],
+        "description": "Font weight (100-900)"
+      },
+      "italic": {
+        "type": ["boolean", "null"],
+        "description": "Whether the font is italic"
+      },
+      "source": {
+        "type": "object",
+        "required": ["path"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path to the font file"
+          },
+          "format": {
+            "type": ["string", "null"],
+            "enum": ["TTF", "OTF", "TTC", "OTC", "WOFF", "WOFF2", "DFont", "Unknown", null],
+            "description": "Font file format"
+          },
+          "face_index": {
+            "type": ["integer", "null"],
+            "description": "Index of the face within a collection (TTC/OTC)"
+          },
+          "is_collection": {
+            "type": ["boolean", "null"],
+            "description": "Whether the font file is a collection"
+          },
+          "scope": {
+            "type": ["string", "null"],
+            "enum": ["User", "System", null],
+            "description": "Installation scope (User fonts directory or System fonts)"
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    [
+      {
+        "postscript_name": "AtkinsonHyperlegible-Regular",
+        "full_name": "Atkinson Hyperlegible Regular",
+        "family_name": "Atkinson Hyperlegible",
+        "style": "Regular",
+        "weight": 400,
+        "italic": false,
+        "source": {
+          "path": "/Users/test/Library/Fonts/AtkinsonHyperlegible-Regular.ttf",
+          "format": "TTF",
+          "face_index": 0,
+          "is_collection": false,
+          "scope": "User"
+        }
+      }
+    ]
+  ]
+}

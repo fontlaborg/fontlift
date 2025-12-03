@@ -5,12 +5,15 @@
 
 #![allow(non_local_definitions)]
 
-use fontlift_core::{FontError, FontManager, FontScope, FontliftFontFaceInfo, FontliftFontSource};
+use fontlift_core::{
+    validation_ext::ValidatorConfig, FontError, FontManager, FontScope, FontliftFontFaceInfo,
+    FontliftFontSource,
+};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyModule};
-use pyo3::PyErr;
-use std::path::PathBuf;
+use pyo3::{IntoPyObject, PyErr};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 #[cfg(test)]
@@ -107,7 +110,7 @@ fn resolve_font_target(
 
 fn uninstall_resolved(
     manager: &Arc<dyn FontManager>,
-    path: &PathBuf,
+    path: &Path,
     starting_scope: FontScope,
     dry_run: bool,
 ) -> PyResult<FontScope> {
@@ -118,7 +121,7 @@ fn uninstall_resolved(
     let mut last_error: Option<FontError> = None;
 
     for scope in scope_order(starting_scope) {
-        let source = FontliftFontSource::new(path.clone()).with_scope(Some(scope));
+        let source = FontliftFontSource::new(path.to_path_buf()).with_scope(Some(scope));
         match manager.uninstall_font(&source) {
             Ok(()) => return Ok(scope),
             Err(err) => last_error = Some(err),
@@ -136,7 +139,7 @@ fn uninstall_resolved(
 
 fn remove_resolved(
     manager: &Arc<dyn FontManager>,
-    path: &PathBuf,
+    path: &Path,
     scope: FontScope,
     dry_run: bool,
 ) -> PyResult<()> {
@@ -144,7 +147,7 @@ fn remove_resolved(
         return Ok(());
     }
 
-    let source = FontliftFontSource::new(path.clone()).with_scope(Some(scope));
+    let source = FontliftFontSource::new(path.to_path_buf()).with_scope(Some(scope));
     manager
         .remove_font(&source)
         .map_err(|e| py_error("remove font", e))
@@ -186,8 +189,8 @@ fn source_dict<'py>(py: Python<'py>, source: &PyFontSource) -> PyResult<Bound<'p
     let dict = PyDict::new(py);
     dict.set_item("path", &source.path)?;
     dict.set_item("format", &source.format)?;
-    dict.set_item("face_index", &source.face_index)?;
-    dict.set_item("is_collection", &source.is_collection)?;
+    dict.set_item("face_index", source.face_index)?;
+    dict.set_item("is_collection", source.is_collection)?;
     dict.set_item("scope", &source.scope)?;
     Ok(dict)
 }
@@ -282,15 +285,24 @@ impl FontliftManager {
 
         let mut result = Vec::new();
         for font in fonts {
-            result.push(PyFontFaceInfo::from(font).into_py(py));
+            let obj = PyFontFaceInfo::from(font)
+                .into_pyobject(py)?
+                .unbind()
+                .into_any();
+            result.push(obj);
         }
 
         Ok(result)
     }
 
     /// Install a font file
-    #[pyo3(signature = (font_path, admin=false))]
-    fn install_font(&self, font_path: &str, admin: bool) -> PyResult<()> {
+    ///
+    /// Args:
+    ///     font_path: Path to the font file to install
+    ///     admin: If true, install to system scope (requires admin privileges)
+    ///     strict: If true, perform full out-of-process font validation before install
+    #[pyo3(signature = (font_path, admin=false, strict=false))]
+    fn install_font(&self, font_path: &str, admin: bool, strict: bool) -> PyResult<()> {
         let path = PathBuf::from(font_path);
         let scope = if admin {
             FontScope::System
@@ -299,7 +311,14 @@ impl FontliftManager {
         };
         let source = FontliftFontSource::new(path).with_scope(Some(scope));
 
-        self.manager
+        // Use validating manager if strict mode requested
+        let manager: Arc<dyn FontManager> = if strict {
+            create_platform_manager_with_validation(Some(ValidatorConfig::default()))
+        } else {
+            self.manager.clone()
+        };
+
+        manager
             .install_font(&source)
             .map_err(|e| PyRuntimeError::new_err(format!("Failed to install font: {}", e)))?;
 
@@ -375,13 +394,28 @@ impl FontliftManager {
 
 /// Create the appropriate font manager for the current platform
 fn create_platform_manager() -> Arc<dyn FontManager> {
+    create_platform_manager_with_validation(None)
+}
+
+/// Create the appropriate font manager with optional validation config
+fn create_platform_manager_with_validation(
+    validation_config: Option<ValidatorConfig>,
+) -> Arc<dyn FontManager> {
     #[cfg(target_os = "macos")]
     {
-        Arc::new(fontlift_platform_mac::MacFontManager::new())
+        if let Some(config) = validation_config {
+            Arc::new(fontlift_platform_mac::MacFontManager::with_validation(
+                config,
+            ))
+        } else {
+            Arc::new(fontlift_platform_mac::MacFontManager::new())
+        }
     }
 
     #[cfg(target_os = "windows")]
     {
+        // Windows manager doesn't support validation config yet
+        let _ = validation_config;
         Arc::new(fontlift_platform_win::WinFontManager::new())
     }
 
@@ -392,9 +426,20 @@ fn create_platform_manager() -> Arc<dyn FontManager> {
 }
 
 /// Fire CLI interface for fontlift
+///
+/// Args:
+///     font_path: Path to the font file to install
+///     admin: If true, install to system scope (requires admin privileges)
+///     strict: If true, perform full out-of-process font validation before install
 #[pyfunction]
-fn install(font_path: &str, admin: bool) -> PyResult<()> {
-    let manager = create_platform_manager();
+#[pyo3(signature = (font_path, admin=false, strict=false))]
+fn install(font_path: &str, admin: bool, strict: bool) -> PyResult<()> {
+    let validation_config = if strict {
+        Some(ValidatorConfig::default())
+    } else {
+        None
+    };
+    let manager = create_platform_manager_with_validation(validation_config);
     let path = PathBuf::from(font_path);
     let scope = if admin {
         FontScope::System
@@ -417,14 +462,17 @@ fn list() -> PyResult<Vec<PyObject>> {
         .list_installed_fonts()
         .map_err(|e| PyRuntimeError::new_err(format!("Failed to list fonts: {}", e)))?;
 
-    let mut result = Vec::new();
     Python::with_gil(|py| {
+        let mut result = Vec::with_capacity(fonts.len());
         for font in fonts {
-            result.push(PyFontFaceInfo::from(font).into_py(py));
+            let obj = PyFontFaceInfo::from(font)
+                .into_pyobject(py)?
+                .unbind()
+                .into_any();
+            result.push(obj);
         }
-    });
-
-    Ok(result)
+        Ok(result)
+    })
 }
 
 #[pyfunction]
@@ -489,7 +537,8 @@ fn _native(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pyo3::{pycell::PyCell, types::PyDict};
+    #[cfg(not(feature = "extension-module"))]
+    use pyo3::types::PyDict;
     use std::path::PathBuf;
     use std::sync::Arc;
 
@@ -572,7 +621,10 @@ mod tests {
         }
     }
 
+    // This test requires linking to libpython which is unavailable when building
+    // with extension-module (the default). Run with `--no-default-features`.
     #[test]
+    #[cfg(not(feature = "extension-module"))]
     fn py_font_info_exposes_fields_and_dict() {
         Python::with_gil(|py| {
             let font_info = FontliftFontFaceInfo::new(
@@ -585,12 +637,10 @@ mod tests {
                 "Regular".to_string(),
             );
 
-            let py_obj = PyFontFaceInfo::from(font_info).into_py(py);
-            let cell = py_obj
-                .bind(py)
-                .downcast::<PyCell<PyFontFaceInfo>>()
-                .unwrap();
-            let borrowed = cell.borrow();
+            let bound = PyFontFaceInfo::from(font_info)
+                .into_pyobject(py)
+                .expect("convert font info to PyObject");
+            let borrowed = bound.borrow();
 
             assert_eq!(borrowed.postscript_name, "ExamplePS");
             assert_eq!(borrowed.family_name, "Example");
@@ -599,7 +649,7 @@ mod tests {
             assert_eq!(borrowed.source.format.as_deref(), Some("TTF"));
             assert_eq!(borrowed.source.scope.as_deref(), Some("system"));
 
-            let dict_obj = cell.call_method0("dict").unwrap();
+            let dict_obj = bound.call_method0("dict").unwrap();
             let dict = dict_obj.downcast::<PyDict>().unwrap();
             let style: String = dict
                 .get_item("style")
@@ -684,7 +734,7 @@ mod tests {
             }
         }
 
-        fn with_failures(mut self, scopes: Vec<FontScope>) -> Self {
+        fn with_failures(self, scopes: Vec<FontScope>) -> Self {
             *self.fail_uninstall_scopes.lock().expect("fail scope lock") = scopes;
             self
         }

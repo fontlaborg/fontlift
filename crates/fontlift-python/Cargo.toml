@@ -9,8 +9,11 @@ repository.workspace = true
 description = "Python bindings for fontlift"
 
 [lib]
-name = "fontlift_python"
-crate-type = ["cdylib"]
+# Name the compiled library `_native` so the exported `PyInit__native` symbol
+# matches the Python import path `fontlift._native` configured in pyproject.toml.
+name = "_native"
+# Include "rlib" to allow cargo test to link; "cdylib" for the Python extension.
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 fontlift-core = { workspace = true }
