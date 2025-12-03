@@ -17,6 +17,7 @@
 - Added `validation_strictness_presets_parse` test for lenient/normal/paranoid CLI flags
 - Added `no_validate_flag_parses` test for `--no-validate` flag
 - Fixed CI workflow: changed Python build from `maturin develop` to `uv pip install -e .`
+- Hardened Windows registry handling: `unregister_font_from_registry` now matches filename-only entries case-insensitively and prune normalizes registry values, preventing stale entries when fonts live under Fonts roots.
 
 ### Windows validation + journal wiring
 
@@ -32,3 +33,6 @@
 #### Tests
 - cargo fmt
 - cargo test -p fontlift-platform-win
+
+### Scratch 2025-12-03
+- Running cargo test -p fontlift-platform-win fails on non-Windows because registry_value_matches_path is gated under cfg(windows)

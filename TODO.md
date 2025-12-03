@@ -9,6 +9,7 @@
 - [~] Implement Windows install/uninstall/remove using registry + GDI, file copy to per-user/system fonts, admin detection, and conflict auto-removal.
   - Conflict detection now auto-uninstalls conflicting registry/file entries before copying while protecting system font paths.
   - Registry values are now normalized to the installed scope (filenames for Fonts roots; relative registry entries resolve to absolute paths), and uninstall/remove can resolve renamed entries via registry lookups.
+  - Registry cleanup now matches filename-only entries case-insensitively when unregistering and pruning, preventing orphaned entries from surviving installs/removes.
 - [x] Implement Windows listing from registry + fonts directory with metadata extraction, deduplication, and scope detection.
 - [~] Implement Windows cleanup (registry prune, FontCache service reset, Adobe cache clearing) with `--prune-only`, `--cache-only`, `--admin` and exit-code parity.
   - Registry pruning and FontCache service stop/clear/start paths implemented; AdobeFnt*.lst purge added under Program Files; needs validation on a Windows host.

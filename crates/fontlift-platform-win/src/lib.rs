@@ -1302,9 +1302,7 @@ mod tests {
         let windir = TempDir::new().expect("windir");
         let local = TempDir::new().expect("localappdata");
 
-        let target = windir
-            .path()
-            .join("Fonts/MyFont.TTF");
+        let target = windir.path().join("Fonts/MyFont.TTF");
         fs::create_dir_all(target.parent().unwrap()).unwrap();
         fs::write(&target, b"x").unwrap();
 

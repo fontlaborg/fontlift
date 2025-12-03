@@ -4,6 +4,7 @@
 - Switched Python packaging to the `maturin` build backend with an explicit crate manifest path to silence pep517 build warnings and align pip builds with the Rust extension.
 - Windows manager now supports optional out-of-process validation (matching macOS) via `WinFontManager::with_validation` and Python `strict=True`, rejecting malformed fonts before registry/GDI changes.
 - Windows install/remove operations are now journaled (CopyFile/RegisterFont and UnregisterFont/DeleteFile) to participate in `fontlift doctor` crash recovery.
+- Windows registry pruning/unregister now normalizes filename-only entries and matches case-insensitively, preventing stale registry values when fonts live under Fonts roots.
 - Python Fire CLI now mirrors the Rust surface (JSON list rendering, quiet/verbose/dry-run status messaging) and `list_fonts` returns dictionaries; added pure-Python list rendering helpers with tests.
 - Added Atkinson Hyperlegible OTF/TTC fixtures plus Windows metadata tests to cover TTC collections alongside TTF parsing.
 - Added README packaging notes covering build.sh outputs, Windows prerequisites, and maturin wheel builds.
