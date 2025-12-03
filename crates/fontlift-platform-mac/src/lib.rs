@@ -951,7 +951,8 @@ mod tests {
         let source_font = temp.path().join("DemoSystem.ttf");
         fs::write(&source_font, b"dummy font").expect("write font");
 
-        let source = FontliftFontSource::new(source_font.clone()).with_scope(Some(FontScope::System));
+        let source =
+            FontliftFontSource::new(source_font.clone()).with_scope(Some(FontScope::System));
 
         manager
             .install_font(&source)

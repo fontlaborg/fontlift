@@ -538,8 +538,8 @@ mod tests {
     #[test]
     fn non_windows_operations_return_unsupported() {
         let manager = WinFontManager::new();
-        let source = FontliftFontSource::new(PathBuf::from("dummy.ttf"))
-            .with_scope(Some(FontScope::User));
+        let source =
+            FontliftFontSource::new(PathBuf::from("dummy.ttf")).with_scope(Some(FontScope::User));
 
         let result = manager.install_font(&source);
         assert!(matches!(

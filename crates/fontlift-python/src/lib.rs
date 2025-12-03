@@ -5,9 +5,7 @@
 
 #![allow(non_local_definitions)]
 
-use fontlift_core::{
-    FontManager, FontScope, FontliftFontFaceInfo, FontliftFontSource,
-};
+use fontlift_core::{FontManager, FontScope, FontliftFontFaceInfo, FontliftFontSource};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyModule};
@@ -49,10 +47,7 @@ impl From<FontliftFontSource> for PyFontSource {
     }
 }
 
-fn source_dict<'py>(
-    py: Python<'py>,
-    source: &PyFontSource,
-) -> PyResult<Bound<'py, PyDict>> {
+fn source_dict<'py>(py: Python<'py>, source: &PyFontSource) -> PyResult<Bound<'py, PyDict>> {
     let dict = PyDict::new(py);
     dict.set_item("path", &source.path)?;
     dict.set_item("format", &source.format)?;
@@ -162,7 +157,11 @@ impl FontliftManager {
     #[pyo3(signature = (font_path, admin=false))]
     fn install_font(&self, font_path: &str, admin: bool) -> PyResult<()> {
         let path = PathBuf::from(font_path);
-        let scope = if admin { FontScope::System } else { FontScope::User };
+        let scope = if admin {
+            FontScope::System
+        } else {
+            FontScope::User
+        };
         let source = FontliftFontSource::new(path).with_scope(Some(scope));
 
         self.manager
@@ -189,7 +188,11 @@ impl FontliftManager {
     #[pyo3(signature = (font_path, admin=false))]
     fn uninstall_font(&self, font_path: &str, admin: bool) -> PyResult<()> {
         let path = PathBuf::from(font_path);
-        let scope = if admin { FontScope::System } else { FontScope::User };
+        let scope = if admin {
+            FontScope::System
+        } else {
+            FontScope::User
+        };
         let source = FontliftFontSource::new(path).with_scope(Some(scope));
 
         self.manager
@@ -203,7 +206,11 @@ impl FontliftManager {
     #[pyo3(signature = (font_path, admin=false))]
     fn remove_font(&self, font_path: &str, admin: bool) -> PyResult<()> {
         let path = PathBuf::from(font_path);
-        let scope = if admin { FontScope::System } else { FontScope::User };
+        let scope = if admin {
+            FontScope::System
+        } else {
+            FontScope::User
+        };
         let source = FontliftFontSource::new(path).with_scope(Some(scope));
 
         self.manager
@@ -253,7 +260,11 @@ fn create_platform_manager() -> Arc<dyn FontManager> {
 fn install(font_path: &str, admin: bool) -> PyResult<()> {
     let manager = create_platform_manager();
     let path = PathBuf::from(font_path);
-    let scope = if admin { FontScope::System } else { FontScope::User };
+    let scope = if admin {
+        FontScope::System
+    } else {
+        FontScope::User
+    };
     let source = FontliftFontSource::new(path).with_scope(Some(scope));
 
     manager
@@ -284,7 +295,11 @@ fn list() -> PyResult<Vec<PyObject>> {
 fn uninstall(font_path: &str, admin: bool) -> PyResult<()> {
     let manager = create_platform_manager();
     let path = PathBuf::from(font_path);
-    let scope = if admin { FontScope::System } else { FontScope::User };
+    let scope = if admin {
+        FontScope::System
+    } else {
+        FontScope::User
+    };
     let source = FontliftFontSource::new(path).with_scope(Some(scope));
 
     manager
@@ -298,7 +313,11 @@ fn uninstall(font_path: &str, admin: bool) -> PyResult<()> {
 fn remove(font_path: &str, admin: bool) -> PyResult<()> {
     let manager = create_platform_manager();
     let path = PathBuf::from(font_path);
-    let scope = if admin { FontScope::System } else { FontScope::User };
+    let scope = if admin {
+        FontScope::System
+    } else {
+        FontScope::User
+    };
     let source = FontliftFontSource::new(path).with_scope(Some(scope));
 
     manager
