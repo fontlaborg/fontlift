@@ -1281,6 +1281,41 @@ mod tests {
     }
 
     #[test]
+    fn registry_value_matches_path_accepts_filename_only_entries() {
+        let manager = WinFontManager::new();
+        let windir = TempDir::new().expect("windir");
+        let local = TempDir::new().expect("localappdata");
+
+        let target = windir.path().join("Fonts/Arial.ttf");
+        fs::create_dir_all(target.parent().unwrap()).unwrap();
+        fs::write(&target, b"x").unwrap();
+
+        let _guard_windir = EnvGuard::set("WINDIR", windir.path());
+        let _guard_local = EnvGuard::set("LOCALAPPDATA", local.path());
+
+        assert!(manager.registry_value_matches_path("Arial.ttf", &target, FontScope::System));
+    }
+
+    #[test]
+    fn registry_value_matches_path_handles_case_insensitive_absolute_paths() {
+        let manager = WinFontManager::new();
+        let windir = TempDir::new().expect("windir");
+        let local = TempDir::new().expect("localappdata");
+
+        let target = windir
+            .path()
+            .join("Fonts/MyFont.TTF");
+        fs::create_dir_all(target.parent().unwrap()).unwrap();
+        fs::write(&target, b"x").unwrap();
+
+        let _guard_windir = EnvGuard::set("WINDIR", windir.path());
+        let _guard_local = EnvGuard::set("LOCALAPPDATA", local.path());
+
+        let mixed_case = target.to_string_lossy().to_uppercase();
+        assert!(manager.registry_value_matches_path(&mixed_case, &target, FontScope::System));
+    }
+
+    #[test]
     fn install_journal_actions_include_copy_when_paths_differ() {
         let manager = WinFontManager::new();
         let source = PathBuf::from("C:/tmp/source.ttf");
