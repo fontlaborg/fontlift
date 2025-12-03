@@ -3,13 +3,14 @@
 //! This module provides Windows-specific font management using Windows APIs,
 //! implementing the same functionality as the C++ CLI but in Rust.
 
-use fontlift_core::{FontError, FontInfo, FontManager, FontResult, FontScope};
-use std::path::Path;
+use fontlift_core::{
+    FontError, FontManager, FontResult, FontScope, FontliftFontFaceInfo, FontliftFontSource,
+};
 
 #[cfg(windows)]
 use fontlift_core::validation;
 #[cfg(windows)]
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[cfg(windows)]
 use std::fs;
@@ -65,10 +66,11 @@ impl WinFontManager {
     }
 
     /// Extract font information using basic filename parsing as fallback
-    fn get_font_info_from_path(&self, path: &Path) -> FontResult<FontInfo> {
+    fn get_font_info_from_path(&self, path: &Path) -> FontResult<FontliftFontFaceInfo> {
         validation::validate_font_file(path)?;
 
-        let info = validation::extract_basic_info_from_path(path);
+        let mut info = validation::extract_basic_info_from_path(path);
+        info.source.scope = Some(FontScope::User);
         Ok(info)
     }
 
@@ -182,7 +184,7 @@ impl WinFontManager {
     fn register_font_in_registry(
         &self,
         path: &Path,
-        font_info: &FontInfo,
+        font_info: &FontliftFontFaceInfo,
         scope: FontScope,
     ) -> FontResult<()> {
         let hive = match scope {
@@ -201,7 +203,7 @@ impl WinFontManager {
         let registry_name = format!(
             "{} ({})",
             font_info.family_name,
-            font_info.format.as_deref().unwrap_or("TrueType")
+            font_info.source.format.as_deref().unwrap_or("TrueType")
         );
 
         let path_str = path.to_string_lossy().to_string();
@@ -248,7 +250,7 @@ impl WinFontManager {
     }
 
     /// Enumerate fonts from Windows Registry
-    fn enumerate_fonts_from_registry(&self) -> FontResult<Vec<FontInfo>> {
+    fn enumerate_fonts_from_registry(&self) -> FontResult<Vec<FontliftFontFaceInfo>> {
         let mut fonts = Vec::new();
 
         let locations = vec![
@@ -311,7 +313,9 @@ impl WinFontManager {
 
 #[cfg(windows)]
 impl FontManager for WinFontManager {
-    fn install_font(&self, path: &Path, scope: FontScope) -> FontResult<()> {
+    fn install_font(&self, source: &FontliftFontSource) -> FontResult<()> {
+        let scope = source.scope.unwrap_or(FontScope::User);
+        let path = &source.path;
         validation::validate_font_file(path)?;
         self.validate_system_operation(scope)?;
 
@@ -319,7 +323,8 @@ impl FontManager for WinFontManager {
             return Err(FontError::SystemFontProtection(path.to_path_buf()));
         }
 
-        let font_info = self.get_font_info_from_path(path)?;
+        let mut font_info = self.get_font_info_from_path(path)?;
+        font_info.source.scope = Some(scope);
         let target_path = self.copy_font_to_target_directory(path, scope)?;
         self.register_font_with_gdi(&target_path)?;
         self.register_font_in_registry(&target_path, &font_info, scope)?;
@@ -327,7 +332,9 @@ impl FontManager for WinFontManager {
         Ok(())
     }
 
-    fn uninstall_font(&self, path: &Path, scope: FontScope) -> FontResult<()> {
+    fn uninstall_font(&self, source: &FontliftFontSource) -> FontResult<()> {
+        let scope = source.scope.unwrap_or(FontScope::User);
+        let path = &source.path;
         validation::validate_font_file(path)?;
         self.validate_system_operation(scope)?;
 
@@ -341,8 +348,10 @@ impl FontManager for WinFontManager {
         Ok(())
     }
 
-    fn remove_font(&self, path: &Path, scope: FontScope) -> FontResult<()> {
-        self.uninstall_font(path, scope)?;
+    fn remove_font(&self, source: &FontliftFontSource) -> FontResult<()> {
+        let scope = source.scope.unwrap_or(FontScope::User);
+        let path = &source.path;
+        self.uninstall_font(source)?;
 
         if self.is_system_font_path(path) {
             return Err(FontError::SystemFontProtection(path.to_path_buf()));
@@ -353,11 +362,11 @@ impl FontManager for WinFontManager {
         Ok(())
     }
 
-    fn is_font_installed(&self, path: &Path) -> FontResult<bool> {
-        Ok(path.exists())
+    fn is_font_installed(&self, source: &FontliftFontSource) -> FontResult<bool> {
+        Ok(source.path.exists())
     }
 
-    fn list_installed_fonts(&self) -> FontResult<Vec<FontInfo>> {
+    fn list_installed_fonts(&self) -> FontResult<Vec<FontliftFontFaceInfo>> {
         let mut fonts = Vec::new();
 
         if let Ok(reg_fonts) = self.enumerate_fonts_from_registry() {
@@ -369,7 +378,7 @@ impl FontManager for WinFontManager {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.is_file() && validation::is_valid_font_extension(&path) {
-                    if !fonts.iter().any(|f| f.path == path) {
+                    if !fonts.iter().any(|f| f.source.path == path) {
                         if let Ok(font_info) = self.get_font_info_from_path(&path) {
                             fonts.push(font_info);
                         }
@@ -461,27 +470,27 @@ impl FontManager for WinFontManager {
 
 #[cfg(not(windows))]
 impl FontManager for WinFontManager {
-    fn install_font(&self, path: &Path, scope: FontScope) -> FontResult<()> {
-        let _ = (path, scope);
+    fn install_font(&self, source: &FontliftFontSource) -> FontResult<()> {
+        let _ = source;
         self.unsupported()
     }
 
-    fn uninstall_font(&self, path: &Path, scope: FontScope) -> FontResult<()> {
-        let _ = (path, scope);
+    fn uninstall_font(&self, source: &FontliftFontSource) -> FontResult<()> {
+        let _ = source;
         self.unsupported()
     }
 
-    fn remove_font(&self, path: &Path, scope: FontScope) -> FontResult<()> {
-        let _ = (path, scope);
+    fn remove_font(&self, source: &FontliftFontSource) -> FontResult<()> {
+        let _ = source;
         self.unsupported()
     }
 
-    fn is_font_installed(&self, path: &Path) -> FontResult<bool> {
-        let _ = path;
+    fn is_font_installed(&self, source: &FontliftFontSource) -> FontResult<bool> {
+        let _ = source;
         self.unsupported()
     }
 
-    fn list_installed_fonts(&self) -> FontResult<Vec<FontInfo>> {
+    fn list_installed_fonts(&self) -> FontResult<Vec<FontliftFontFaceInfo>> {
         self.unsupported()
     }
 
@@ -529,9 +538,10 @@ mod tests {
     #[test]
     fn non_windows_operations_return_unsupported() {
         let manager = WinFontManager::new();
-        let path = PathBuf::from("dummy.ttf");
+        let source = FontliftFontSource::new(PathBuf::from("dummy.ttf"))
+            .with_scope(Some(FontScope::User));
 
-        let result = manager.install_font(&path, FontScope::User);
+        let result = manager.install_font(&source);
         assert!(matches!(
             result,
             Err(FontError::UnsupportedOperation(msg)) if msg.contains("only available on Windows")

@@ -3,10 +3,10 @@
 - Added macOS cleanup pruning (Core Text unregister of missing registrations) plus Adobe/Microsoft cache clearing; CLI cleanup now supports `--prune-only`/`--cache-only` with dry-run messaging and verbose prune counts. Added CLI unit coverage for cleanup flag behavior.
 - `cargo test --workspace` currently fails while linking `fontlift-python` against the system Python 3.13 runtime (missing libpython symbols); reran `cargo test --workspace --exclude fontlift-python` (pass).
 - CLI list output now always sorts; path-only output is deduped by default and docs updated accordingly. Ran `cargo test -p fontlift-cli` (pass).
-- Implemented descriptor-based macOS font listing with PostScript/family/style/format metadata and scope tagging; `FontInfo` now carries optional scope and Python bindings expose it via `.dict()`.
+- Implemented descriptor-based macOS font listing with PostScript/family/style/format metadata and scope tagging; `FontliftFontFaceInfo` now carries optional scope and Python bindings expose it via `.dict()`.
 - Added safe Core Text trait handling to avoid panics when descriptors omit traits; new unit tests cover metadata extraction and scope detection.
 - `cargo test --workspace --exclude fontlift-python` (pass). `fontlift-python` still fails to link against the system Python 3.13 runtime; rerun on Python 3.12 or with dynamic lookup to exercise those tests.
-- Added PyO3 `FontInfo` class exposed to Python bindings with `.dict()` helper; list APIs now return typed objects. New unit test covers field exposure and dict serialization.
+- Added PyO3 `FontFaceInfo` class exposed to Python bindings with `.dict()` helper; list APIs now return typed objects. New unit test covers field exposure and dict serialization.
 - `cargo test --workspace --exclude fontlift-python` (pass). `fontlift-python` unit tests currently fail to link against the system Python 3.13 runtime when built with `pyo3/extension-module`; needs either Python 3.12 or running tests inside Python (dynamic lookup) to resolve symbols.
 - Fixed Python wheel build dependency by switching to the published `hatchling-pyo3-plugin` package name in `pyproject.toml` and `publish.sh`.
 - Ran `./build.sh` (debug); all crates built and wheel produced successfully. Note: CLI `--version` check inside the script still warns, unchanged behavior from prior runs.

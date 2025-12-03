@@ -3,7 +3,7 @@
 //! This library provides the core abstractions and types for cross-platform
 //! font management, including the FontManager trait and common data structures.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use thiserror::Error;
 
 /// Core errors for font management operations
@@ -56,11 +56,62 @@ impl FontScope {
     }
 }
 
-/// Font information data structure
+/// Reference to a font container (file, TTC index, optional scope hint)
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct FontInfo {
+pub struct FontliftFontSource {
     /// Path to the font file
     pub path: PathBuf,
+    /// Font format (TrueType, OpenType, etc.)
+    pub format: Option<String>,
+    /// Optional face index for collections
+    pub face_index: Option<u32>,
+    /// Whether the source is a collection
+    pub is_collection: Option<bool>,
+    /// Optional installation scope hint
+    pub scope: Option<FontScope>,
+}
+
+impl FontliftFontSource {
+    pub fn new(path: PathBuf) -> Self {
+        Self {
+            path,
+            format: None,
+            face_index: None,
+            is_collection: None,
+            scope: None,
+        }
+    }
+
+    pub fn with_format(mut self, format: Option<String>) -> Self {
+        self.format = format;
+        self
+    }
+
+    pub fn with_face_index(mut self, index: Option<u32>) -> Self {
+        self.face_index = index;
+        self
+    }
+
+    pub fn with_collection_flag(mut self, is_collection: Option<bool>) -> Self {
+        self.is_collection = is_collection;
+        self
+    }
+
+    pub fn with_scope(mut self, scope: Option<FontScope>) -> Self {
+        self.scope = scope;
+        self
+    }
+
+    pub fn scope_or(self, default: FontScope) -> FontScope {
+        self.scope.unwrap_or(default)
+    }
+}
+
+/// Font face metadata paired with its source
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct FontliftFontFaceInfo {
+    /// Source (path + format + optional scope/index)
+    pub source: FontliftFontSource,
 
     /// PostScript name of the font
     pub postscript_name: String,
@@ -79,44 +130,36 @@ pub struct FontInfo {
 
     /// Whether font is italic
     pub italic: Option<bool>,
-
-    /// Font format (TrueType, OpenType, etc.)
-    pub format: Option<String>,
-
-    /// Installation scope (user vs system). Optional for backward compatibility.
-    pub scope: Option<FontScope>,
 }
 
-impl FontInfo {
-    /// Create a new font info with basic information
+impl FontliftFontFaceInfo {
+    /// Create a new font face info with basic information
     pub fn new(
-        path: PathBuf,
+        source: FontliftFontSource,
         postscript_name: String,
         full_name: String,
         family_name: String,
         style: String,
     ) -> Self {
         Self {
-            path,
+            source,
             postscript_name,
             full_name,
             family_name,
             style,
             weight: None,
             italic: None,
-            format: None,
-            scope: None,
         }
     }
 
     /// Get filename without extension
     pub fn filename_stem(&self) -> Option<&str> {
-        self.path.file_stem()?.to_str()
+        self.source.path.file_stem()?.to_str()
     }
 
-    /// Attach an installation scope to the font info
+    /// Attach an installation scope hint to the underlying source
     pub fn with_scope(mut self, scope: Option<FontScope>) -> Self {
-        self.scope = scope;
+        self.source.scope = scope;
         self
     }
 }
@@ -124,19 +167,19 @@ impl FontInfo {
 /// Font manager trait that must be implemented by each platform
 pub trait FontManager: Send + Sync {
     /// Install a font file at the specified scope
-    fn install_font(&self, path: &Path, scope: FontScope) -> FontResult<()>;
+    fn install_font(&self, source: &FontliftFontSource) -> FontResult<()>;
 
     /// Uninstall a font (remove from system but keep file)
-    fn uninstall_font(&self, path: &Path, scope: FontScope) -> FontResult<()>;
+    fn uninstall_font(&self, source: &FontliftFontSource) -> FontResult<()>;
 
     /// Remove a font (uninstall and delete file)
-    fn remove_font(&self, path: &Path, scope: FontScope) -> FontResult<()>;
+    fn remove_font(&self, source: &FontliftFontSource) -> FontResult<()>;
 
     /// Check if a font is installed
-    fn is_font_installed(&self, path: &Path) -> FontResult<bool>;
+    fn is_font_installed(&self, source: &FontliftFontSource) -> FontResult<bool>;
 
     /// List all installed fonts
-    fn list_installed_fonts(&self) -> FontResult<Vec<FontInfo>>;
+    fn list_installed_fonts(&self) -> FontResult<Vec<FontliftFontFaceInfo>>;
 
     /// Clear font caches
     fn clear_font_caches(&self, scope: FontScope) -> FontResult<()>;
@@ -192,7 +235,7 @@ pub mod validation {
     }
 
     /// Extract basic font information from filename (fallback method)
-    pub fn extract_basic_info_from_path(path: &Path) -> FontInfo {
+    pub fn extract_basic_info_from_path(path: &Path) -> FontliftFontFaceInfo {
         let filename_stem = path
             .file_stem()
             .and_then(|n| n.to_str())
@@ -217,25 +260,9 @@ pub mod validation {
             .and_then(|ext| ext.to_str())
             .map(|ext| ext.to_uppercase());
 
-        FontInfo::new(
-            path.to_path_buf(),
-            filename_stem.clone(),
-            filename_stem,
-            family,
-            style,
-        )
-        .with_format(format)
-    }
+        let source = FontliftFontSource::new(path.to_path_buf()).with_format(format);
 
-    trait FontInfoExt {
-        fn with_format(self, format: Option<String>) -> Self;
-    }
-
-    impl FontInfoExt for FontInfo {
-        fn with_format(mut self, format: Option<String>) -> Self {
-            self.format = format;
-            self
-        }
+        FontliftFontFaceInfo::new(source, filename_stem.clone(), filename_stem, family, style)
     }
 }
 
@@ -282,7 +309,7 @@ pub mod cache {
 
 /// Helpers for system font protection and duplicate handling
 pub mod protection {
-    use super::FontInfo;
+    use super::FontliftFontFaceInfo;
     use std::path::Path;
 
     /// Normalize a path for comparison across platforms (lowercase, forward slashes)
@@ -309,18 +336,18 @@ pub mod protection {
 
     /// Deduplicate fonts deterministically by PostScript name (case-insensitive)
     /// and path (case-insensitive), returning a sorted list.
-    pub fn dedupe_fonts(mut fonts: Vec<FontInfo>) -> Vec<FontInfo> {
+    pub fn dedupe_fonts(mut fonts: Vec<FontliftFontFaceInfo>) -> Vec<FontliftFontFaceInfo> {
         fonts.sort_by(|a, b| {
             let name_a = a.postscript_name.to_lowercase();
             let name_b = b.postscript_name.to_lowercase();
-            let path_a = normalize(&a.path);
-            let path_b = normalize(&b.path);
+            let path_a = normalize(&a.source.path);
+            let path_b = normalize(&b.source.path);
             (name_a, path_a).cmp(&(name_b, path_b))
         });
 
         fonts.dedup_by(|a, b| {
             a.postscript_name.eq_ignore_ascii_case(&b.postscript_name)
-                && normalize(&a.path) == normalize(&b.path)
+                && normalize(&a.source.path) == normalize(&b.source.path)
         });
 
         fonts
@@ -332,31 +359,31 @@ pub mod protection {
 pub struct DummyFontManager;
 
 impl FontManager for DummyFontManager {
-    fn install_font(&self, _path: &Path, _scope: FontScope) -> FontResult<()> {
+    fn install_font(&self, _source: &FontliftFontSource) -> FontResult<()> {
         Err(FontError::UnsupportedOperation(
             "Font installation not implemented for this platform".to_string(),
         ))
     }
 
-    fn uninstall_font(&self, _path: &Path, _scope: FontScope) -> FontResult<()> {
+    fn uninstall_font(&self, _source: &FontliftFontSource) -> FontResult<()> {
         Err(FontError::UnsupportedOperation(
             "Font uninstallation not implemented for this platform".to_string(),
         ))
     }
 
-    fn remove_font(&self, _path: &Path, _scope: FontScope) -> FontResult<()> {
+    fn remove_font(&self, _source: &FontliftFontSource) -> FontResult<()> {
         Err(FontError::UnsupportedOperation(
             "Font removal not implemented for this platform".to_string(),
         ))
     }
 
-    fn is_font_installed(&self, _path: &Path) -> FontResult<bool> {
+    fn is_font_installed(&self, _source: &FontliftFontSource) -> FontResult<bool> {
         Err(FontError::UnsupportedOperation(
             "Font installation check not implemented for this platform".to_string(),
         ))
     }
 
-    fn list_installed_fonts(&self) -> FontResult<Vec<FontInfo>> {
+    fn list_installed_fonts(&self) -> FontResult<Vec<FontliftFontFaceInfo>> {
         Err(FontError::UnsupportedOperation(
             "Font listing not implemented for this platform".to_string(),
         ))
@@ -396,31 +423,31 @@ mod tests {
     #[test]
     fn deduplication_is_deterministic_by_name_and_path() {
         let fonts = vec![
-            FontInfo::new(
-                PathBuf::from("/fonts/Beta.ttf"),
+            FontliftFontFaceInfo::new(
+                FontliftFontSource::new(PathBuf::from("/fonts/Beta.ttf")),
                 "Beta".into(),
                 "Beta".into(),
                 "BetaFamily".into(),
                 "Regular".into(),
             ),
-            FontInfo::new(
-                PathBuf::from("/fonts/alpha.ttf"),
+            FontliftFontFaceInfo::new(
+                FontliftFontSource::new(PathBuf::from("/fonts/alpha.ttf")),
                 "Alpha".into(),
                 "Alpha".into(),
                 "AlphaFamily".into(),
                 "Regular".into(),
             ),
             // duplicate same name/path differing only in case
-            FontInfo::new(
-                PathBuf::from("/fonts/alpha.ttf"),
+            FontliftFontFaceInfo::new(
+                FontliftFontSource::new(PathBuf::from("/fonts/alpha.ttf")),
                 "alpha".into(),
                 "alpha".into(),
                 "AlphaFamily".into(),
                 "Regular".into(),
             ),
             // same name different path should keep both but order deterministic
-            FontInfo::new(
-                PathBuf::from("/fonts/alpha-bold.ttf"),
+            FontliftFontFaceInfo::new(
+                FontliftFontSource::new(PathBuf::from("/fonts/alpha-bold.ttf")),
                 "Alpha".into(),
                 "Alpha".into(),
                 "AlphaFamily".into(),
@@ -432,7 +459,7 @@ mod tests {
 
         let names_and_paths: Vec<(String, String)> = deduped
             .into_iter()
-            .map(|f| (f.postscript_name, f.path.display().to_string()))
+            .map(|f| (f.postscript_name, f.source.path.display().to_string()))
             .collect();
 
         assert_eq!(
@@ -477,12 +504,12 @@ mod tests {
         let path = PathBuf::from("/fonts/Arial-Bold.ttf");
         let info = validation::extract_basic_info_from_path(&path);
 
-        assert_eq!(info.path, path);
+        assert_eq!(info.source.path, path);
         assert_eq!(info.postscript_name, "Arial-Bold");
         assert_eq!(info.full_name, "Arial-Bold");
         assert_eq!(info.family_name, "Arial");
         assert_eq!(info.style, "Bold");
-        assert_eq!(info.format, Some("TTF".to_string()));
+        assert_eq!(info.source.format, Some("TTF".to_string()));
     }
 
     #[test]

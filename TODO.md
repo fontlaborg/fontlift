@@ -13,7 +13,7 @@
 - [x] Expand CLI to match legacy ergonomics: aliases, batch file/dir installs, name- and path-based uninstall/remove, `-p/-n/-s`, `--json`, `--dry-run`, `--quiet/--verbose`, deterministic sorting, and help text updates.
 - [x] Add CLI `list` JSON output with deterministic sorting and deduplication for repeat entries.
 - [x] Add shell completion generation via `fontlift completions <shell>` and align exit codes with legacy binaries.
-- [~] Expand Python bindings: typed `FontInfo` exposed to Python with `.dict()` for JSON, name-based operations/cleanup toggles/admin scope still pending; Fire CLI parity TBD.
+- [~] Expand Python bindings: typed `FontliftFontSource`/`FontliftFontFaceInfo` exposed to Python with `.dict()` for JSON; name-based operations/cleanup toggles/admin scope still pending; Fire CLI parity TBD.
 - [x] Add `pyproject.toml` + packaging workflow for platform wheels; sync Python versioning with git tags via hatch-vcs.
 - [ ] Create font fixtures (TTF/OTF/TTC) and golden-output recordings from legacy binaries for list/install/uninstall/remove/cleanup.
 - [ ] Add Rust integration tests per platform with temp dirs and admin-check mocks; add Python `pytest` integration via `maturin develop`.

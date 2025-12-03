@@ -10,6 +10,8 @@ from typing import Any, Dict, List
 _native = import_module("fontlift._native")
 
 FontliftManager = _native.FontliftManager  # re-export
+FontSource = _native.FontSource
+FontFaceInfo = _native.FontFaceInfo  # exposed for structured metadata
 
 
 def list_fonts() -> List[Dict[str, Any]]:
@@ -35,6 +37,8 @@ def cleanup(admin: bool = False) -> None:
 
 __all__ = [
     "FontliftManager",
+    "FontSource",
+    "FontFaceInfo",
     "list_fonts",
     "list",
     "install",

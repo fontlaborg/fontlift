@@ -12,7 +12,7 @@
 - **macOS (Swift CLI)** missing: Core Text register/unregister, conflict detection/auto-resolve, rich metadata extraction, prune + third-party cache cleanup, system font protections with overrides, simulation/fake registry mode, environment overrides, complete flag set.
 - **Windows (C++ CLI)** missing: real registry + GDI wiring for install/uninstall/list, conflict removal, cache cleanup (FontCache service + Adobe caches), admin detection paths, robust registry pruning, exit-code parity.
 - **Cross-platform/CLI UX** missing: aliases (`i/u/rm/c/l`), `-p/-n/-s` toggles, JSON output, batch file/dir handling, quiet/verbose, dry-run, deterministic sorting, consistent error strings.
-- **Python** missing: typed `FontInfo`, name-based operations, cleanup/prune toggles, JSON-friendly outputs, Fire-compatible CLI, maturin/pyproject for wheels, version sync with Cargo.
+- **Python** missing: typed `FontliftFontSource/FontliftFontFaceInfo`, name-based operations, cleanup/prune toggles, JSON-friendly outputs, Fire-compatible CLI, maturin/pyproject for wheels, version sync with Cargo.
 - **Verification** missing: golden-output tests, fixture fonts, CI matrix for macOS/Windows, migration docs from legacy CLIs.
 
 ## Workstreams (actionable)
@@ -42,10 +42,10 @@
   - [x] Added batch file/dir handling plus `--dry-run`/`--quiet`/`--verbose` toggles for install/uninstall/remove commands.
 
 ### WS4 — Python bindings & packaging
-- Expose full surface: typed `FontInfo`, list/install/uninstall/remove/cleanup with scope/admin/prune/cache/dry-run options, name-based ops, JSON-friendly return values.
+- Expose full surface: typed `FontliftFontSource`/`FontliftFontFaceInfo`, list/install/uninstall/remove/cleanup with scope/admin/prune/cache/dry-run options, name-based ops, JSON-friendly return values.
 - Add Fire-based CLI entry mirroring Rust CLI; keep behavior parity.
 - Ship `pyproject.toml` + `maturin` workflow for universal2 macOS and win64/aarch64 wheels; sync versioning with Cargo.
-- Progress 2025-12-02: `FontInfo` now exported as a PyO3 class with `.dict()` helper; remaining gaps include name-based ops, cleanup/prune toggles, Fire CLI parity, and wider flag coverage.
+- Progress 2025-12-03: PyO3 exports `FontSource` + `FontFaceInfo` classes (scope/format/face_index metadata), list/install/uninstall/remove now route through `FontliftFontSource`; remaining gaps include name-based ops, cleanup/prune toggles, Fire CLI parity, and wheel packaging.
 
 ### WS5 — Tests, fixtures, and parity verification
 - Add font fixtures (TTF/OTF/TTC) and golden-output recordings from legacy binaries for list/install/uninstall/remove/cleanup.
@@ -75,4 +75,4 @@
 - Platform APIs: macOS via Core Text/Objective-C; Windows via `windows` crate (GDI + Registry).
 - Tooling: Rust 1.75+, PyO3 + maturin for bindings; clap for CLI; tests via `cargo test` + `pytest`.
 
-*Last updated: 2025-12-01*
+*Last updated: 2025-12-03*

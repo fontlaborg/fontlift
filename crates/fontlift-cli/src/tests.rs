@@ -1,7 +1,6 @@
 use super::*;
 use clap_complete::Shell;
-use fontlift_core::FontInfo;
-use fontlift_core::{FontError, FontManager, FontScope};
+use fontlift_core::{FontError, FontManager, FontScope, FontliftFontFaceInfo, FontliftFontSource};
 use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
@@ -23,9 +22,9 @@ fn test_cli_parsing() {
     }
 }
 
-fn sample_font(path: &str, postscript: &str) -> FontInfo {
-    FontInfo::new(
-        PathBuf::from(path),
+fn sample_font(path: &str, postscript: &str) -> FontliftFontFaceInfo {
+    FontliftFontFaceInfo::new(
+        FontliftFontSource::new(PathBuf::from(path)),
         postscript.to_string(),
         postscript.to_string(),
         "Family".to_string(),
@@ -155,39 +154,28 @@ struct RecordingManager {
 }
 
 impl FontManager for RecordingManager {
-    fn install_font(
-        &self,
-        path: &std::path::Path,
-        scope: FontScope,
-    ) -> fontlift_core::FontResult<()> {
+    fn install_font(&self, source: &FontliftFontSource) -> fontlift_core::FontResult<()> {
+        let scope = source.scope.unwrap_or(FontScope::User);
         self.installs
             .lock()
             .expect("lock")
-            .push((path.to_path_buf(), scope));
+            .push((source.path.clone(), scope));
         Ok(())
     }
 
-    fn uninstall_font(
-        &self,
-        _path: &std::path::Path,
-        _scope: FontScope,
-    ) -> fontlift_core::FontResult<()> {
+    fn uninstall_font(&self, _source: &FontliftFontSource) -> fontlift_core::FontResult<()> {
         Ok(())
     }
 
-    fn remove_font(
-        &self,
-        _path: &std::path::Path,
-        _scope: FontScope,
-    ) -> fontlift_core::FontResult<()> {
+    fn remove_font(&self, _source: &FontliftFontSource) -> fontlift_core::FontResult<()> {
         Ok(())
     }
 
-    fn is_font_installed(&self, _path: &std::path::Path) -> fontlift_core::FontResult<bool> {
+    fn is_font_installed(&self, _source: &FontliftFontSource) -> fontlift_core::FontResult<bool> {
         Ok(false)
     }
 
-    fn list_installed_fonts(&self) -> fontlift_core::FontResult<Vec<FontInfo>> {
+    fn list_installed_fonts(&self) -> fontlift_core::FontResult<Vec<FontliftFontFaceInfo>> {
         Ok(Vec::new())
     }
 
@@ -214,19 +202,12 @@ impl ScopedUninstallManager {
 }
 
 impl FontManager for ScopedUninstallManager {
-    fn install_font(
-        &self,
-        _path: &std::path::Path,
-        _scope: FontScope,
-    ) -> fontlift_core::FontResult<()> {
+    fn install_font(&self, _source: &FontliftFontSource) -> fontlift_core::FontResult<()> {
         Ok(())
     }
 
-    fn uninstall_font(
-        &self,
-        _path: &std::path::Path,
-        scope: FontScope,
-    ) -> fontlift_core::FontResult<()> {
+    fn uninstall_font(&self, source: &FontliftFontSource) -> fontlift_core::FontResult<()> {
+        let scope = source.scope.unwrap_or(FontScope::User);
         self.uninstall_scopes.lock().expect("lock").push(scope);
 
         match scope {
@@ -237,21 +218,18 @@ impl FontManager for ScopedUninstallManager {
         }
     }
 
-    fn remove_font(
-        &self,
-        _path: &std::path::Path,
-        _scope: FontScope,
-    ) -> fontlift_core::FontResult<()> {
+    fn remove_font(&self, _source: &FontliftFontSource) -> fontlift_core::FontResult<()> {
         Ok(())
     }
 
-    fn is_font_installed(&self, _path: &std::path::Path) -> fontlift_core::FontResult<bool> {
+    fn is_font_installed(&self, _source: &FontliftFontSource) -> fontlift_core::FontResult<bool> {
         Ok(true)
     }
 
-    fn list_installed_fonts(&self) -> fontlift_core::FontResult<Vec<FontInfo>> {
-        Ok(vec![FontInfo::new(
-            PathBuf::from("/Library/Fonts/ScopedUninstall.ttf"),
+    fn list_installed_fonts(&self) -> fontlift_core::FontResult<Vec<FontliftFontFaceInfo>> {
+        Ok(vec![FontliftFontFaceInfo::new(
+            FontliftFontSource::new(PathBuf::from("/Library/Fonts/ScopedUninstall.ttf"))
+                .with_scope(None),
             "ScopedUninstall".to_string(),
             "Scoped Uninstall".to_string(),
             "Scoped".to_string(),

@@ -4,7 +4,8 @@
 //! implementing the same functionality as the Swift CLI but in Rust.
 
 use fontlift_core::{
-    protection, validation, FontError, FontInfo, FontManager, FontResult, FontScope,
+    protection, validation, FontError, FontManager, FontResult, FontScope, FontliftFontFaceInfo,
+    FontliftFontSource,
 };
 use std::env;
 use std::fs;
@@ -46,6 +47,7 @@ fn fake_registry_root() -> Option<PathBuf> {
     env::var_os("FONTLIFT_FAKE_REGISTRY_ROOT").map(PathBuf::from)
 }
 
+#[allow(dead_code)]
 fn fake_registry_target(root: &Path, scope: FontScope, source: &Path) -> FontResult<PathBuf> {
     let file_name = source.file_name().ok_or_else(|| {
         FontError::InvalidFormat("Font path must include a file name".to_string())
@@ -220,25 +222,26 @@ fn font_format_to_string(format: CTFontFormat) -> Option<String> {
     }
 }
 
-fn descriptor_to_font_info(descriptor: &CTFontDescriptor) -> Option<FontInfo> {
+fn descriptor_to_font_face_info(descriptor: &CTFontDescriptor) -> Option<FontliftFontFaceInfo> {
     let path = descriptor.font_path()?;
     let postscript_name = descriptor.font_name();
     let display_name = descriptor.display_name();
     let family_name = descriptor.family_name();
     let style_name = descriptor.style_name();
 
-    let mut info = FontInfo::new(
-        path.clone(),
+    let mut source = FontliftFontSource::new(path.clone()).with_scope(Some(scope_from_path(&path)));
+
+    if let Some(format) = descriptor.font_format() {
+        source = source.with_format(font_format_to_string(format));
+    }
+
+    let mut info = FontliftFontFaceInfo::new(
+        source,
         postscript_name.to_string(),
         display_name.to_string(),
         family_name.to_string(),
         style_name.to_string(),
-    )
-    .with_scope(Some(scope_from_path(&path)));
-
-    if let Some(format) = descriptor.font_format() {
-        info.format = font_format_to_string(format);
-    }
+    );
 
     if let Some(traits) = descriptor
         .attributes()
@@ -308,10 +311,11 @@ impl MacFontManager {
     }
 
     /// Extract font information using basic filename parsing as fallback
-    fn get_font_info_from_path(&self, path: &Path) -> FontResult<FontInfo> {
+    fn get_font_info_from_path(&self, path: &Path) -> FontResult<FontliftFontFaceInfo> {
         validation::validate_font_file(path)?;
 
-        let info = validation::extract_basic_info_from_path(path);
+        let mut info = validation::extract_basic_info_from_path(path);
+        info.source.scope = Some(scope_from_path(path));
         Ok(info)
     }
 
@@ -396,7 +400,8 @@ impl MacFontManager {
         }
     }
 
-    fn install_font_fake(&self, path: &Path, scope: FontScope) -> FontResult<()> {
+    fn install_font_fake(&self, source: &FontliftFontSource, scope: FontScope) -> FontResult<()> {
+        let path = &source.path;
         let target_dir = self.target_directory(scope)?;
         let file_name = path.file_name().ok_or_else(|| {
             FontError::InvalidFormat("Font path is missing a filename".to_string())
@@ -415,7 +420,8 @@ impl MacFontManager {
         Ok(())
     }
 
-    fn uninstall_font_fake(&self, path: &Path, scope: FontScope) -> FontResult<()> {
+    fn uninstall_font_fake(&self, source: &FontliftFontSource, scope: FontScope) -> FontResult<()> {
+        let path = &source.path;
         let target_dir = self.target_directory(scope)?;
         let Some(file_name) = path.file_name() else {
             return Err(FontError::InvalidFormat(
@@ -432,7 +438,8 @@ impl MacFontManager {
         }
     }
 
-    fn list_installed_fonts_fake(&self) -> FontResult<Vec<FontInfo>> {
+    #[allow(dead_code)]
+    fn list_installed_fonts_fake(&self) -> FontResult<Vec<FontliftFontFaceInfo>> {
         let mut fonts = Vec::new();
 
         for scope in [FontScope::User, FontScope::System] {
@@ -480,7 +487,9 @@ impl Default for MacFontManager {
 }
 
 impl FontManager for MacFontManager {
-    fn install_font(&self, path: &Path, scope: FontScope) -> FontResult<()> {
+    fn install_font(&self, source: &FontliftFontSource) -> FontResult<()> {
+        let scope = source.scope.unwrap_or(FontScope::User);
+        let path = &source.path;
         // Validate inputs
         validation::validate_font_file(path)?;
         self.validate_system_operation(scope)?;
@@ -490,12 +499,14 @@ impl FontManager for MacFontManager {
         }
 
         if self.is_fake_registry_enabled() {
-            return self.install_font_fake(path, scope);
+            return self.install_font_fake(source, scope);
         }
         self.install_font_core_text(path, scope)
     }
 
-    fn uninstall_font(&self, path: &Path, scope: FontScope) -> FontResult<()> {
+    fn uninstall_font(&self, source: &FontliftFontSource) -> FontResult<()> {
+        let scope = source.scope.unwrap_or(FontScope::User);
+        let path = &source.path;
         validation::validate_font_file(path)?;
         self.validate_system_operation(scope)?;
 
@@ -504,7 +515,7 @@ impl FontManager for MacFontManager {
         }
 
         if self.is_fake_registry_enabled() {
-            return self.uninstall_font_fake(path, scope);
+            return self.uninstall_font_fake(source, scope);
         }
 
         // Convert path to CFURL for Core Text
@@ -539,9 +550,11 @@ impl FontManager for MacFontManager {
         }
     }
 
-    fn remove_font(&self, path: &Path, scope: FontScope) -> FontResult<()> {
+    fn remove_font(&self, source: &FontliftFontSource) -> FontResult<()> {
+        let _scope = source.scope.unwrap_or(FontScope::User);
+        let path = &source.path;
         // First uninstall the font
-        self.uninstall_font(path, scope)?;
+        self.uninstall_font(source)?;
 
         // Then delete the file if it's not in a system directory
         if self.is_system_font_path(path) {
@@ -553,13 +566,17 @@ impl FontManager for MacFontManager {
         Ok(())
     }
 
-    fn is_font_installed(&self, path: &Path) -> FontResult<bool> {
+    fn is_font_installed(&self, source: &FontliftFontSource) -> FontResult<bool> {
+        let path = &source.path;
         // For now, just check if the file exists
         // TODO: Implement actual installation checking
         Ok(path.exists())
     }
 
-    fn list_installed_fonts(&self) -> FontResult<Vec<FontInfo>> {
+    fn list_installed_fonts(&self) -> FontResult<Vec<FontliftFontFaceInfo>> {
+        if self.is_fake_registry_enabled() {
+            return self.list_installed_fonts_fake();
+        }
         // Get all available font URLs from Core Text
         let font_urls = unsafe { ct_font_manager::CTFontManagerCopyAvailableFontURLs() };
 
@@ -585,7 +602,7 @@ impl FontManager for MacFontManager {
 
                     for idx in 0..descriptor_array.len() {
                         if let Some(descriptor) = descriptor_array.get(idx) {
-                            if let Some(info) = descriptor_to_font_info(&descriptor) {
+                            if let Some(info) = descriptor_to_font_face_info(&descriptor) {
                                 fonts.push(info);
                                 continue;
                             }
@@ -601,7 +618,7 @@ impl FontManager for MacFontManager {
 
                     match self.get_font_info_from_path(&path) {
                         Ok(mut font_info) => {
-                            font_info.scope = Some(scope_from_path(&path));
+                            font_info.source.scope = Some(scope_from_path(&path));
                             fonts.push(font_info);
                         }
                         Err(_) => {
@@ -768,6 +785,7 @@ mod tests {
 
     #[test]
     fn test_mac_font_manager_creation() {
+        std::env::remove_var("FONTLIFT_FAKE_REGISTRY_ROOT");
         let manager = MacFontManager::new();
         assert!(!manager.is_fake_registry_enabled());
     }
@@ -862,14 +880,14 @@ mod tests {
             ]);
 
         let descriptor = ct_font_descriptor::new_from_attributes(&attrs);
-        let info = descriptor_to_font_info(&descriptor).expect("font info");
+        let info = descriptor_to_font_face_info(&descriptor).expect("font info");
 
         assert_eq!(info.postscript_name, "TestSans-Bold");
         assert_eq!(info.full_name, "Test Sans Bold");
         assert_eq!(info.family_name, "Test Sans");
         assert_eq!(info.style, "Bold");
-        assert_eq!(info.format.as_deref(), Some("OpenTypeTrueType"));
-        assert_eq!(info.scope, Some(FontScope::System));
+        assert_eq!(info.source.format.as_deref(), Some("OpenTypeTrueType"));
+        assert_eq!(info.source.scope, Some(FontScope::System));
     }
 
     #[test]
@@ -893,8 +911,10 @@ mod tests {
         let source_font = temp.path().join("DemoFake.ttf");
         fs::write(&source_font, b"dummy font").expect("write font");
 
+        let source = FontliftFontSource::new(source_font.clone()).with_scope(Some(FontScope::User));
+
         manager
-            .install_font(&source_font, FontScope::User)
+            .install_font(&source)
             .expect("install in fake registry");
 
         let installed_path = fake_root.join("Library/Fonts/DemoFake.ttf");
@@ -905,10 +925,13 @@ mod tests {
 
         let listed = manager.list_installed_fonts().expect("list");
         assert_eq!(listed.len(), 1);
-        assert_eq!(listed[0].scope, Some(FontScope::User));
+        assert_eq!(listed[0].source.scope, Some(FontScope::User));
+
+        let installed_source =
+            FontliftFontSource::new(installed_path.clone()).with_scope(Some(FontScope::User));
 
         manager
-            .uninstall_font(&installed_path, FontScope::User)
+            .uninstall_font(&installed_source)
             .expect("uninstall from fake registry");
         assert!(
             !installed_path.exists(),
@@ -928,8 +951,10 @@ mod tests {
         let source_font = temp.path().join("DemoSystem.ttf");
         fs::write(&source_font, b"dummy font").expect("write font");
 
+        let source = FontliftFontSource::new(source_font.clone()).with_scope(Some(FontScope::System));
+
         manager
-            .install_font(&source_font, FontScope::System)
+            .install_font(&source)
             .expect("system install should bypass admin in fake mode");
 
         let installed_path = fake_root.join("System/Library/Fonts/DemoSystem.ttf");

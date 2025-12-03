@@ -1,6 +1,9 @@
 use clap::CommandFactory;
 use clap_complete::{generate, Shell};
-use fontlift_core::{protection, validation, FontError, FontInfo, FontManager, FontScope};
+use fontlift_core::{
+    protection, validation, FontError, FontManager, FontScope, FontliftFontFaceInfo,
+    FontliftFontSource,
+};
 use serde_json::to_string_pretty;
 use std::collections::BTreeSet;
 use std::fs;
@@ -94,7 +97,8 @@ fn uninstall_across_scopes(
     let mut last_error: Option<FontError> = None;
 
     for scope in scope_order(preferred_scope) {
-        match manager.uninstall_font(path, scope) {
+        let source = FontliftFontSource::new(path.to_path_buf()).with_scope(Some(scope));
+        match manager.uninstall_font(&source) {
             Ok(()) => return Ok(scope),
             Err(err) => last_error = Some(err),
         }
@@ -112,7 +116,7 @@ fn uninstall_across_scopes(
 
 /// Prepare list output according to options (sorting/deduplication is deterministic)
 pub fn render_list_output(
-    mut fonts: Vec<FontInfo>,
+    mut fonts: Vec<FontliftFontFaceInfo>,
     opts: ListRenderOptions,
 ) -> Result<ListRender, FontError> {
     // JSON and explicitly sorted output should dedupe the underlying font records first
@@ -136,9 +140,13 @@ pub fn render_list_output(
     let mut lines = Vec::new();
     for font in fonts {
         if show_path && show_name {
-            lines.push(format!("{}::{}", font.path.display(), font.postscript_name));
+            lines.push(format!(
+                "{}::{}",
+                font.source.path.display(),
+                font.postscript_name
+            ));
         } else if show_path {
-            lines.push(font.path.display().to_string());
+            lines.push(font.source.path.display().to_string());
         } else {
             lines.push(font.postscript_name);
         }
@@ -284,7 +292,8 @@ pub async fn handle_install_command(
         }
 
         log_status(&opts, &format!("Installing font from: {}", path.display()));
-        manager.install_font(&path, scope)?;
+        let source = FontliftFontSource::new(path.clone()).with_scope(Some(scope));
+        manager.install_font(&source)?;
         log_status(&opts, "✅ Successfully installed font");
     }
 
@@ -314,7 +323,7 @@ pub async fn handle_uninstall_command(
             .iter()
             .find(|f| f.postscript_name == font_name || f.full_name == font_name)
         {
-            let starting_scope = font.scope.unwrap_or(default_scope);
+            let starting_scope = font.source.scope.unwrap_or(default_scope);
 
             if opts.dry_run {
                 log_status(
@@ -322,12 +331,13 @@ pub async fn handle_uninstall_command(
                     &format!(
                         "DRY-RUN: would uninstall '{}' at {} (checking {})",
                         font_name,
-                        font.path.display(),
+                        font.source.path.display(),
                         describe_scope_chain(starting_scope)
                     ),
                 );
             } else {
-                let used_scope = uninstall_across_scopes(&manager, &font.path, starting_scope)?;
+                let used_scope =
+                    uninstall_across_scopes(&manager, &font.source.path, starting_scope)?;
                 log_status(
                     &opts,
                     &format!(
@@ -403,11 +413,13 @@ pub async fn handle_remove_command(
                     &format!(
                         "DRY-RUN: would remove '{}' at {}",
                         font_name,
-                        font.path.display()
+                        font.source.path.display()
                     ),
                 );
             } else {
-                manager.remove_font(&font.path, scope)?;
+                let source =
+                    FontliftFontSource::new(font.source.path.clone()).with_scope(font.source.scope);
+                manager.remove_font(&source)?;
                 log_status(
                     &opts,
                     &format!("✅ Successfully removed font '{}'", font_name),
@@ -436,7 +448,8 @@ pub async fn handle_remove_command(
                 &format!("Removing font from path: {}", path.display()),
             );
 
-            manager.remove_font(&path, scope)?;
+            let source = FontliftFontSource::new(path.clone()).with_scope(Some(scope));
+            manager.remove_font(&source)?;
             log_status(&opts, "✅ Successfully removed font");
         }
     }

@@ -5,21 +5,69 @@
 
 #![allow(non_local_definitions)]
 
-use fontlift_core::{FontInfo, FontManager, FontScope};
+use fontlift_core::{
+    FontManager, FontScope, FontliftFontFaceInfo, FontliftFontSource,
+};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
+use pyo3::types::{PyDict, PyModule};
+use pyo3::PyCell;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Python representation of `FontInfo` returned by Rust core
-#[pyclass(module = "fontlift._native", name = "FontInfo")]
+/// Python representation of `FontliftFontSource`
+#[pyclass(module = "fontlift._native", name = "FontSource")]
 #[derive(Clone)]
-struct PyFontInfo {
+struct PyFontSource {
     #[pyo3(get)]
     path: String,
+    #[pyo3(get)]
+    format: Option<String>,
+    #[pyo3(get)]
+    face_index: Option<u32>,
+    #[pyo3(get)]
+    is_collection: Option<bool>,
+    #[pyo3(get)]
+    scope: Option<String>,
+}
+
+impl From<FontliftFontSource> for PyFontSource {
+    fn from(source: FontliftFontSource) -> Self {
+        let scope = source.scope.map(|s| match s {
+            FontScope::User => "user".to_string(),
+            FontScope::System => "system".to_string(),
+        });
+        Self {
+            path: source.path.to_string_lossy().into_owned(),
+            format: source.format,
+            face_index: source.face_index,
+            is_collection: source.is_collection,
+            scope,
+        }
+    }
+}
+
+fn source_dict<'py>(
+    py: Python<'py>,
+    source: &PyFontSource,
+) -> PyResult<Bound<'py, PyDict>> {
+    let dict = PyDict::new(py);
+    dict.set_item("path", &source.path)?;
+    dict.set_item("format", &source.format)?;
+    dict.set_item("face_index", &source.face_index)?;
+    dict.set_item("is_collection", &source.is_collection)?;
+    dict.set_item("scope", &source.scope)?;
+    Ok(dict)
+}
+
+/// Python representation of `FontliftFontFaceInfo` returned by Rust core
+#[pyclass(module = "fontlift._native", name = "FontFaceInfo")]
+#[derive(Clone)]
+struct PyFontFaceInfo {
+    #[pyo3(get)]
+    source: PyFontSource,
     #[pyo3(get)]
     postscript_name: String,
     #[pyo3(get)]
@@ -32,54 +80,47 @@ struct PyFontInfo {
     weight: Option<u16>,
     #[pyo3(get)]
     italic: Option<bool>,
-    #[pyo3(get)]
-    format: Option<String>,
-    #[pyo3(get)]
-    scope: Option<String>,
 }
 
-impl From<FontInfo> for PyFontInfo {
-    fn from(info: FontInfo) -> Self {
-        let scope = info.scope.map(|s| match s {
-            FontScope::User => "user".to_string(),
-            FontScope::System => "system".to_string(),
-        });
+impl From<FontliftFontFaceInfo> for PyFontFaceInfo {
+    fn from(info: FontliftFontFaceInfo) -> Self {
+        let source = PyFontSource::from(info.source.clone());
+
         Self {
-            path: info.path.to_string_lossy().into_owned(),
+            source,
             postscript_name: info.postscript_name,
             full_name: info.full_name,
             family_name: info.family_name,
             style: info.style,
             weight: info.weight,
             italic: info.italic,
-            format: info.format,
-            scope,
         }
     }
 }
 
 #[pymethods]
-impl PyFontInfo {
+impl PyFontFaceInfo {
     /// Return a JSON/dict-friendly representation of the font
     #[pyo3(name = "dict")]
-    fn dict_py(&self, py: Python) -> PyResult<PyObject> {
+    fn dict_py<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let dict = PyDict::new(py);
-        dict.set_item("path", &self.path)?;
+        dict.set_item("source", source_dict(py, &self.source)?)?;
+        dict.set_item("path", &self.source.path)?; // legacy top-level path
         dict.set_item("postscript_name", &self.postscript_name)?;
         dict.set_item("full_name", &self.full_name)?;
         dict.set_item("family_name", &self.family_name)?;
         dict.set_item("style", &self.style)?;
         dict.set_item("weight", self.weight)?;
         dict.set_item("italic", self.italic)?;
-        dict.set_item("format", &self.format)?;
-        dict.set_item("scope", &self.scope)?;
-        Ok(dict.into_py(py))
+        dict.set_item("format", &self.source.format)?;
+        dict.set_item("scope", &self.source.scope)?;
+        Ok(dict)
     }
 
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
-            "FontInfo(path='{path}', postscript_name='{ps_name}', style='{style}')",
-            path = self.path,
+            "FontFaceInfo(path='{path}', postscript_name='{ps_name}', style='{style}')",
+            path = self.source.path,
             ps_name = self.postscript_name,
             style = self.style
         ))
@@ -111,7 +152,7 @@ impl FontliftManager {
 
         let mut result = Vec::new();
         for font in fonts {
-            result.push(PyFontInfo::from(font).into_py(py));
+            result.push(PyFontFaceInfo::from(font).into_py(py));
         }
 
         Ok(result)
@@ -121,14 +162,11 @@ impl FontliftManager {
     #[pyo3(signature = (font_path, admin=false))]
     fn install_font(&self, font_path: &str, admin: bool) -> PyResult<()> {
         let path = PathBuf::from(font_path);
-        let scope = if admin {
-            FontScope::System
-        } else {
-            FontScope::User
-        };
+        let scope = if admin { FontScope::System } else { FontScope::User };
+        let source = FontliftFontSource::new(path).with_scope(Some(scope));
 
         self.manager
-            .install_font(&path, scope)
+            .install_font(&source)
             .map_err(|e| PyRuntimeError::new_err(format!("Failed to install font: {}", e)))?;
 
         Ok(())
@@ -137,10 +175,11 @@ impl FontliftManager {
     /// Check if a font is installed
     fn is_font_installed(&self, font_path: &str) -> PyResult<bool> {
         let path = PathBuf::from(font_path);
+        let source = FontliftFontSource::new(path);
 
         let installed = self
             .manager
-            .is_font_installed(&path)
+            .is_font_installed(&source)
             .map_err(|e| PyRuntimeError::new_err(format!("Failed to check font: {}", e)))?;
 
         Ok(installed)
@@ -150,14 +189,11 @@ impl FontliftManager {
     #[pyo3(signature = (font_path, admin=false))]
     fn uninstall_font(&self, font_path: &str, admin: bool) -> PyResult<()> {
         let path = PathBuf::from(font_path);
-        let scope = if admin {
-            FontScope::System
-        } else {
-            FontScope::User
-        };
+        let scope = if admin { FontScope::System } else { FontScope::User };
+        let source = FontliftFontSource::new(path).with_scope(Some(scope));
 
         self.manager
-            .uninstall_font(&path, scope)
+            .uninstall_font(&source)
             .map_err(|e| PyRuntimeError::new_err(format!("Failed to uninstall font: {}", e)))?;
 
         Ok(())
@@ -167,14 +203,11 @@ impl FontliftManager {
     #[pyo3(signature = (font_path, admin=false))]
     fn remove_font(&self, font_path: &str, admin: bool) -> PyResult<()> {
         let path = PathBuf::from(font_path);
-        let scope = if admin {
-            FontScope::System
-        } else {
-            FontScope::User
-        };
+        let scope = if admin { FontScope::System } else { FontScope::User };
+        let source = FontliftFontSource::new(path).with_scope(Some(scope));
 
         self.manager
-            .remove_font(&path, scope)
+            .remove_font(&source)
             .map_err(|e| PyRuntimeError::new_err(format!("Failed to remove font: {}", e)))?;
 
         Ok(())
@@ -220,14 +253,11 @@ fn create_platform_manager() -> Arc<dyn FontManager> {
 fn install(font_path: &str, admin: bool) -> PyResult<()> {
     let manager = create_platform_manager();
     let path = PathBuf::from(font_path);
-    let scope = if admin {
-        FontScope::System
-    } else {
-        FontScope::User
-    };
+    let scope = if admin { FontScope::System } else { FontScope::User };
+    let source = FontliftFontSource::new(path).with_scope(Some(scope));
 
     manager
-        .install_font(&path, scope)
+        .install_font(&source)
         .map_err(|e| PyRuntimeError::new_err(format!("Failed to install font: {}", e)))?;
 
     Ok(())
@@ -243,7 +273,7 @@ fn list() -> PyResult<Vec<PyObject>> {
     let mut result = Vec::new();
     Python::with_gil(|py| {
         for font in fonts {
-            result.push(PyFontInfo::from(font).into_py(py));
+            result.push(PyFontFaceInfo::from(font).into_py(py));
         }
     });
 
@@ -254,14 +284,11 @@ fn list() -> PyResult<Vec<PyObject>> {
 fn uninstall(font_path: &str, admin: bool) -> PyResult<()> {
     let manager = create_platform_manager();
     let path = PathBuf::from(font_path);
-    let scope = if admin {
-        FontScope::System
-    } else {
-        FontScope::User
-    };
+    let scope = if admin { FontScope::System } else { FontScope::User };
+    let source = FontliftFontSource::new(path).with_scope(Some(scope));
 
     manager
-        .uninstall_font(&path, scope)
+        .uninstall_font(&source)
         .map_err(|e| PyRuntimeError::new_err(format!("Failed to uninstall font: {}", e)))?;
 
     Ok(())
@@ -271,14 +298,11 @@ fn uninstall(font_path: &str, admin: bool) -> PyResult<()> {
 fn remove(font_path: &str, admin: bool) -> PyResult<()> {
     let manager = create_platform_manager();
     let path = PathBuf::from(font_path);
-    let scope = if admin {
-        FontScope::System
-    } else {
-        FontScope::User
-    };
+    let scope = if admin { FontScope::System } else { FontScope::User };
+    let source = FontliftFontSource::new(path).with_scope(Some(scope));
 
     manager
-        .remove_font(&path, scope)
+        .remove_font(&source)
         .map_err(|e| PyRuntimeError::new_err(format!("Failed to remove font: {}", e)))?;
 
     Ok(())
@@ -302,8 +326,9 @@ fn cleanup(admin: bool) -> PyResult<()> {
 
 /// Python module definition
 #[pymodule]
-fn _native(py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_class::<PyFontInfo>()?;
+fn _native(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<PyFontSource>()?;
+    m.add_class::<PyFontFaceInfo>()?;
     m.add_class::<FontliftManager>()?;
     m.add_function(wrap_pyfunction!(install, m)?)?;
     m.add_function(wrap_pyfunction!(list, m)?)?;
@@ -336,31 +361,32 @@ mod tests {
     #[test]
     fn py_font_info_exposes_fields_and_dict() {
         Python::with_gil(|py| {
-            let font_info = FontInfo {
-                path: PathBuf::from("/Library/Fonts/Example.ttf"),
-                postscript_name: "ExamplePS".to_string(),
-                full_name: "Example Full".to_string(),
-                family_name: "Example".to_string(),
-                style: "Regular".to_string(),
-                weight: Some(400),
-                italic: Some(false),
-                format: Some("TTF".to_string()),
-                scope: Some(FontScope::System),
-            };
+            let font_info = FontliftFontFaceInfo::new(
+                FontliftFontSource::new(PathBuf::from("/Library/Fonts/Example.ttf"))
+                    .with_format(Some("TTF".to_string()))
+                    .with_scope(Some(FontScope::System)),
+                "ExamplePS".to_string(),
+                "Example Full".to_string(),
+                "Example".to_string(),
+                "Regular".to_string(),
+            );
 
-            let py_obj = PyFontInfo::from(font_info).into_py(py);
-            let cell: &PyCell<PyFontInfo> = py_obj.as_ref(py).downcast().unwrap();
+            let py_obj = PyFontFaceInfo::from(font_info).into_py(py);
+            let cell = py_obj
+                .bind(py)
+                .downcast::<PyCell<PyFontFaceInfo>>()
+                .unwrap();
             let borrowed = cell.borrow();
 
             assert_eq!(borrowed.postscript_name, "ExamplePS");
             assert_eq!(borrowed.family_name, "Example");
             assert_eq!(borrowed.weight, Some(400));
             assert_eq!(borrowed.italic, Some(false));
-            assert_eq!(borrowed.format.as_deref(), Some("TTF"));
-            assert_eq!(borrowed.scope.as_deref(), Some("system"));
+            assert_eq!(borrowed.source.format.as_deref(), Some("TTF"));
+            assert_eq!(borrowed.source.scope.as_deref(), Some("system"));
 
             let dict_obj = cell.call_method0("dict").unwrap();
-            let dict: &PyDict = dict_obj.downcast().unwrap();
+            let dict = dict_obj.downcast::<PyDict>().unwrap();
             let style: String = dict
                 .get_item("style")
                 .unwrap()

@@ -3,7 +3,10 @@
 #[cfg(test)]
 mod integration_tests {
     use crate::validation;
-    use crate::{FontError, FontScope, FontInfo, DummyFontManager, FontManager, cache};
+    use crate::{
+        cache, DummyFontManager, FontError, FontManager, FontScope, FontliftFontFaceInfo,
+        FontliftFontSource,
+    };
     use std::path::{Path, PathBuf};
     use tempfile::TempDir;
     
@@ -39,24 +42,24 @@ mod integration_tests {
     fn test_basic_font_info_extraction() {
         let path = PathBuf::from("/fonts/OpenSans-Bold.ttf");
         let info = validation::extract_basic_info_from_path(&path);
-        
-        assert_eq!(info.path, path);
+
+        assert_eq!(info.source.path, path);
         assert_eq!(info.postscript_name, "OpenSans-Bold");
         assert_eq!(info.family_name, "OpenSans");
         assert_eq!(info.style, "Bold");
-        assert_eq!(info.format, Some("TTF".to_string()));
+        assert_eq!(info.source.format, Some("TTF".to_string()));
     }
     
     #[test]
     fn test_font_info_extraction_simple() {
         let path = PathBuf::from("/fonts/Arial.ttf");
         let info = validation::extract_basic_info_from_path(&path);
-        
-        assert_eq!(info.path, path);
+
+        assert_eq!(info.source.path, path);
         assert_eq!(info.postscript_name, "Arial");
         assert_eq!(info.family_name, "Arial");
         assert_eq!(info.style, "Regular");
-        assert_eq!(info.format, Some("TTF".to_string()));
+        assert_eq!(info.source.format, Some("TTF".to_string()));
     }
     
     #[test]
@@ -86,16 +89,16 @@ mod integration_tests {
     #[test]
     fn test_dummy_font_manager() {
         let manager = DummyFontManager;
-        let path = PathBuf::from("test.ttf");
-        
+        let source = FontliftFontSource::new(PathBuf::from("test.ttf"));
+
         // All operations should return UnsupportedOperation
         assert!(matches!(
-            manager.install_font(&path, FontScope::User),
+            manager.install_font(&source),
             Err(FontError::UnsupportedOperation(_))
         ));
-        
+
         assert!(matches!(
-            manager.is_font_installed(&path),
+            manager.is_font_installed(&source),
             Err(FontError::UnsupportedOperation(_))
         ));
     }
@@ -103,15 +106,15 @@ mod integration_tests {
     #[test]
     fn test_font_info_creation() {
         let path = PathBuf::from("/fonts/TestFont-Regular.otf");
-        let info = FontInfo::new(
-            path.clone(),
+        let info = FontliftFontFaceInfo::new(
+            FontliftFontSource::new(path.clone()),
             "TestFont-Regular".to_string(),
             "TestFont Regular".to_string(),
             "TestFont".to_string(),
             "Regular".to_string(),
         );
-        
-        assert_eq!(info.path, path);
+
+        assert_eq!(info.source.path, path);
         assert_eq!(info.postscript_name, "TestFont-Regular");
         assert_eq!(info.full_name, "TestFont Regular");
         assert_eq!(info.family_name, "TestFont");
@@ -123,8 +126,8 @@ mod integration_tests {
     #[test]
     fn test_font_info_filename_stem() {
         let path = PathBuf::from("/fonts/Complex-Font-Name.ttf");
-        let info = FontInfo::new(
-            path.clone(),
+        let info = FontliftFontFaceInfo::new(
+            FontliftFontSource::new(path.clone()),
             "Complex-Font-Name".to_string(),
             "Complex Font Name".to_string(),
             "Complex Font".to_string(),
