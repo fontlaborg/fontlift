@@ -83,7 +83,7 @@ This document compares the feature set between existing Swift/macOS and C++/Wind
 - [ ] Progress indicators
 - [ ] JSON output mode
 - [ ] Font validation reports
-- [ ] Integration with fontsimi/typf
+- [ ] Integration with twasitors/typf
 
 ## Implementation Status Matrix
 
@@ -150,7 +150,7 @@ This document compares the feature set between existing Swift/macOS and C++/Wind
 ### Integration Metrics
 - ✅ **CLI Consistency**: Same command structure across platforms
 - ✅ **Library Integration**: Clean Rust API for other projects
-- ✅ **Bindings Support**: Python bindings ready for fontsimi
+- ✅ **Bindings Support**: Python bindings ready for twasitors
 - ✅ **Future Compatibility**: Extensible architecture for new platforms
 
 ## Implementation Roadmap
