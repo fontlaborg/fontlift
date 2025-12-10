@@ -73,7 +73,6 @@ pub async fn run_cli(cli: Cli) -> Result<(), FontError> {
 }
 
 /// CLI entry point
-#[tokio::main]
 pub async fn main() {
     env_logger::init();
 

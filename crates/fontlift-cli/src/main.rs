@@ -2,5 +2,5 @@
 
 #[tokio::main]
 async fn main() {
-    fontlift_cli::main();
+    fontlift_cli::main().await;
 }
