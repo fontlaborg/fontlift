@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- build.sh now bootstraps a `.venv` (prefers `uv venv`, falls back to `python -m venv`) before running `maturin develop`, so Python binding builds succeed without a pre-activated virtualenv.
 - Made `fontlift-python` bindings opt-in via a `python-bindings` feature so default workspace builds no longer require a host Python toolchain; `pyproject.toml` and build scripts enable the feature for maturin wheel builds.
 - Switched Python packaging to the `maturin` build backend with an explicit crate manifest path to silence pep517 build warnings and align pip builds with the Rust extension.
 - Fixed Windows registry value matching helper gating so `fontlift-platform-win` tests compile on non-Windows hosts, keeping cross-platform test runs green.

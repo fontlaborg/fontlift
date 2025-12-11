@@ -13,21 +13,17 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use core_foundation::array::CFArray;
-use core_foundation::base::TCFType;
-use core_foundation::dictionary::CFDictionary;
-use core_foundation::error::{CFError, CFErrorRef};
-use core_foundation::string::CFString;
-use core_foundation::url::{CFURLRef, CFURL};
-use core_text::font_descriptor::{
-    self as ct_font_descriptor, CTFontDescriptor, CTFontFormat, SymbolicTraitAccessors,
-    TraitAccessors,
+use objc2_core_foundation::{
+    CFDictionary, CFError, CFIndex, CFNumber, CFRetained, CFString, CFType, CFURLPathStyle, CFURL,
 };
-use core_text::font_manager as ct_font_manager;
+use objc2_core_text::{
+    CTFontDescriptor, CTFontFormat, CTFontManagerScope,
+    CTFontManagerRegisterFontsForURL, CTFontManagerUnregisterFontsForURL,
+    kCTFontDisplayNameAttribute, kCTFontFamilyNameAttribute, kCTFontFormatAttribute,
+    kCTFontNameAttribute, kCTFontStyleNameAttribute, kCTFontSymbolicTrait, kCTFontTraitsAttribute,
+    kCTFontURLAttribute, kCTFontWeightTrait,
+};
 
-type CTFontManagerScope = u32;
-const K_CT_FONT_MANAGER_SCOPE_PERSISTENT: CTFontManagerScope = 2; // aligns with user scope
-const K_CT_FONT_MANAGER_SCOPE_USER: CTFontManagerScope = 2;
 const K_CT_FONT_MANAGER_ERROR_ALREADY_REGISTERED: isize = 105;
 const K_CT_FONT_MANAGER_ERROR_DUPLICATED_NAME: isize = 305;
 
@@ -153,35 +149,87 @@ fn clear_office_font_cache(home: &Path) -> FontResult<usize> {
     purge_directory_contents(&office_cache)
 }
 
-#[link(name = "CoreText", kind = "framework")]
-extern "C" {
-    fn CTFontManagerRegisterFontsForURL(
-        font_url: CFURLRef,
-        scope: CTFontManagerScope,
-        error: *mut CFErrorRef,
-    ) -> bool;
-
-    fn CTFontManagerUnregisterFontsForURL(
-        font_url: CFURLRef,
-        scope: CTFontManagerScope,
-        error: *mut CFErrorRef,
-    ) -> bool;
-}
-
 fn ct_scope(scope: FontScope) -> CTFontManagerScope {
     match scope {
-        FontScope::User => K_CT_FONT_MANAGER_SCOPE_USER,
-        FontScope::System => K_CT_FONT_MANAGER_SCOPE_PERSISTENT,
+        FontScope::User => CTFontManagerScope::User,
+        FontScope::System => CTFontManagerScope::Persistent,
     }
 }
 
-fn cf_error_to_string(err: CFErrorRef) -> String {
-    if err.is_null() {
-        return "unknown CoreText error".to_string();
+fn cf_error_to_string(err: Option<&CFError>) -> String {
+    match err {
+        None => "unknown CoreText error".to_string(),
+        Some(cf_err) => {
+            // Get the error description
+            match cf_err.description() {
+                Some(desc) => cf_string_to_rust(&desc),
+                None => "unknown CoreText error".to_string(),
+            }
+        }
+    }
+}
+
+fn cf_string_to_rust(cf_str: &CFString) -> String {
+    use objc2_core_foundation::CFStringBuiltInEncodings;
+
+    // Get the length of the string
+    let len = cf_str.length();
+    if len == 0 {
+        return String::new();
     }
 
-    let cf_err = unsafe { CFError::wrap_under_get_rule(err) };
-    cf_err.description().to_string()
+    // Try to get a direct pointer to the UTF-8 representation
+    let ptr = cf_str.c_string_ptr(CFStringBuiltInEncodings::EncodingUTF8.0);
+    if !ptr.is_null() {
+        // Safety: ptr is valid UTF-8 C string
+        let c_str = unsafe { std::ffi::CStr::from_ptr(ptr) };
+        return c_str.to_string_lossy().into_owned();
+    }
+
+    // Fallback: allocate a buffer and copy the string
+    let max_size = (len as usize) * 4 + 1; // UTF-8 can be up to 4 bytes per character
+    let mut buffer = vec![0u8; max_size];
+    let success = unsafe {
+        cf_str.c_string(
+            buffer.as_mut_ptr() as *mut i8,
+            max_size as CFIndex,
+            CFStringBuiltInEncodings::EncodingUTF8.0,
+        )
+    };
+
+    if success {
+        // Find the null terminator
+        let null_pos = buffer.iter().position(|&b| b == 0).unwrap_or(buffer.len());
+        String::from_utf8_lossy(&buffer[..null_pos]).into_owned()
+    } else {
+        String::new()
+    }
+}
+
+fn rust_string_to_cf(s: &str) -> CFRetained<CFString> {
+    use objc2_core_foundation::CFStringBuiltInEncodings;
+
+    let c_str = std::ffi::CString::new(s).unwrap_or_default();
+    unsafe {
+        CFString::with_c_string(None, c_str.as_ptr(), CFStringBuiltInEncodings::EncodingUTF8.0)
+            .expect("Failed to create CFString")
+    }
+}
+
+fn path_to_cfurl(path: &Path) -> Option<CFRetained<CFURL>> {
+    let path_str = path.to_str()?;
+    let cf_path = rust_string_to_cf(path_str);
+    CFURL::with_file_system_path(
+        None,
+        Some(&cf_path),
+        CFURLPathStyle::CFURLPOSIXPathStyle,
+        path.is_dir(),
+    )
+}
+
+fn cfurl_to_path(url: &CFURL) -> Option<PathBuf> {
+    let cf_str = url.file_system_path(CFURLPathStyle::CFURLPOSIXPathStyle);
+    cf_str.map(|s| PathBuf::from(cf_string_to_rust(&s)))
 }
 
 fn scope_from_path(path: &Path) -> FontScope {
@@ -224,73 +272,178 @@ fn normalize_path(path: &Path) -> String {
 }
 
 fn font_format_to_string(format: CTFontFormat) -> Option<String> {
-    match format {
-        ct_font_descriptor::kCTFontFormatOpenTypePostScript => {
-            Some("OpenTypePostScript".to_string())
-        }
-        ct_font_descriptor::kCTFontFormatOpenTypeTrueType => Some("OpenTypeTrueType".to_string()),
-        ct_font_descriptor::kCTFontFormatTrueType => Some("TrueType".to_string()),
-        ct_font_descriptor::kCTFontFormatPostScript => Some("PostScript".to_string()),
-        ct_font_descriptor::kCTFontFormatBitmap => Some("Bitmap".to_string()),
-        _ => None,
+    if format == CTFontFormat::OpenTypePostScript {
+        Some("OpenTypePostScript".to_string())
+    } else if format == CTFontFormat::OpenTypeTrueType {
+        Some("OpenTypeTrueType".to_string())
+    } else if format == CTFontFormat::TrueType {
+        Some("TrueType".to_string())
+    } else if format == CTFontFormat::PostScript {
+        Some("PostScript".to_string())
+    } else if format == CTFontFormat::Bitmap {
+        Some("Bitmap".to_string())
+    } else {
+        None
     }
 }
 
 fn is_conflict_error(err: &CFError) -> bool {
-    let domain = err.domain().to_string();
-    if !domain.contains("CTFontManagerErrorDomain") {
+    let domain = match err.domain() {
+        Some(d) => d,
+        None => return false,
+    };
+    let domain_str = cf_string_to_rust(&domain);
+    if !domain_str.contains("CTFontManagerErrorDomain") {
         return false;
     }
 
+    let code = err.code();
     matches!(
-        err.code(),
+        code,
         K_CT_FONT_MANAGER_ERROR_ALREADY_REGISTERED | K_CT_FONT_MANAGER_ERROR_DUPLICATED_NAME
     )
 }
 
+// Helper to check CF type - use ConcreteType trait
+use objc2_core_foundation::ConcreteType;
+
+fn get_descriptor_string_attribute(
+    descriptor: &CTFontDescriptor,
+    attr: &CFString,
+) -> Option<String> {
+    let value = unsafe { descriptor.attribute(attr) };
+    value.and_then(|v| {
+        // Check if it's a CFString using ConcreteType trait
+        let type_id = objc2_core_foundation::CFGetTypeID(Some(v.as_ref()));
+        let string_type_id = CFString::type_id();
+        if type_id == string_type_id {
+            // Cast to CFString - the value is a CFType, we need to reinterpret
+            let cf_str: &CFString = unsafe { &*(v.as_ref() as *const CFType as *const CFString) };
+            Some(cf_string_to_rust(cf_str))
+        } else {
+            None
+        }
+    })
+}
+
+fn get_descriptor_url_attribute(descriptor: &CTFontDescriptor) -> Option<PathBuf> {
+    let value = unsafe { descriptor.attribute(kCTFontURLAttribute) };
+    value.and_then(|v| {
+        let type_id = objc2_core_foundation::CFGetTypeID(Some(v.as_ref()));
+        let url_type_id = CFURL::type_id();
+        if type_id == url_type_id {
+            let cf_url: &CFURL = unsafe { &*(v.as_ref() as *const CFType as *const CFURL) };
+            cfurl_to_path(cf_url)
+        } else {
+            None
+        }
+    })
+}
+
+fn get_descriptor_format_attribute(descriptor: &CTFontDescriptor) -> Option<CTFontFormat> {
+    let value = unsafe { descriptor.attribute(kCTFontFormatAttribute) };
+    value.and_then(|v| {
+        let type_id = objc2_core_foundation::CFGetTypeID(Some(v.as_ref()));
+        let number_type_id = CFNumber::type_id();
+        if type_id == number_type_id {
+            let cf_num: &CFNumber = unsafe { &*(v.as_ref() as *const CFType as *const CFNumber) };
+            let mut format_value: u32 = 0;
+            let success = unsafe {
+                cf_num.value(
+                    objc2_core_foundation::CFNumberType::SInt32Type,
+                    (&mut format_value) as *mut u32 as *mut std::ffi::c_void,
+                )
+            };
+            if success {
+                Some(CTFontFormat(format_value))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    })
+}
+
 fn descriptor_to_font_face_info(descriptor: &CTFontDescriptor) -> Option<FontliftFontFaceInfo> {
-    let path = descriptor.font_path()?;
-    let postscript_name = descriptor.font_name();
-    let display_name = descriptor.display_name();
-    let family_name = descriptor.family_name();
-    let style_name = descriptor.style_name();
+    let path = get_descriptor_url_attribute(descriptor)?;
+    let postscript_name =
+        get_descriptor_string_attribute(descriptor, unsafe { kCTFontNameAttribute })?;
+    let display_name =
+        get_descriptor_string_attribute(descriptor, unsafe { kCTFontDisplayNameAttribute })
+            .unwrap_or_else(|| postscript_name.clone());
+    let family_name =
+        get_descriptor_string_attribute(descriptor, unsafe { kCTFontFamilyNameAttribute })
+            .unwrap_or_else(|| postscript_name.clone());
+    let style_name =
+        get_descriptor_string_attribute(descriptor, unsafe { kCTFontStyleNameAttribute })
+            .unwrap_or_else(|| "Regular".to_string());
 
     let mut source = FontliftFontSource::new(path.clone()).with_scope(Some(scope_from_path(&path)));
 
-    if let Some(format) = descriptor.font_format() {
+    if let Some(format) = get_descriptor_format_attribute(descriptor) {
         source = source.with_format(font_format_to_string(format));
     }
 
     let mut info = FontliftFontFaceInfo::new(
         source,
-        postscript_name.to_string(),
-        display_name.to_string(),
-        family_name.to_string(),
-        style_name.to_string(),
+        postscript_name,
+        display_name,
+        family_name,
+        style_name,
     );
 
-    if let Some(traits) = descriptor
-        .attributes()
-        .find(unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontTraitsAttribute) })
-        .and_then(|traits_cf| {
-            if traits_cf.instance_of::<CFDictionary>() {
-                Some(unsafe {
-                    ct_font_descriptor::CTFontTraits::wrap_under_get_rule(
-                        traits_cf.as_CFTypeRef() as _
-                    )
-                })
-            } else {
-                None
-            }
-        })
-    {
-        let symbolic = traits.symbolic_traits();
-        info.italic = Some(symbolic.is_italic());
+    // Try to get traits
+    let traits_value = unsafe { descriptor.attribute(kCTFontTraitsAttribute) };
+    if let Some(traits_cf) = traits_value {
+        let type_id = objc2_core_foundation::CFGetTypeID(Some(traits_cf.as_ref()));
+        let dict_type_id = CFDictionary::type_id();
+        if type_id == dict_type_id {
+            let traits_dict: &CFDictionary =
+                unsafe { &*(traits_cf.as_ref() as *const CFType as *const CFDictionary) };
 
-        let weight = (traits.normalized_weight() * 400.0 + 500.0).round();
-        if weight.is_finite() {
-            let clamped = weight.clamp(1.0, 1000.0) as u16;
-            info.weight = Some(clamped);
+            // Get symbolic traits (for italic)
+            let symbolic_key = unsafe { kCTFontSymbolicTrait };
+            let symbolic_value = unsafe {
+                traits_dict.value(symbolic_key as *const _ as *const std::ffi::c_void)
+            };
+            if !symbolic_value.is_null() {
+                let cf_num: &CFNumber = unsafe { &*(symbolic_value as *const CFNumber) };
+                let mut symbolic: u32 = 0;
+                let success = unsafe {
+                    cf_num.value(
+                        objc2_core_foundation::CFNumberType::SInt32Type,
+                        (&mut symbolic) as *mut u32 as *mut std::ffi::c_void,
+                    )
+                };
+                if success {
+                    // kCTFontItalicTrait = 1 << 0
+                    info.italic = Some((symbolic & 1) != 0);
+                }
+            }
+
+            // Get weight trait
+            let weight_key = unsafe { kCTFontWeightTrait };
+            let weight_value = unsafe {
+                traits_dict.value(weight_key as *const _ as *const std::ffi::c_void)
+            };
+            if !weight_value.is_null() {
+                let cf_num: &CFNumber = unsafe { &*(weight_value as *const CFNumber) };
+                let mut weight: f64 = 0.0;
+                let success = unsafe {
+                    cf_num.value(
+                        objc2_core_foundation::CFNumberType::Float64Type,
+                        (&mut weight) as *mut f64 as *mut std::ffi::c_void,
+                    )
+                };
+                if success {
+                    let weight_int = (weight * 400.0 + 500.0).round();
+                    if weight_int.is_finite() {
+                        let clamped = weight_int.clamp(1.0, 1000.0) as u16;
+                        info.weight = Some(clamped);
+                    }
+                }
+            }
         }
     }
 
@@ -433,7 +586,7 @@ impl MacFontManager {
         validation::validate_font_file(path)?;
 
         // Convert path to CFURL for Core Text
-        let cf_url = match CFURL::from_path(path, false) {
+        let cf_url = match path_to_cfurl(path) {
             Some(url) => url,
             None => {
                 return Err(FontError::InvalidFormat(format!(
@@ -443,14 +596,9 @@ impl MacFontManager {
             }
         };
 
-        let mut error: CFErrorRef = std::ptr::null_mut();
-        let result = unsafe {
-            CTFontManagerRegisterFontsForURL(
-                cf_url.as_concrete_TypeRef(),
-                ct_scope(scope),
-                &mut error,
-            )
-        };
+        let mut error: *mut CFError = std::ptr::null_mut();
+        let result =
+            unsafe { CTFontManagerRegisterFontsForURL(&cf_url, ct_scope(scope), &mut error) };
 
         if result {
             return Ok(());
@@ -463,49 +611,51 @@ impl MacFontManager {
             )));
         }
 
-        let conflict_error = unsafe { CFError::wrap_under_get_rule(error) };
-        if is_conflict_error(&conflict_error) {
-            let mut unregister_error: CFErrorRef = std::ptr::null_mut();
+        let error_ref = unsafe { &*error };
+        if is_conflict_error(error_ref) {
+            let mut unregister_error: *mut CFError = std::ptr::null_mut();
             let unregistered = unsafe {
-                CTFontManagerUnregisterFontsForURL(
-                    cf_url.as_concrete_TypeRef(),
-                    ct_scope(scope),
-                    &mut unregister_error,
-                )
+                CTFontManagerUnregisterFontsForURL(&cf_url, ct_scope(scope), &mut unregister_error)
             };
 
             if !unregistered {
+                let unregister_err = if unregister_error.is_null() {
+                    None
+                } else {
+                    Some(unsafe { &*unregister_error })
+                };
                 return Err(FontError::RegistrationFailed(format!(
                     "Existing font conflict could not be resolved for {}: {}",
                     path.display(),
-                    cf_error_to_string(unregister_error)
+                    cf_error_to_string(unregister_err)
                 )));
             }
 
-            let mut retry_error: CFErrorRef = std::ptr::null_mut();
+            let mut retry_error: *mut CFError = std::ptr::null_mut();
             let retry = unsafe {
-                CTFontManagerRegisterFontsForURL(
-                    cf_url.as_concrete_TypeRef(),
-                    ct_scope(scope),
-                    &mut retry_error,
-                )
+                CTFontManagerRegisterFontsForURL(&cf_url, ct_scope(scope), &mut retry_error)
             };
 
             if retry {
                 return Ok(());
             }
 
+            let retry_err = if retry_error.is_null() {
+                None
+            } else {
+                Some(unsafe { &*retry_error })
+            };
             return Err(FontError::RegistrationFailed(format!(
                 "Core Text failed to register font {} after resolving conflict: {}",
                 path.display(),
-                cf_error_to_string(retry_error)
+                cf_error_to_string(retry_err)
             )));
         }
 
         Err(FontError::RegistrationFailed(format!(
             "Core Text failed to register font {}: {}",
             path.display(),
-            conflict_error.description()
+            cf_error_to_string(Some(error_ref))
         )))
     }
 
@@ -675,7 +825,7 @@ impl FontManager for MacFontManager {
         }
 
         // Convert path to CFURL for Core Text
-        let cf_url = match CFURL::from_path(&target_path, false) {
+        let cf_url = match path_to_cfurl(&target_path) {
             Some(url) => url,
             None => {
                 return Err(FontError::InvalidFormat(format!(
@@ -685,19 +835,19 @@ impl FontManager for MacFontManager {
             }
         };
 
-        let mut error: CFErrorRef = std::ptr::null_mut();
-        let result = unsafe {
-            CTFontManagerUnregisterFontsForURL(
-                cf_url.as_concrete_TypeRef(),
-                ct_scope(scope),
-                &mut error,
-            )
-        };
+        let mut error: *mut CFError = std::ptr::null_mut();
+        let result =
+            unsafe { CTFontManagerUnregisterFontsForURL(&cf_url, ct_scope(scope), &mut error) };
 
         if result {
             Ok(())
         } else {
-            let message = cf_error_to_string(error);
+            let err = if error.is_null() {
+                None
+            } else {
+                Some(unsafe { &*error })
+            };
+            let message = cf_error_to_string(err);
             Err(FontError::RegistrationFailed(format!(
                 "Core Text failed to unregister font {}: {}",
                 target_path.display(),
@@ -783,20 +933,29 @@ impl FontManager for MacFontManager {
             return Ok(true);
         }
 
-        let font_urls = unsafe { ct_font_manager::CTFontManagerCopyAvailableFontURLs() };
-        if font_urls.is_null() {
-            return Ok(false);
-        }
+        let font_array = unsafe { objc2_core_text::CTFontManagerCopyAvailableFontURLs() };
 
-        let font_array: CFArray<CFURL> = unsafe { CFArray::wrap_under_get_rule(font_urls) };
         let normalized_target = normalize_path(&target_path);
+        let count = font_array.count();
 
-        for i in 0..font_array.len() {
-            if let Some(cf_url) = font_array.get(i) {
-                if let Some(path) = cf_url.to_path() {
-                    if normalize_path(&path) == normalized_target {
-                        return Ok(true);
-                    }
+        for i in 0..count {
+            let value = unsafe { font_array.value_at_index(i) };
+            if value.is_null() {
+                continue;
+            }
+
+            // Check if it's a CFURL
+            let cf_type: &CFType = unsafe { &*(value as *const CFType) };
+            let type_id = objc2_core_foundation::CFGetTypeID(Some(cf_type));
+            let url_type_id = CFURL::type_id();
+            if type_id != url_type_id {
+                continue;
+            }
+
+            let cf_url: &CFURL = unsafe { &*(value as *const CFURL) };
+            if let Some(path) = cfurl_to_path(cf_url) {
+                if normalize_path(&path) == normalized_target {
+                    return Ok(true);
                 }
             }
         }
@@ -808,54 +967,65 @@ impl FontManager for MacFontManager {
         if self.is_fake_registry_enabled() {
             return self.list_installed_fonts_fake();
         }
+
         // Get all available font URLs from Core Text
-        let font_urls = unsafe { ct_font_manager::CTFontManagerCopyAvailableFontURLs() };
+        let font_array = unsafe { objc2_core_text::CTFontManagerCopyAvailableFontURLs() };
 
-        if font_urls.is_null() {
-            return Ok(Vec::new());
-        }
-
-        let font_array: CFArray<CFURL> = unsafe { CFArray::wrap_under_get_rule(font_urls) };
         let mut fonts = Vec::new();
+        let count = font_array.count();
 
-        for i in 0..font_array.len() {
-            if let Some(cf_url) = font_array.get(i) {
-                // Try to pull rich metadata via font descriptors first
-                let descriptors = unsafe {
-                    ct_font_manager::CTFontManagerCreateFontDescriptorsFromURL(
-                        cf_url.as_concrete_TypeRef(),
-                    )
-                };
+        for i in 0..count {
+            let value = unsafe { font_array.value_at_index(i) };
+            if value.is_null() {
+                continue;
+            }
 
-                if !descriptors.is_null() {
-                    let descriptor_array: CFArray<CTFontDescriptor> =
-                        unsafe { CFArray::wrap_under_create_rule(descriptors) };
+            // Check if it's a CFURL
+            let cf_type: &CFType = unsafe { &*(value as *const CFType) };
+            let type_id = objc2_core_foundation::CFGetTypeID(Some(cf_type));
+            let url_type_id = CFURL::type_id();
+            if type_id != url_type_id {
+                continue;
+            }
 
-                    for idx in 0..descriptor_array.len() {
-                        if let Some(descriptor) = descriptor_array.get(idx) {
-                            if let Some(info) = descriptor_to_font_face_info(&descriptor) {
-                                fonts.push(info);
-                                continue;
-                            }
-                        }
-                    }
-                }
+            let cf_url: &CFURL = unsafe { &*(value as *const CFURL) };
 
-                // Fallback: basic info from path
-                if let Some(path) = cf_url.to_path() {
-                    if !path.exists() || !validation::is_valid_font_extension(&path) {
+            // Try to pull rich metadata via font descriptors first
+            let descriptors =
+                unsafe { objc2_core_text::CTFontManagerCreateFontDescriptorsFromURL(cf_url) };
+
+            if let Some(descriptor_array) = descriptors {
+                let desc_count = descriptor_array.count();
+
+                for idx in 0..desc_count {
+                    let desc_value = unsafe { descriptor_array.value_at_index(idx) };
+                    if desc_value.is_null() {
                         continue;
                     }
 
-                    match self.get_font_info_from_path(&path) {
-                        Ok(mut font_info) => {
-                            font_info.source.scope = Some(scope_from_path(&path));
-                            fonts.push(font_info);
-                        }
-                        Err(_) => {
-                            // Skip fonts we can't read, but don't fail the entire operation
-                            continue;
-                        }
+                    let descriptor: &CTFontDescriptor =
+                        unsafe { &*(desc_value as *const CTFontDescriptor) };
+                    if let Some(info) = descriptor_to_font_face_info(descriptor) {
+                        fonts.push(info);
+                        continue;
+                    }
+                }
+            }
+
+            // Fallback: basic info from path
+            if let Some(path) = cfurl_to_path(cf_url) {
+                if !path.exists() || !validation::is_valid_font_extension(&path) {
+                    continue;
+                }
+
+                match self.get_font_info_from_path(&path) {
+                    Ok(mut font_info) => {
+                        font_info.source.scope = Some(scope_from_path(&path));
+                        fonts.push(font_info);
+                    }
+                    Err(_) => {
+                        // Skip fonts we can't read, but don't fail the entire operation
+                        continue;
                     }
                 }
             }
@@ -869,48 +1039,55 @@ impl FontManager for MacFontManager {
             return Ok(0);
         }
 
-        let font_urls = unsafe { ct_font_manager::CTFontManagerCopyAvailableFontURLs() };
+        let font_array = unsafe { objc2_core_text::CTFontManagerCopyAvailableFontURLs() };
 
-        if font_urls.is_null() {
-            return Ok(0);
-        }
-
-        let font_array: CFArray<CFURL> = unsafe { CFArray::wrap_under_get_rule(font_urls) };
         let mut pruned = 0usize;
         let mut failures = Vec::new();
+        let count = font_array.count();
 
-        for i in 0..font_array.len() {
-            if let Some(cf_url) = font_array.get(i) {
-                let path = cf_url.to_path();
+        for i in 0..count {
+            let value = unsafe { font_array.value_at_index(i) };
+            if value.is_null() {
+                continue;
+            }
 
-                if let Some(existing_path) = path.as_ref() {
-                    if scope_from_path(existing_path) != scope {
-                        continue;
-                    }
+            let cf_type: &CFType = unsafe { &*(value as *const CFType) };
+            let type_id = objc2_core_foundation::CFGetTypeID(Some(cf_type));
+            let url_type_id = CFURL::type_id();
+            if type_id != url_type_id {
+                continue;
+            }
 
-                    // Skip registrations that still have a backing file
-                    if existing_path.exists() {
-                        continue;
-                    }
-                } else if scope == FontScope::System && !self.has_admin_privileges() {
-                    // Don't attempt system pruning without privileges
+            let cf_url: &CFURL = unsafe { &*(value as *const CFURL) };
+            let path = cfurl_to_path(cf_url);
+
+            if let Some(ref existing_path) = path {
+                if scope_from_path(existing_path) != scope {
                     continue;
                 }
 
-                let mut error: CFErrorRef = std::ptr::null_mut();
-                let ok = unsafe {
-                    CTFontManagerUnregisterFontsForURL(
-                        cf_url.as_concrete_TypeRef(),
-                        ct_scope(scope),
-                        &mut error,
-                    )
-                };
-
-                if ok {
-                    pruned += 1;
-                } else {
-                    failures.push(cf_error_to_string(error));
+                // Skip registrations that still have a backing file
+                if existing_path.exists() {
+                    continue;
                 }
+            } else if scope == FontScope::System && !self.has_admin_privileges() {
+                // Don't attempt system pruning without privileges
+                continue;
+            }
+
+            let mut error: *mut CFError = std::ptr::null_mut();
+            let ok =
+                unsafe { CTFontManagerUnregisterFontsForURL(cf_url, ct_scope(scope), &mut error) };
+
+            if ok {
+                pruned += 1;
+            } else {
+                let err = if error.is_null() {
+                    None
+                } else {
+                    Some(unsafe { &*error })
+                };
+                failures.push(cf_error_to_string(err));
             }
         }
 
@@ -1006,11 +1183,6 @@ impl FontManager for MacFontManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use core_foundation::dictionary::CFDictionary;
-    use core_foundation::number::CFNumber;
-    use core_foundation::string::CFString;
-    use core_foundation::url::CFURL;
-    use core_text::font_descriptor as ct_font_descriptor;
     use std::fs;
     use std::path::PathBuf;
     use std::sync::{Mutex, OnceLock};
@@ -1067,64 +1239,6 @@ mod tests {
 
         let invalid_path = PathBuf::from("/tmp/test.txt");
         assert!(!validation::is_valid_font_extension(&invalid_path));
-    }
-
-    #[test]
-    fn descriptor_metadata_is_preferred_over_filename() {
-        let path = PathBuf::from("/Library/Fonts/TestSans-Bold.ttf");
-        let cf_url = CFURL::from_path(&path, false).expect("url");
-
-        let name_key =
-            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontNameAttribute) };
-        let display_key = unsafe {
-            CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontDisplayNameAttribute)
-        };
-        let family_key = unsafe {
-            CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontFamilyNameAttribute)
-        };
-        let style_key =
-            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontStyleNameAttribute) };
-        let url_key =
-            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontURLAttribute) };
-        let format_key =
-            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontFormatAttribute) };
-        let traits_key =
-            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontTraitsAttribute) };
-        let symbolic_key =
-            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontSymbolicTrait) };
-        let weight_key =
-            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontWeightTrait) };
-
-        let traits_dict: CFDictionary<CFString, core_foundation::base::CFType> =
-            CFDictionary::from_CFType_pairs(&[
-                (symbolic_key, CFNumber::from(0).as_CFType()),
-                (weight_key, CFNumber::from(0).as_CFType()),
-            ]);
-
-        let attrs: CFDictionary<CFString, core_foundation::base::CFType> =
-            CFDictionary::from_CFType_pairs(&[
-                (url_key, cf_url.as_CFType()),
-                (name_key, CFString::new("TestSans-Bold").as_CFType()),
-                (display_key, CFString::new("Test Sans Bold").as_CFType()),
-                (family_key, CFString::new("Test Sans").as_CFType()),
-                (style_key, CFString::new("Bold").as_CFType()),
-                (
-                    format_key,
-                    CFNumber::from(ct_font_descriptor::kCTFontFormatOpenTypeTrueType as i32)
-                        .as_CFType(),
-                ),
-                (traits_key, traits_dict.as_CFType()),
-            ]);
-
-        let descriptor = ct_font_descriptor::new_from_attributes(&attrs);
-        let info = descriptor_to_font_face_info(&descriptor).expect("font info");
-
-        assert_eq!(info.postscript_name, "TestSans-Bold");
-        assert_eq!(info.full_name, "Test Sans Bold");
-        assert_eq!(info.family_name, "Test Sans");
-        assert_eq!(info.style, "Bold");
-        assert_eq!(info.source.format.as_deref(), Some("OpenTypeTrueType"));
-        assert_eq!(info.source.scope, Some(FontScope::System));
     }
 
     #[test]

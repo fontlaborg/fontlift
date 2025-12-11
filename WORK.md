@@ -1,3 +1,10 @@
+## 2025-12-04
+
+- build.sh now auto-creates/uses `.venv` (prefers `uv venv`, falls back to `python -m venv`) so `maturin develop` no longer fails when no virtualenv is active.
+
+#### Tests
+- ./build.sh --release
+
 ## 2025-12-03
 
 ### Test Suite Status

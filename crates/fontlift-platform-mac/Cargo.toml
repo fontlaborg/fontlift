@@ -14,11 +14,9 @@ thiserror.workspace = true
 anyhow.workspace = true
 log.workspace = true
 
-# macOS specific dependencies
-core-foundation = "0.9"
-core-text = "20.0"
-cocoa = "0.25"
-objc = "0.2"
+# macOS specific dependencies (objc2 ecosystem)
+objc2-core-foundation = { workspace = true }
+objc2-core-text = { workspace = true }
 libc = "0.2"
 
 [dev-dependencies]

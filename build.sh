@@ -304,6 +304,48 @@ check_optional_dependencies() {
 	done
 }
 
+# Ensure a virtualenv exists so maturin can install the extension
+ensure_python_virtualenv() {
+	# Respect existing activations (VIRTUAL_ENV or conda)
+	if [ -n "${VIRTUAL_ENV:-}" ]; then
+		print_status "Using existing virtualenv at $VIRTUAL_ENV"
+		return 0
+	fi
+	if [ -n "${CONDA_PREFIX:-}" ]; then
+		print_status "Using active conda environment at $CONDA_PREFIX"
+		return 0
+	fi
+
+	local venv_dir="$SCRIPT_DIR/.venv"
+	if [ -d "$venv_dir" ]; then
+		print_status "Found virtualenv at $venv_dir"
+	else
+		print_substep "Creating virtualenv at $venv_dir..."
+		if command_exists uv; then
+			uv venv "$venv_dir"
+		else
+			local python_bin=""
+			if command_exists python3; then
+				python_bin="python3"
+			elif command_exists python; then
+				python_bin="python"
+			fi
+
+			if [ -z "$python_bin" ]; then
+				print_warning "Python not available to create a virtualenv; skipping Python bindings"
+				return 1
+			fi
+
+			$python_bin -m venv "$venv_dir"
+		fi
+	fi
+
+	# Surface the environment for maturin without requiring manual activation
+	export VIRTUAL_ENV="$venv_dir"
+	export PATH="$VIRTUAL_ENV/bin:$PATH"
+	print_status "Virtualenv ready at $VIRTUAL_ENV"
+}
+
 # Function to build components
 build_component() {
 	local component=$1
@@ -414,6 +456,11 @@ build_python_bindings() {
 	local manifest_path="$SCRIPT_DIR/crates/fontlift-python/Cargo.toml"
 
 	print_step "Building Python bindings..."
+
+	if ! ensure_python_virtualenv; then
+		print_warning "Unable to prepare Python virtualenv; skipping Python bindings"
+		return
+	fi
 	
 	if command_exists hatch; then
 		print_substep "Using hatch to build wheel..."
