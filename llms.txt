@@ -33,7 +33,9 @@ Project Structure:
 │   │   └── 📄 Cargo.toml
 │   ├── 📁 fontlift-python
 │   │   ├── 📁 src
-│   │   │   └── 📄 lib.rs
+│   │   │   ├── 📄 bindings.rs
+│   │   │   ├── 📄 lib.rs
+│   │   │   └── 📄 stub.rs
 │   │   ├── 📄 build.rs
 │   │   └── 📄 Cargo.toml
 │   └── 📁 fontlift-validator
@@ -42,6 +44,7 @@ Project Structure:
 │       └── 📄 Cargo.toml
 ├── 📁 examples
 │   └── 📄 basic_usage.rs
+├── 📁 issues
 ├── 📁 python
 │   ├── 📁 fontlift
 │   │   ├── 📄 __init__.py
@@ -56,346 +59,42 @@ Project Structure:
 │   │   ├── 📁 deps
 │   │   ├── 📁 examples
 │   │   └── 📁 incremental
-│   │       ├── 📁 _native-04wk4y9tacwb6
-│   │       │   └── 📁 s-hdk2w3naxv-0juft7b-working
-│   │       ├── 📁 _native-0jdxlt4tydxuq
-│   │       │   └── 📁 s-hdk4o5gjyn-1ivrtna-b68mnppecug63va110wefj01j
-│   │       ├── 📁 _native-0sukvv7rby5fk
-│   │       │   └── 📁 s-hdk4btok4e-1og4lmf-0n2bo5aoighdvp0voodhmgbhz
-│   │       ├── 📁 _native-0tx8fcby6ay2a
-│   │       │   └── 📁 s-hdk2w3ndqd-0vvofoe-6607qay8md2dk78611ylh10h7
-│   │       ├── 📁 _native-11jfckrwh4bs2
-│   │       │   └── 📁 s-hdk4lh9hru-0eefk0p-8lj85jumhgk8mryh36x2l8zoo
-│   │       ├── 📁 _native-1btvp70s5ougv
-│   │       │   └── 📁 s-hdk4l7r0w4-0c7yp8e-4cj0ulvtqw5y65x1sg0wmc4il
-│   │       ├── 📁 _native-1co5gof9aeter
-│   │       │   └── 📁 s-hdk4lh9isb-0nduriq-evtwvw2t84xbz43iezqwo1fk4
-│   │       ├── 📁 _native-1gwgaqbtj3qhz
-│   │       │   └── 📁 s-hdk14jhq8t-0uj0126-8ldtbckg2rpv94uikkbqoxqs0
-│   │       ├── 📁 _native-20cj0g1rdbbrj
-│   │       │   └── 📁 s-hdk4hmufbl-1au4pac-working
-│   │       ├── 📁 _native-2f5qyz9azxd24
-│   │       │   └── 📁 s-hdk4mepiu4-1mje02a-7uhiv83gz28jjbx5weg4rxuc8
-│   │       ├── 📁 _native-2q87bsfzfg1zk
-│   │       │   └── 📁 s-hdk4kitey5-1y4jbex-5pla03ywem335of5jhh1dm6y5
-│   │       ├── 📁 _native-2qjdkxqc2rnrh
-│   │       │   └── 📁 s-hdk4mepiu6-1wumkx1-anm5pk5sb4mswtan3hgeq3ke2
-│   │       ├── 📁 _native-2wrcq9mdcb1kg
-│   │       │   └── 📁 s-hdk3cc5gy6-0tddy9x-bnbt36y9ubckbr575mgshibp2
-│   │       ├── 📁 _native-31fkufiloxtam
-│   │       │   └── 📁 s-hdk4lefg4z-066t9wd-f3dmz7fvr5ltw1fmxmr15bo69
-│   │       ├── 📁 _native-3c09tk9vkmyqo
-│   │       │   └── 📁 s-hdk2vlqhbq-03kvn2l-working
-│   │       ├── 📁 _native-3juppq98ib9am
-│   │       │   └── 📁 s-hdk2vlqgdu-0255800-3k5sw8p46brvoqdi7zxte8wn7
-│   │       ├── 📁 _native-3po91x4phza5q
-│   │       │   └── 📁 s-hdk4lefg4y-03piyq9-5yk9ybjjjmi28ewc5jzup22id
-│   │       ├── 📁 build_script_build-13jstrugq69bh
-│   │       │   └── 📁 s-hdk4mps8fo-0soll52-3sltrv5s1hsijk0x4o59ermg3
-│   │       ├── 📁 build_script_build-1cpipa9xd0jbw
-│   │       │   └── 📁 s-hdk4l5ktof-1miat14-b0t517m0udx6hsjaf238vhrga
-│   │       ├── 📁 build_script_build-1dlrnouy1dv5o
-│   │       │   └── 📁 s-hdjrxrkpv3-0ynyvvh-1rishzlhc404i8hpvwusybi9m
-│   │       ├── 📁 build_script_build-22myzf9jpxl08
-│   │       │   └── 📁 s-hdk30n2it4-1x8nm0v-2pbaxfyk9sxesq1z17y4x40cl
-│   │       ├── 📁 build_script_build-23py762z8l9dm
-│   │       │   └── 📁 s-hdk2q0p31e-1m961w8-9yxc5o0gwicxn9fhv2ue3wmcs
-│   │       ├── 📁 fontlift-09vq2ldm2xh14
-│   │       │   └── 📁 s-hdk4db5cjk-11m407f-a4neruoex4aziw7snyt3ocncc
-│   │       ├── 📁 fontlift-0d9lbchj1h3r7
-│   │       │   └── 📁 s-hdk2vly523-0hsxgcb-95gjmdp5uir4tfe9lxoezgfb8
-│   │       ├── 📁 fontlift-0h9fyig96n7uf
-│   │       │   └── 📁 s-hdk2w3rmhp-0al638n-8owtlezu7i5ox70xw2pk1zg82
-│   │       ├── 📁 fontlift-0js383daykddw
-│   │       │   └── 📁 s-hdk4b17mer-08v7tx4-0tw38tlvyxwo1pehrlcobip3t
-│   │       ├── 📁 fontlift-0ka828xqxth6m
-│   │       │   └── 📁 s-hdk2vly57p-1kapj03-86k7warjs92crrvyrl6pf2rbs
-│   │       ├── 📁 fontlift-0pzp2k6mqry1w
-│   │       │   └── 📁 s-hdk4btwvhi-096e4lj-d8pyoudpzmmvmr5de21p4u34d
-│   │       ├── 📁 fontlift-1blxygcs5cxn7
-│   │       │   └── 📁 s-hdk4b17mjp-07onxdg-7sn294mn07mh9h0ajm45kgclz
-│   │       ├── 📁 fontlift-1e93k04pao3m4
-│   │       │   └── 📁 s-hdk4db5t3w-13c4xog-ejlm0ry3nt9t5xho89wr90jp9
-│   │       ├── 📁 fontlift-1xwmjxvqqmvka
-│   │       │   └── 📁 s-hdk04p7psv-0m4pypq-2u58m2npi2dyqeot4a2cspibf
-│   │       ├── 📁 fontlift-259fwha1fovul
-│   │       │   └── 📁 s-hdjrzy0tlf-1vcfe60-d9fwx75uoogxo65sxhs9vmmmh
-│   │       ├── 📁 fontlift-25n9xd6gs31ok
-│   │       │   └── 📁 s-hdk4npdov1-0kenehm-6xuupo98aawy852cmwfsskqi7
-│   │       ├── 📁 fontlift-2jixdqrilg36w
-│   │       │   └── 📁 s-hdk4j3hxo0-17e3908-eo53lfwdbaesnbcv6cgghvano
-│   │       ├── 📁 fontlift-2kvysdqeoggz2
-│   │       │   └── 📁 s-hdk30cbxho-1ya8avg-8wmub89jrw8ntoryu83oc1kag
-│   │       ├── 📁 fontlift-2q7t45oob67uq
-│   │       │   └── 📁 s-hdk2w3rmrt-0li24vn-d5u8qzdncrn494s2ysopk15n1
-│   │       ├── 📁 fontlift-2r3e61xk1bgh2
-│   │       │   └── 📁 s-hdk1i888uq-0d9rqjx-6yq6ufomekv67mjn440792v7l
-│   │       ├── 📁 fontlift-2zl7qep9s8um6
-│   │       │   └── 📁 s-hdk4j3iaa9-0wxw8cj-bl0piiz60p1khod9xbxydqolx
-│   │       ├── 📁 fontlift-34419c43e79ih
-│   │       │   └── 📁 s-hdjrycqv2t-0f6pbi1-5p8xyaazlflkl97cheavqpf9i
-│   │       ├── 📁 fontlift-3njwwxrserd3e
-│   │       │   └── 📁 s-hdk4btws9a-1hhkwko-daos9sonnclbwsg379mtnlmv1
-│   │       ├── 📁 fontlift-3oqteywkxxykf
-│   │       │   └── 📁 s-hdk4gppid8-08mp1rr-8p64gto41b85fk505iiybxwl9
-│   │       ├── 📁 fontlift-3spczmsv9kzzo
-│   │       │   └── 📁 s-hdjnpsek30-0wowxps-4ge76peqnfjdn7t1imiohc48o
-│   │       ├── 📁 fontlift_cli-08apppbz4ug61
-│   │       │   └── 📁 s-hdk4gpjui6-0v7s7ma-ebev9o04isc8euk706j7yvfkg
-│   │       ├── 📁 fontlift_cli-0rjt0n48qhhvc
-│   │       │   └── 📁 s-hdk4guy3w0-1al9trn-6pndslvbn1h5fdvfwir5dux8v
-│   │       ├── 📁 fontlift_cli-0uo0ypokdteog
-│   │       │   └── 📁 s-hdk4itjdqd-01ptz3r-7hmbvmquqx7y1hzstjhyrck9m
-│   │       ├── 📁 fontlift_cli-0wrgc61h0np4n
-│   │       │   └── 📁 s-hdk2vlql2y-08vf8r0-8nunzlzvyjpaykov3entjfppy
-│   │       ├── 📁 fontlift_cli-0zx2b9m6znrln
-│   │       │   └── 📁 s-hdjrzy0ksm-14shx0l-3e4td6nvrzaf9pv81e60lr8o0
-│   │       ├── 📁 fontlift_cli-1brgczaogkkye
-│   │       │   └── 📁 s-hdk2w3nc2t-1faqwnb-192sfeijxta5i0tyls0kt5ljo
-│   │       ├── 📁 fontlift_cli-1c8ylefvevoez
-│   │       │   └── 📁 s-hdk4bto93x-07nhsq1-djgr4e4s4w7qtays0ammjxv8i
-│   │       ├── 📁 fontlift_cli-1hd6ucq48g9ix
-│   │       │   └── 📁 s-hdk4kxjixl-1cy7m2y-5m3bewbn17nnz0el6gukg68qp
-│   │       ├── 📁 fontlift_cli-1hke42n9c7yw5
-│   │       │   └── 📁 s-hdk4hmueua-0r3earb-8givqb9dd0qi4ikwyu1pzv661
-│   │       ├── 📁 fontlift_cli-1hryhyhosg5j9
-│   │       │   └── 📁 s-hdk1guu390-0j00idg-9lcyiypv7g1dv5tx3scrzl2kl
-│   │       ├── 📁 fontlift_cli-1ipleavwgfbz8
-│   │       │   └── 📁 s-hdjrycjn8f-1j8vwed-35p2pamxrtfmgye4s0cancv2r
-│   │       ├── 📁 fontlift_cli-1vyyn7u2kn1pd
-│   │       │   └── 📁 s-hdk1i888kl-0t60oy5-c8y55ja8c2k9gwi5jujlfvk87
-│   │       ├── 📁 fontlift_cli-26bgwh8h4jnih
-│   │       │   └── 📁 s-hdk4datgjk-1xmuhw3-5ap98grbt62ctcr4ffnmh84hv
-│   │       ├── 📁 fontlift_cli-2dduwd6kyi13v
-│   │       │   └── 📁 s-hdk4nd4ft7-01xn24p-5q1en8fcid0e2dc85yqlp1y9e
-│   │       ├── 📁 fontlift_cli-2f8a9zxxdgxuu
-│   │       │   └── 📁 s-hdjnpsbtqz-01sno1h-adrc66yn35sqm1m2keyq04xw2
-│   │       ├── 📁 fontlift_cli-2jykotbg8pqsu
-│   │       │   └── 📁 s-hdk30c79eu-1mc93h3-4rfvht1e4406689mo6pweiibh
-│   │       ├── 📁 fontlift_cli-2k99jvdflo2uk
-│   │       │   └── 📁 s-hdjrzxd6ml-0z8t980-32774l1c00kclkfkcjpdsm833
-│   │       ├── 📁 fontlift_cli-2uhf785mqwid6
-│   │       │   └── 📁 s-hdk2w3nb25-14ew87h-3l9fg2pbyvv4f8l4tpxckqqug
-│   │       ├── 📁 fontlift_cli-381txzm01lcii
-│   │       │   └── 📁 s-hdk4itbikx-1ubd3nf-c2cupvrrwr3fa54gl6jbdixxh
-│   │       ├── 📁 fontlift_cli-3a7s67bgjmafq
-│   │       │   └── 📁 s-hdk2vlqktx-0fikmh8-dl3myk3oazhwzdxnm1n335x7r
-│   │       ├── 📁 fontlift_cli-3hiuvschmklvr
-│   │       │   └── 📁 s-hdk04otzm6-0gtz1zl-896wmqyy14ch6xrwp5qmrc9h0
-│   │       ├── 📁 fontlift_cli-3pg6otih8h9bx
-│   │       │   └── 📁 s-hdk4b0f4v1-1rkly3e-8b4e52j5qhmj1nrv5smyfjwm1
-│   │       ├── 📁 fontlift_core-03h8digkqzo1z
-│   │       │   └── 📁 s-hdk04o8o9g-02vge0m-3qxvnuw3rzd9azzf0z4ei54na
-│   │       ├── 📁 fontlift_core-05h5oczkg4siw
-│   │       │   └── 📁 s-hdjnoydk2f-013fkz4-co93p91f4z3cmgcw28dekl2na
-│   │       ├── 📁 fontlift_core-08aypao1vafrv
-│   │       │   └── 📁 s-hdk4istnzm-1jgeg1h-92a50unvi4hjyyi9obre8soiu
-│   │       ├── 📁 fontlift_core-0bira1bwrdyr2
-│   │       │   └── 📁 s-hdk4istr0w-018dkwj-4wsjesp7eutqsz67j9oqnk66b
-│   │       ├── 📁 fontlift_core-0hmaevqrqwthb
-│   │       │   └── 📁 s-hdk2vocblk-1kbi4ml-0kqs5qojj9aiguaagg8zbf1xd
-│   │       ├── 📁 fontlift_core-0pppr8z9n7be8
-│   │       │   └── 📁 s-hdjrzx5ibw-04edeeu-3yv8tmj0n9zs45nyx823odipw
-│   │       ├── 📁 fontlift_core-0q2y5q7wlvoko
-│   │       │   └── 📁 s-hdk4bt6ziy-0bnv0qg-d3rigoobegq5b29vyz2hq6z6r
-│   │       ├── 📁 fontlift_core-0qofr9dyeg0fx
-│   │       │   └── 📁 s-hdk4dalfxz-1x04i4p-e7zwymcd8ijw4lfibk4addoyn
-│   │       ├── 📁 fontlift_core-0rdfkji9ib5t3
-│   │       │   ├── 📁 s-hdk2w3gs7o-0qgx0zr-32gjmdnhf4if1h72d5t6bcqnf
-│   │       │   └── 📁 s-hdk2x3smha-1doifl3-working
-│   │       ├── 📁 fontlift_core-0xsdu9e09d2gn
-│   │       │   └── 📁 s-hdk2xbimdl-0gmgkt9-2pd6obzn5ylaux9zpsql709j8
-│   │       ├── 📁 fontlift_core-0yv9brk35sv4g
-│   │       │   └── 📁 s-hdk4l5ktnf-0calz7d-2iax8valzrx6qmijdjnzi8lv3
-│   │       ├── 📁 fontlift_core-1rhjhwh0lvtrd
-│   │       │   └── 📁 s-hdk3ca5vgb-1h8t0co-bvhatekibxcipwqy0ewgc9f1n
-│   │       ├── 📁 fontlift_core-21adami2xxy7c
-│   │       │   └── 📁 s-hdk1gunqwr-0vm4rv1-2a05le84oo34b5i906ajil6qi
-│   │       ├── 📁 fontlift_core-27ds0wjxlv5e9
-│   │       │   ├── 📁 s-hdk2w3gs7z-056b69z-0p44h51oiyv7dlhvg7ystr6er
-│   │       │   └── 📁 s-hdk2x3sjr3-14kwwxt-working
-│   │       ├── 📁 fontlift_core-2fjd9c00o95q1
-│   │       │   └── 📁 s-hdjrycdemf-018uuk5-c5dnufy7cq949luh73c5cythh
-│   │       ├── 📁 fontlift_core-2he9g4qbb4cms
-│   │       │   └── 📁 s-hdjnoydk2h-0odltkh-53uzgvevqsoq69io6l5pm7mci
-│   │       ├── 📁 fontlift_core-2jn7nucclltws
-│   │       │   └── 📁 s-hdjrzy0k3y-1jvezqh-4uhj276qlrc6t2do1szwm96f1
-│   │       ├── 📁 fontlift_core-2kdxkqbhkl370
-│   │       │   └── 📁 s-hdk4bt6tnc-0zit05g-89tbnmt1t0vs3i4a1co27l5ho
-│   │       ├── 📁 fontlift_core-2md98x7wu64h4
-│   │       │   └── 📁 s-hdk04oonk9-0wdajc1-2o8xyurtqzqj6qrimkqjvu2rl
-│   │       ├── 📁 fontlift_core-2q8j6xhu1na7p
-│   │       │   └── 📁 s-hdk4mps88n-0att519-0cmljk75kjlwo29dlguhfxrbt
-│   │       ├── 📁 fontlift_core-2yw9edipvplnv
-│   │       │   └── 📁 s-hdk2vlelmw-1iaydsu-ce4z96r5it02vi67xzd9zf4qp
-│   │       ├── 📁 fontlift_core-35xl5neo6dxur
-│   │       │   └── 📁 s-hdk4b009xf-0nh6scs-enszy1pwmoglorq76v625sn7u
-│   │       ├── 📁 fontlift_core-37h8fyafu801w
-│   │       │   └── 📁 s-hdk2vlere3-1n1ftag-1cj606h90ai28vumtqdgtzwxd
-│   │       ├── 📁 fontlift_core-3a66dsugfx4fy
-│   │       │   └── 📁 s-hdk04phrxm-10s1lvn-0otqpss02bvnofh9bnjabpb5t
-│   │       ├── 📁 fontlift_core-3dyuxdlvpc0gt
-│   │       │   └── 📁 s-hdk4b009x8-1nqu14p-3pff9h4k4h61el6ys3h84gejj
-│   │       ├── 📁 fontlift_core-3h8cnhnmupxxe
-│   │       │   └── 📁 s-hdk4gpbpb5-136uenr-9cv3n2zac9lgy84dyxuhitx8m
-│   │       ├── 📁 fontlift_core-3heyjtzw8zciq
-│   │       │   └── 📁 s-hdk30bm49f-0j319yo-5px3qbbpax4rs9j2y7juu9f2v
-│   │       ├── 📁 fontlift_core-3klgn63rodxns
-│   │       │   └── 📁 s-hdk3jj8f7n-0mhcvr5-djh63619eqa58edm8o46si3w1
-│   │       ├── 📁 fontlift_core-3t0l7ubwunm3w
-│   │       │   └── 📁 s-hdk1gunqwz-1jjv5b8-74zcbitkbp3opj3j6xh40ozgg
-│   │       ├── 📁 fontlift_core-3ui5tps3cv5pc
-│   │       │   └── 📁 s-hdjvt4pxss-13326ra-ave2hgm8cij48a9avyk0dfrpx
-│   │       ├── 📁 fontlift_platform_mac-06ndmr06xc44i
-│   │       │   └── 📁 s-hdk1gusnwt-19soweg-8owgh1zfzkaljify9dlv743ny
-│   │       ├── 📁 fontlift_platform_mac-0741b4yj2b2ni
-│   │       │   └── 📁 s-hdk4gph79z-0g25lrv-5xm4svw46cwk6jiy4kollm491
-│   │       ├── 📁 fontlift_platform_mac-0c9fbq1bjq3px
-│   │       │   └── 📁 s-hdk2w3keiu-08ny7kh-9dqy74ggtjfnc5jt93g5ye1bv
-│   │       ├── 📁 fontlift_platform_mac-0tmhe97bcc7if
-│   │       │   └── 📁 s-hdk04or3cu-1103wwb-b9ajrh8m646sk40e2peu4gobc
-│   │       ├── 📁 fontlift_platform_mac-12p1983u8bd4q
-│   │       │   └── 📁 s-hdk4btk65u-0omnb1i-f3p9kk3ajdvmqef7rpyofmdog
-│   │       ├── 📁 fontlift_platform_mac-1ajqoqku6e9qz
-│   │       │   └── 📁 s-hdk4b07rrx-0hpxmhc-9u9o1n1k41vcugt1g4z5fj0e3
-│   │       ├── 📁 fontlift_platform_mac-1cejest1c3osk
-│   │       │   └── 📁 s-hdk30c5gs5-031r7dx-7032k0wmbk2kuhx4qk5kbftn4
-│   │       ├── 📁 fontlift_platform_mac-1dliak65ws0fc
-│   │       │   └── 📁 s-hdk1guqskb-0mf13g3-et6wk3afklrqs8fo6s1hf65i4
-│   │       ├── 📁 fontlift_platform_mac-1kgi4mibweqbc
-│   │       │   └── 📁 s-hdk04ognvd-1d68959-3gv1af2re4ppe3jvzvp1h7p1c
-│   │       ├── 📁 fontlift_platform_mac-1r6tlq5shx9fk
-│   │       │   └── 📁 s-hdjrzx8z67-1eg851g-3x8usojir3bwud76muojrqeov
-│   │       ├── 📁 fontlift_platform_mac-1vtrekrn1cl4b
-│   │       │   └── 📁 s-hdk4mpzyb1-0inxnci-atmna9foll4uyu0wa9ozurptw
-│   │       ├── 📁 fontlift_platform_mac-1xsdwcyv4nvib
-│   │       │   └── 📁 s-hdk2w3kdj9-1v5q4mp-ba53i7o298vbx7kase5ml3o97
-│   │       ├── 📁 fontlift_platform_mac-244xb4rs653bt
-│   │       │   └── 📁 s-hdk3caeu0t-13t5w8g-dzt39rip6q8hoca75xeuejam4
-│   │       ├── 📁 fontlift_platform_mac-249651efyf26u
-│   │       │   └── 📁 s-hdk4b0dktc-0iec1b8-bcymni8nmny7x464jfxlfz2gb
-│   │       ├── 📁 fontlift_platform_mac-2cwd89hck1j33
-│   │       │   └── 📁 s-hdjvt4sc01-1ih8y26-7z1ngpwvgqan8oxzm0qro96xn
-│   │       ├── 📁 fontlift_platform_mac-2jld63rdoel26
-│   │       │   └── 📁 s-hdjrycghz2-128d8p0-39ragunfhlq9qy5tchny6ewyp
-│   │       ├── 📁 fontlift_platform_mac-2nu6tjt0jltt5
-│   │       │   └── 📁 s-hdk04pm5q4-166bjuj-6t9p537agixphvtauyslaxiez
-│   │       ├── 📁 fontlift_platform_mac-2seoav5orloy2
-│   │       │   └── 📁 s-hdk4it079p-065kszz-a7qrbsbgi0st356i5m3p2xwbw
-│   │       ├── 📁 fontlift_platform_mac-2xucxd6z7177o
-│   │       │   └── 📁 s-hdk2vlmx44-0kzzt9k-3y5wkcrwdm7thzdl0dr70ph5r
-│   │       ├── 📁 fontlift_platform_mac-2zlsfnogofqd5
-│   │       │   └── 📁 s-hdk2vlmuqy-0dhmfjg-dbclizd3xz83f8y5n7t78dw8n
-│   │       ├── 📁 fontlift_platform_mac-30tdfabbvjfj7
-│   │       │   └── 📁 s-hdjrzy0xfp-0cgrxuu-6nsh0kkcrcnlawhb2i98hmm5a
-│   │       ├── 📁 fontlift_platform_mac-3kv5j1nvgrt5b
-│   │       │   └── 📁 s-hdk4l5ru5y-0yhmf1u-5jjpi857aq2ayvi4y4g78nr2o
-│   │       ├── 📁 fontlift_platform_mac-3n7xcdcwuzgoo
-│   │       │   └── 📁 s-hdk4itbd1q-03m5m7k-7t0x00hb31f1kekqh6qtxomr8
-│   │       ├── 📁 fontlift_platform_mac-3vgysuxdwumdg
-│   │       │   └── 📁 s-hdk4daqdu3-17k54g2-0rty0g73iilnqpd9xer85pmkw
-│   │       ├── 📁 fontlift_platform_mac-3vswqk8qhj46f
-│   │       │   └── 📁 s-hdk4btkaem-1o061dk-2glhpw02oc7t7u8g2c3adkri9
-│   │       ├── 📁 fontlift_platform_win-06nrs0b1qheam
-│   │       │   └── 📁 s-hdk4btk0te-1uqjupy-6bfallyrakb11tuvqblf3qy20
-│   │       ├── 📁 fontlift_platform_win-0kp06p9lwyru9
-│   │       │   └── 📁 s-hdjrycgc0j-0ki9k4p-catj2qg3wrbd27ypni1rgyl9z
-│   │       ├── 📁 fontlift_platform_win-0p9a1uz9x85rh
-│   │       │   └── 📁 s-hdk4b07mrw-0s1t7ei-4d65ppnmsbli5zbmf5cgvhqtr
-│   │       ├── 📁 fontlift_platform_win-0s3mhby7c8pg1
-│   │       │   └── 📁 s-hdk07j3qqt-1ozwtqe-1g3yede53jdieggerlzk1was0
-│   │       ├── 📁 fontlift_platform_win-13tfmm03fwiyj
-│   │       │   └── 📁 s-hdk14n4gw2-0emmkx4-3tqiok4x1jhvh9stjrab0bva2
-│   │       ├── 📁 fontlift_platform_win-1od27b9lo1165
-│   │       │   └── 📁 s-hdk4b0e8vt-10o2y1q-2zhgifjtech331hj9p5kfotjz
-│   │       ├── 📁 fontlift_platform_win-1psp2xcpvx368
-│   │       │   └── 📁 s-hdk14n279q-0muqdal-32lyt2lki1159ftcc7ssdg4yg
-│   │       ├── 📁 fontlift_platform_win-1sacch6jpc2e4
-│   │       │   └── 📁 s-hdk4gph75z-0xdw7p1-9pwniekb36gkabo0ep7uzukil
-│   │       ├── 📁 fontlift_platform_win-1thw52jj4m5bh
-│   │       │   └── 📁 s-hdk4btkf07-08sp1ql-au4a1fdqs7ymg8h8ib93j2rpx
-│   │       ├── 📁 fontlift_platform_win-1vsis4b1w40xi
-│   │       │   └── 📁 s-hdjrzy0mdb-134gweh-7kljik5i4bmbrovouqndpzhho
-│   │       ├── 📁 fontlift_platform_win-20bed8dx567qd
-│   │       │   └── 📁 s-hdk4itb6uc-08yrpd1-6ukfq85dem5xypmfsxzlv5nl4
-│   │       ├── 📁 fontlift_platform_win-21mafo1zi0uiv
-│   │       │   ├── 📁 s-hdk1d2jufb-1ol1pho-working
-│   │       │   └── 📁 s-hdk1d4m94h-1704mdp-working
-│   │       ├── 📁 fontlift_platform_win-2l9nv294vqd8m
-│   │       │   ├── 📁 s-hdk1d2jv1e-16ifrhb-working
-│   │       │   └── 📁 s-hdk1d4m957-0v9wwfq-working
-│   │       ├── 📁 fontlift_platform_win-2o6vr7n31awi5
-│   │       │   └── 📁 s-hdk2ozvdfe-1962cpd-75lcmhxk9pyl5cdrm27q1u3j3
-│   │       ├── 📁 fontlift_platform_win-2uizxtzg0g4vc
-│   │       │   └── 📁 s-hdk4mpzu7b-1dwt5m1-9h1z27jtn7hq30vs1kbtdnn16
-│   │       ├── 📁 fontlift_platform_win-2vzorq2ome6tz
-│   │       │   └── 📁 s-hdk2w3kjr6-15fbp2f-69l66an9wsxwwhicd9x1kmkau
-│   │       ├── 📁 fontlift_platform_win-34bx4nl9sh3en
-│   │       │   └── 📁 s-hdk2ozvdfa-03nrrb7-0k94rmv5f3khp5tv1v3vcpmnj
-│   │       ├── 📁 fontlift_platform_win-35uipdq7x8jx6
-│   │       │   └── 📁 s-hdk2w3khp4-1hpls5d-5v6i37oqzx2ln5l246grt44jv
-│   │       ├── 📁 fontlift_platform_win-38lx1jgwxcr0q
-│   │       │   └── 📁 s-hdk07j3jvg-12fnh6a-4o8isiruwnf5l8y6ndfvdxaam
-│   │       ├── 📁 fontlift_platform_win-3llycon4w3r7j
-│   │       │   └── 📁 s-hdk2vlmv6o-12dsnur-adsixlul7zcgpk8hekgncmisz
-│   │       ├── 📁 fontlift_platform_win-3mf1kd0m1xrks
-│   │       │   └── 📁 s-hdk4it075f-0u1aa1v-2dtoyoan8ki7l2n7t2vfhrkcs
-│   │       ├── 📁 fontlift_platform_win-3ms3grbz6nsfg
-│   │       │   └── 📁 s-hdk2vlmrn4-0ojqz0g-82p7ywwzorx353fg81qehh3e3
-│   │       ├── 📁 fontlift_platform_win-3u45cpxi75p0g
-│   │       │   └── 📁 s-hdjrzx9725-1nrva3b-b0ko3d1yk7h3txihq3ee3lcfl
-│   │       ├── 📁 fontlift_python-0e0peanpf10jt
-│   │       │   └── 📁 s-hdk0l9xc93-10v13pk-69q29cyuxq4g48ycmyu6ajtba
-│   │       ├── 📁 fontlift_python-0pt746o36rhwc
-│   │       │   └── 📁 s-hdk0yzoh3g-0vnkh3i-working
-│   │       ├── 📁 fontlift_python-1g581h1rp5jlh
-│   │       │   └── 📁 s-hdjs40v1sg-1lplk9e-working
-│   │       ├── 📁 fontlift_python-1kuclqrhim93l
-│   │       │   └── 📁 s-hdk0yzoh49-0fh0mzg-96s1a6vp80g7oosevx6yx3pfi
-│   │       ├── 📁 fontlift_python-3px8j9x0jqom0
-│   │       │   └── 📁 s-hdjw4rjyg1-1qy1jo9-enuselvwv93vx3mlyib2yw8ut
-│   │       ├── 📁 fontlift_validator-0mkhig782g833
-│   │       │   └── 📁 s-hdk3jkwyx8-11e5utw-ambrngmo7uuz614zbsm9xi8le
-│   │       ├── 📁 fontlift_validator-0obyu6curbjq3
-│   │       │   └── 📁 s-hdk2vmt3uv-0qi6iz2-33uk638cxggk8wyphyqmcr1mj
-│   │       ├── 📁 fontlift_validator-0pno06yfh910g
-│   │       │   └── 📁 s-hdk4nczrgt-0pbhmk4-8gm1557uz1vm3t7vw8ao96adq
-│   │       ├── 📁 fontlift_validator-0q7ddi04jvz3r
-│   │       │   └── 📁 s-hdk4b0e6t9-1r83eu5-b4xbg1ac134k596qs6otq421l
-│   │       ├── 📁 fontlift_validator-0ur7mqq6iyv4p
-│   │       │   └── 📁 s-hdk2w3kh2u-0rjm567-dkaew8ohcb2rgquxwsr999oi2
-│   │       ├── 📁 fontlift_validator-1ejhu8x35016e
-│   │       │   └── 📁 s-hdk4gph63o-157ofxu-dvxxe70a3c8yqw0rzjemhok01
-│   │       ├── 📁 fontlift_validator-1sv698gqf2kv3
-│   │       │   └── 📁 s-hdk2w3knm3-1gnuevf-3rubkk5lehe13iq50bhkxldmy
-│   │       ├── 📁 fontlift_validator-1t4holg2aulg7
-│   │       │   └── 📁 s-hdk4btjv6u-0ftj8yd-8tdzfmmnivwaoo5gri7ug5xkt
-│   │       ├── 📁 fontlift_validator-21kqib0zmttve
-│   │       │   └── 📁 s-hdk2ulsf9c-0kyievm-4xu1vdg0axikj3m2w5h9l1yje
-│   │       ├── 📁 fontlift_validator-267u567degdqt
-│   │       │   └── 📁 s-hdk4itbc6v-0ab7xzk-3a5dbxt0vzbzx6po8n9kupt9d
-│   │       ├── 📁 fontlift_validator-2bwuixmp8p3lw
-│   │       │   └── 📁 s-hdk4btk4ou-0qmtmyp-a68ntru3trevj4iujde52v46s
-│   │       ├── 📁 fontlift_validator-34s4twdfpmf59
-│   │       │   └── 📁 s-hdk2vmt4w6-11ju4lf-0q3jspho6jdhpmoh9az7gfg2n
-│   │       ├── 📁 macos_fake_registry_tests-1epwmzcg1tsq6
-│   │       │   └── 📁 s-hdk4db5ne0-02zhaqe-dyknxyrc9pc2q4zk6di65m2bg
-│   │       ├── 📁 macos_fake_registry_tests-1j4n6ffmi8blr
-│   │       │   └── 📁 s-hdk4btwqsg-0uy0kr5-3fwd73avbl9l6hc7uy80rudot
-│   │       ├── 📁 macos_fake_registry_tests-29041t924tvga
-│   │       │   └── 📁 s-hdk4j3ibo3-1dmn7q1-46mj98po5vc75fmetirpqikpe
-│   │       └── 📁 macos_fake_registry_tests-2d2zo4uiqwntv
-│   │           └── 📁 s-hdk4b17rnh-0jxhwok-4brc89bfz2ke2wfksi7g34so4
+│   │       ├── 📁 _native-2se6nsikgohnc
+│   │       │   └── 📁 s-hds0214o46-1mc1sxh-0n1ltb0515woxb8vsjswtcrme
+│   │       ├── 📁 build_script_build-3fwpnf4enr75f
+│   │       │   └── 📁 s-hds01xzyip-15e8dns-8d36sjrlhdyrfsdzx91u6pejo
+│   │       ├── 📁 fontlift-1535obyka82s4
+│   │       │   └── 📁 s-hds01wx23p-1ln41wv-5wo5wfy1pbgr0cg82yju5ch1m
+│   │       ├── 📁 fontlift_cli-2t49e8p5tkxt7
+│   │       │   └── 📁 s-hds01wr3wj-0pv4sis-3j9jss0xncw7d7hn335rfycwk
+│   │       ├── 📁 fontlift_core-03l38ynx1jftr
+│   │       │   └── 📁 s-hds01uupvg-088ghk3-c64dr68tw6d5p9hb757vy2qbc
+│   │       ├── 📁 fontlift_core-1q3h5eqs3fcm0
+│   │       │   └── 📁 s-hds01zyvqi-1tsxpi2-8ly10u3olpbb5n32gawduyfto
+│   │       ├── 📁 fontlift_core-3m2o36hyimxft
+│   │       │   └── 📁 s-hds01vznmn-10uwz45-4fs97mgaqc5hc6ipp2jpyc2pd
+│   │       ├── 📁 fontlift_platform_mac-02u8zx6wplend
+│   │       │   └── 📁 s-hds01w4boq-0071nts-23a1ba27plzvf419gkqj4u3gw
+│   │       ├── 📁 fontlift_platform_mac-03oxzcqrba6yl
+│   │       │   └── 📁 s-hdszee6ske-1deerpq-cl9854y62snieu0kyhammn3bk
+│   │       ├── 📁 fontlift_platform_mac-0gqjjemgqveco
+│   │       │   └── 📁 s-hds01vseib-0qe3rmq-2pqy3ffxnphysinr6jntx2ig3
+│   │       ├── 📁 fontlift_platform_mac-0r67r2a76d67s
+│   │       │   └── 📁 s-hdszee6skg-0fij3e0-2l3ayka9re0ntndqv6cqpx6zr
+│   │       └── 📁 fontlift_platform_mac-32zp9r15uw3zl
+│   │           └── 📁 s-hds0203viw-0ot9dhg-dka5ldqut0efszsdv3hpwwivb
+│   ├── 📁 maturin
 │   ├── 📁 release
 │   │   ├── 📁 deps
 │   │   ├── 📁 examples
 │   │   └── 📁 incremental
-│   └── 📁 tmp
+│   └── 📁 wheels
 ├── 📁 tests
 │   ├── 📁 fixtures
 │   │   ├── 📁 fonts
 │   │   │   └── 📄 malformed.ttf
 │   │   ├── 📁 golden_outputs
+│   │   │   └── 📄 list_json_schema.json
 │   │   └── 📄 README.md
 │   ├── 📄 integration_tests.rs
 │   └── 📄 test_fonts.rs
@@ -416,10 +115,8 @@ Project Structure:
 └── 📄 USAGE.md
 
 
-<documents>
-<document index="1">
-<source>.github/workflows/ci.yml</source>
-<document_content>
+## .github/workflows/ci.yml
+```yaml
 name: CI
 
 on:
@@ -486,12 +183,10 @@ jobs:
       - name: Python tests
         shell: bash
         run: pytest python/tests -v
-</document_content>
-</document>
+```
 
-<document index="2">
-<source>.github/workflows/release.yml</source>
-<document_content>
+## .github/workflows/release.yml
+```yaml
 name: Release
 
 on:
@@ -601,12 +296,10 @@ PY
           cargo publish -p fontlift-platform-win
           cargo publish -p fontlift-cli
           cargo publish -p fontlift-python
-</document_content>
-</document>
+```
 
-<document index="3">
-<source>.gitignore</source>
-<document_content>
+## .gitignore
+```
 # Generated by Cargo
 # will have compiled files and executables
 debug
@@ -633,12 +326,10 @@ target
 dist/
 .hatch/
 .venv/
-</document_content>
-</document>
+```
 
-<document index="4">
-<source>CLAUDE.md</source>
-<document_content>
+## CLAUDE.md
+````markdown
 # Development Guidelines
 
 ## Quick-Start Checklist
@@ -1129,12 +820,10 @@ Define scope in ONE sentence. Reject EVERYTHING else.
 ---
 
 **Remember: The best code is no code. The second best is someone else's well-tested code. Write as little as possible, test everything, and delete ruthlessly.**
-</document_content>
-</document>
+````
 
-<document index="5">
-<source>Cargo.toml</source>
-<document_content>
+## Cargo.toml
+```toml
 [workspace]
 resolver = "2"
 members = [
@@ -1171,7 +860,7 @@ fontlift-validator = { path = "crates/fontlift-validator" }
 log = "0.4"
 read-fonts = "0.26"
 uuid = { version = "1.11", features = ["v4", "serde"] }
-pyo3 = { version = "0.24.1", features = ["extension-module"] }
+pyo3 = "0.24.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 # External dependencies
@@ -1182,11 +871,12 @@ tokio = { version = "1.0", features = ["full"] }
 tempfile = "3.0"
 tokio-test = "0.4"
 
-# Platform-specific dependencies
-cocoa = "0.25"
-core-foundation = "0.9"
-core-text = "20.0"
-objc = "0.2"
+# Platform-specific dependencies (objc2 ecosystem)
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-core-foundation = "0.3"
+objc2-core-graphics = "0.3"
+objc2-core-text = "0.3"
 windows = { version = "0.54", features = [
   "Win32_Foundation",
   "Win32_Graphics_Gdi",
@@ -1206,12 +896,10 @@ opt-level = 3
 strip = true
 lto = true
 codegen-units = 1
-</document_content>
-</document>
+```
 
-<document index="6">
-<source>FEATURE_MATRIX.md</source>
-<document_content>
+## FEATURE_MATRIX.md
+```markdown
 # FontLift Feature Matrix
 
 This document compares the feature set between existing Swift/macOS and C++/Windows implementations with the target unified Rust implementation.
@@ -1408,12 +1096,10 @@ This document compares the feature set between existing Swift/macOS and C++/Wind
 
 **Status**: Phase 0 Complete, Phase 1 In Progress
 **Next**: Complete core platform implementations and CLI functionality
-</document_content>
-</document>
+```
 
-<document index="7">
-<source>IMPROVE--fontlift.md</source>
-<document_content>
+## IMPROVE--fontlift.md
+````markdown
 Here’s what I see (high confidence): there *is* breakthrough potential, primarily in **security/robustness**, not raw performance. Font management is mostly I/O + OS calls, so big speedups are limited, but we *can* make the system significantly safer and more failure‑resistant in ways most tools don’t bother with. 
 
 Below is a concrete, implementable plan.
@@ -1799,12 +1485,10 @@ If you want to keep things tight and avoid extra abstraction bloat (per your CLA
 ---
 
 If you’d like, I can next sketch the exact code signatures and a migration plan for integrating the validator + journal while keeping the public CLI and Python APIs stable.
-</document_content>
-</document>
+````
 
-<document index="8">
-<source>LICENSE</source>
-<document_content>
+## LICENSE
+```
                                  Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
@@ -2006,12 +1690,10 @@ If you’d like, I can next sketch the exact code signatures and a migration pla
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
-</document_content>
-</document>
+```
 
-<document index="9">
-<source>PLAN.md</source>
-<document_content>
+## PLAN.md
+```markdown
 # FontLift Superset Convergence Plan (2025-12-01)
 
 **One-sentence scope:** Deliver `fontlift` (Rust library + CLI + Python bindings) as a strict superset of `fontlift-mac-cli` and `fontlift-win-cli`, matching every behavior while adding a unified, testable, and convenient API surface.
@@ -2050,6 +1732,10 @@ If you’d like, I can next sketch the exact code signatures and a migration pla
 - *Progress 2025-12-03:* Install path now auto-detects conflicts (path/PostScript/family-style) and unregisters/removes duplicates before copy, while refusing to touch protected system font paths.
 - *Progress 2025-12-03:* Listing now prefers name table metadata via `read-fonts` (PostScript/family/subfamily/full name) for registry + directory entries with scope tagging and deduplication.
 - *Progress 2025-12-03:* Added cross-platform unit coverage for Adobe cache discovery/removal and ProgramFiles vs ProgramFiles(x86) deduplication to harden cleanup logic pending Windows host validation.
+- *Progress 2025-12-03:* Registry values are stored as filenames when installed under Fonts roots and normalized back to absolute paths for listing/uninstall; cleanup now stops both FontCache and optional WPF font cache services before deleting cache files.
+- *Progress 2025-12-03:* CLI cleanup now downgrades user-scope cache-clear `PermissionDenied` errors to warnings so default `fontlift cleanup` succeeds without `--admin` while keeping system-scope failures fatal.
+- *Progress 2025-12-03:* Registry unregister/prune now normalize filename-only entries (case-insensitive) to prevent false positives and stale values when removing/pruning fonts.
+- *Progress 2025-12-03:* Registry value matching helper now builds on non-Windows hosts so `cargo test -p fontlift-platform-win` stays green cross-platform while Windows validation remains pending.
 
 ### WS3 — Unified CLI ergonomics
 - Align commands/flags with legacy binaries: aliases, batch install/remove, name- and path-based operations, JSON output, quiet/verbose, dry-run, deterministic sorting.
@@ -2092,7 +1778,7 @@ If you’d like, I can next sketch the exact code signatures and a migration pla
   - Early call to `validate_single` before copy/registration when `validation_config` is set on manager.
   - Abort with `FontError::InvalidFormat` if validation fails.
   - Manager exposes `with_validation(config)` constructor and `set_validation_config()` setter.
-- [ ] Wire validator into Windows install path (`WinFontManager::install_font`) when fleshing out Windows parity.
+- [x] Wire validator into Windows install path (`WinFontManager::install_font`) when fleshing out Windows parity.
 - [x] Expose validation config in Python bindings:
   - Added `strict: bool = False` parameter on `install()` function and `FontliftManager.install_font()` method.
   - When `strict=True`, creates manager with `ValidatorConfig::default()` for out-of-process validation.
@@ -2126,7 +1812,7 @@ If you’d like, I can next sketch the exact code signatures and a migration pla
   - Build actions list: CopyFile (if needed), RegisterFont.
   - Call `record_operation`, execute actions with `mark_step` after each, then `mark_completed`.
 - [x] Wire journal into `MacFontManager::remove_font` (UnregisterFont → DeleteFile).
-- [ ] Wire journal into Windows manager when fully implemented.
+- [x] Wire journal into Windows manager when fully implemented.
 - [x] Add CLI `fontlift doctor` command:
   - Runs `recover_incomplete_operations` and prints actions taken.
   - Optionally auto-run at process start (behind flag or env var).
@@ -2155,12 +1841,10 @@ If you’d like, I can next sketch the exact code signatures and a migration pla
 - Tooling: Rust 1.75+, PyO3 + maturin for bindings; clap for CLI; tests via `cargo test` + `pytest`.
 
 *Last updated: 2025-12-03*
-</document_content>
-</document>
+```
 
-<document index="10">
-<source>README.md</source>
-<document_content>
+## README.md
+````markdown
 # FontLift
 
 A cross-platform font management library and CLI tool written in Rust, consolidating the functionality of the existing Swift and C++ implementations into a unified codebase.
@@ -2470,12 +2154,10 @@ See [CHANGELOG.md](CHANGELOG.md) for version history and release notes.
 ---
 
 Made by FontLab https://www.fontlab.com/
-</document_content>
-</document>
+````
 
-<document index="11">
-<source>RELEASE_CHECKLIST.md</source>
-<document_content>
+## RELEASE_CHECKLIST.md
+```markdown
 # FontLift Release Checklist (2025-12-03)
 
 ## Preconditions
@@ -2491,8 +2173,8 @@ Made by FontLab https://www.fontlab.com/
 - Publish crates in dependency order (core → platform crates → CLI → Python helper crates if any).
 
 ## Python wheels
-- Ensure the Python extension builds locally: `maturin develop -m crates/fontlift-python/Cargo.toml --features extension-module`.
-- Build and upload release wheels with `maturin publish -m crates/fontlift-python/Cargo.toml --features extension-module` (uses the same command to build and push to PyPI). citeturn0search5turn0search7
+- Ensure the Python extension builds locally: `maturin develop -m crates/fontlift-python/Cargo.toml --features python-bindings`.
+- Build and upload release wheels with `maturin publish -m crates/fontlift-python/Cargo.toml --features python-bindings` (uses the same command to build and push to PyPI).
 - If using CI, prefer trusted secretless publishing; otherwise supply a short-lived PyPI token.
 
 ## GitHub release
@@ -2503,12 +2185,10 @@ Made by FontLab https://www.fontlab.com/
 - Yank or deprecate superseded versions if needed.
 - Update `CHANGELOG.md`, `PLAN.md`, `TODO.md`, and `WORK.md` with release status.
 - Announce internally; capture any follow-up bugs in `TODO.md`.
-</document_content>
-</document>
+```
 
-<document index="12">
-<source>SECURITY_CONSIDERATIONS.md</source>
-<document_content>
+## SECURITY_CONSIDERATIONS.md
+````markdown
 # FontLift Security Considerations
 
 This document outlines the security considerations, threat model, and protective measures implemented in FontLift to ensure safe font management operations across platforms.
@@ -2968,12 +2648,10 @@ mod security_tests {
 **Review Schedule**: Quarterly security reviews and after major feature updates
 
 *Last Updated: 2025-11-21*
-</document_content>
-</document>
+````
 
-<document index="13">
-<source>TODO.md</source>
-<document_content>
+## TODO.md
+```markdown
 # fontlift TODO (2025-12-01)
 
 - [x] Audit legacy `fontlift-mac-cli` and `fontlift-win-cli` commands/flags/behaviors and update `FEATURE_MATRIX.md` with a parity checklist.
@@ -2984,10 +2662,15 @@ mod security_tests {
 - [x] Add macOS simulation/dry-run + fake registry mode to mirror Swift testing features (`FONTLIFT_FAKE_REGISTRY_ROOT`, CLI `--dry-run`).
 - [~] Implement Windows install/uninstall/remove using registry + GDI, file copy to per-user/system fonts, admin detection, and conflict auto-removal.
   - Conflict detection now auto-uninstalls conflicting registry/file entries before copying while protecting system font paths.
+  - Registry values are now normalized to the installed scope (filenames for Fonts roots; relative registry entries resolve to absolute paths), and uninstall/remove can resolve renamed entries via registry lookups.
+  - Registry cleanup now matches filename-only entries case-insensitively when unregistering and pruning, preventing orphaned entries from surviving installs/removes.
+  - Registry value matcher now builds on non-Windows hosts, keeping `cargo test -p fontlift-platform-win` green cross-platform.
 - [x] Implement Windows listing from registry + fonts directory with metadata extraction, deduplication, and scope detection.
 - [~] Implement Windows cleanup (registry prune, FontCache service reset, Adobe cache clearing) with `--prune-only`, `--cache-only`, `--admin` and exit-code parity.
   - Registry pruning and FontCache service stop/clear/start paths implemented; AdobeFnt*.lst purge added under Program Files; needs validation on a Windows host.
   - Added cross-platform unit coverage for Adobe cache discovery/removal and ProgramFiles/ProgramFiles(x86) deduplication to reduce cleanup regressions.
+  - Cache clearing now stops/starts both `FontCache` and `FontCache3.0.0.0` (best-effort when the WPF cache service is absent).
+  - CLI cleanup now treats user-scope cache clear `PermissionDenied` errors as warnings to keep default `fontlift cleanup` usable without `--admin`; system-scope still fails without elevation.
 - [x] Add cross-platform conflict detection in `fontlift-core`; duplicate handling and system-font protection helpers added.
   - Conflict detection helper added and wired into Windows installs to auto-remove duplicate registrations/files before copying.
 - [x] Expand CLI to match legacy ergonomics: aliases, batch file/dir installs, name- and path-based uninstall/remove, `-p/-n/-s`, `--json`, `--dry-run`, `--quiet/--verbose`, deterministic sorting, and help text updates.
@@ -3011,7 +2694,7 @@ mod security_tests {
 - [x] Create `fontlift-validator` binary crate with `read-fonts` parsing, max-size/timeout enforcement, and JSON output.
 - [x] Add `validation_ext` module to `fontlift-core` with `ValidatorConfig` and `validate_and_introspect` API.
 - [x] Wire validator into macOS `MacFontManager::install_font` for pre-flight validation. *(Manager now validates when `validation_config` is set; CLI also pre-validates.)*
-- [ ] Wire validator into Windows `WinFontManager::install_font` when Windows parity is complete.
+- [x] Wire validator into Windows `WinFontManager::install_font` when Windows parity is complete.
 - [x] Expose `strict`/`validation_config` in Python bindings (`install`, `cleanup`). *(Added `strict=False` parameter to `install()` and `FontliftManager.install_font()`.)*
 - [x] Add CLI `--no-validate` and `--validation-strictness {lenient,normal,paranoid}` flags.
 - [x] Add unit tests for malformed fonts, max-size, and timeout behaviour.
@@ -3025,18 +2708,16 @@ mod security_tests {
 - [x] Implement `recover_incomplete_operations` with roll-forward/rollback policy per action type.
 - [x] Wire journal into `MacFontManager::install_font` (CopyFile, RegisterFont actions).
 - [x] Wire journal into `MacFontManager::remove_font` (UnregisterFont, DeleteFile actions).
-- [ ] Wire journal into Windows manager when fully implemented.
+- [x] Wire journal into Windows manager when fully implemented.
 - [x] Add CLI `fontlift doctor` command for manual recovery.
 - [x] Add unit tests for journal entry lifecycle and recovery logic.
 - [x] Add integration tests with fault injection (panic mid-install) and recovery verification.
   - `mac_fake_registry_doctor_recovers_incomplete_copy`: simulates crash after CopyFile journal record, verifies doctor recovery.
   - `mac_fake_registry_doctor_recovers_incomplete_delete`: simulates crash after DeleteFile journal record, verifies doctor recovery.
-</document_content>
-</document>
+```
 
-<document index="14">
-<source>USAGE.md</source>
-<document_content>
+## USAGE.md
+````markdown
 # FontLift Usage Guide
 
 This guide provides comprehensive usage examples for FontLift, both as a library and as a CLI tool.
@@ -3284,12 +2965,10 @@ match manager.install_font(&font_path, FontScope::User) {
 
 - Planned support via fontconfig integration
 - Will support standard font directories
-</document_content>
-</document>
+````
 
-<document index="15">
-<source>build.sh</source>
-<document_content>
+## build.sh
+```bash
 #!/bin/bash
 
 # FontLift Build Script - Production Ready
@@ -3596,6 +3275,48 @@ check_optional_dependencies() {
 	done
 }
 
+# Ensure a virtualenv exists so maturin can install the extension
+ensure_python_virtualenv() {
+	# Respect existing activations (VIRTUAL_ENV or conda)
+	if [ -n "${VIRTUAL_ENV:-}" ]; then
+		print_status "Using existing virtualenv at $VIRTUAL_ENV"
+		return 0
+	fi
+	if [ -n "${CONDA_PREFIX:-}" ]; then
+		print_status "Using active conda environment at $CONDA_PREFIX"
+		return 0
+	fi
+
+	local venv_dir="$SCRIPT_DIR/.venv"
+	if [ -d "$venv_dir" ]; then
+		print_status "Found virtualenv at $venv_dir"
+	else
+		print_substep "Creating virtualenv at $venv_dir..."
+		if command_exists uv; then
+			uv venv "$venv_dir"
+		else
+			local python_bin=""
+			if command_exists python3; then
+				python_bin="python3"
+			elif command_exists python; then
+				python_bin="python"
+			fi
+
+			if [ -z "$python_bin" ]; then
+				print_warning "Python not available to create a virtualenv; skipping Python bindings"
+				return 1
+			fi
+
+			$python_bin -m venv "$venv_dir"
+		fi
+	fi
+
+	# Surface the environment for maturin without requiring manual activation
+	export VIRTUAL_ENV="$venv_dir"
+	export PATH="$VIRTUAL_ENV/bin:$PATH"
+	print_status "Virtualenv ready at $VIRTUAL_ENV"
+}
+
 # Function to build components
 build_component() {
 	local component=$1
@@ -3706,6 +3427,11 @@ build_python_bindings() {
 	local manifest_path="$SCRIPT_DIR/crates/fontlift-python/Cargo.toml"
 
 	print_step "Building Python bindings..."
+
+	if ! ensure_python_virtualenv; then
+		print_warning "Unable to prepare Python virtualenv; skipping Python bindings"
+		return
+	fi
 	
 	if command_exists hatch; then
 		print_substep "Using hatch to build wheel..."
@@ -3739,7 +3465,7 @@ build_python_bindings() {
 	cd "$SCRIPT_DIR"
 	
 	# Build Python bindings from the Python crate manifest (workspace root lacks a package table)
-	maturin develop -m "$manifest_path" $build_flags --features extension-module
+	maturin develop -m "$manifest_path" $build_flags --features python-bindings
 	if [ $? -eq 0 ]; then
 		print_status "Python bindings built and installed successfully"
 	else
@@ -3992,7 +3718,7 @@ main() {
 	fi
 	
 	if [ "$BUILD_ALL" == "yes" ] || [ "$BUILD_PYTHON" == "yes" ]; then
-		build_component "fontlift-python" "extension-module" "$BUILD_MODE"
+		build_component "fontlift-python" "python-bindings" "$BUILD_MODE"
 	fi
 	
 	# Build Python bindings if requested
@@ -4044,12 +3770,10 @@ main() {
 
 # Run main function with all arguments
 main "$@"
-</document_content>
-</document>
+```
 
-<document index="16">
-<source>crates/fontlift-cli/Cargo.toml</source>
-<document_content>
+## crates/fontlift-cli/Cargo.toml
+```toml
 [package]
 name = "fontlift-cli"
 version.workspace = true
@@ -4087,17 +3811,16 @@ fontlift-platform-win = { workspace = true }
 tempfile = "3.0"
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 serde_json = { workspace = true }
-</document_content>
-</document>
+```
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/crates/fontlift-cli/src/args.rs
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-cli/src/args.rs
 # Language: rust
 
 struct Cli {
 }
 
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/crates/fontlift-cli/src/lib.rs
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-cli/src/lib.rs
 # Language: rust
 
 mod args;
@@ -4107,12 +3830,12 @@ mod ops;
 mod tests;
 
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/crates/fontlift-cli/src/main.rs
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-cli/src/main.rs
 # Language: rust
 
 
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/crates/fontlift-cli/src/ops.rs
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-cli/src/ops.rs
 # Language: rust
 
 struct ListRenderOptions {
@@ -4125,7 +3848,7 @@ struct OperationOptions {
 }
 
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/crates/fontlift-cli/src/tests.rs
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-cli/src/tests.rs
 # Language: rust
 
 struct RecordingManager {
@@ -4134,10 +3857,12 @@ struct RecordingManager {
 struct ScopedUninstallManager {
 }
 
+struct DenyCacheManager {
+}
 
-<document index="17">
-<source>crates/fontlift-cli/tests/macos_fake_registry_tests.rs</source>
-<document_content>
+
+## crates/fontlift-cli/tests/macos_fake_registry_tests.rs
+```rust
 #![cfg(target_os = "macos")]
 
 use std::env;
@@ -4909,12 +4634,10 @@ async fn mac_fake_registry_doctor_recovers_incomplete_delete() {
         "journal should have no incomplete entries after recovery"
     );
 }
-</document_content>
-</document>
+```
 
-<document index="18">
-<source>crates/fontlift-core/Cargo.toml</source>
-<document_content>
+## crates/fontlift-core/Cargo.toml
+```toml
 [package]
 name = "fontlift-core"
 version.workspace = true
@@ -4941,10 +4664,9 @@ read-fonts = "0.36"
 [dev-dependencies]
 tokio-test = "0.4"
 tempfile = "3.0"
-</document_content>
-</document>
+```
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/crates/fontlift-core/src/config.rs
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-core/src/config.rs
 # Language: rust
 
 mod tests;
@@ -4965,7 +4687,7 @@ struct Performance {
 }
 
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/crates/fontlift-core/src/journal.rs
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-core/src/journal.rs
 # Language: rust
 
 mod systemtime_serde;
@@ -4982,9 +4704,8 @@ struct ActionRecoveryResult {
 }
 
 
-<document index="19">
-<source>crates/fontlift-core/src/lib.rs</source>
-<document_content>
+## crates/fontlift-core/src/lib.rs
+```rust
 //! fontlift-core - Core font management library for fontlift
 //!
 //! This library provides the core abstractions and types for cross-platform
@@ -5617,16 +5338,15 @@ mod tests {
         assert_eq!(result.warnings.len(), 1);
     }
 }
-</document_content>
-</document>
+```
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/crates/fontlift-core/src/tests.rs
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-core/src/tests.rs
 # Language: rust
 
 mod integration_tests;
 
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/crates/fontlift-core/src/validation_ext.rs
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-core/src/validation_ext.rs
 # Language: rust
 
 mod tests;
@@ -5641,9 +5361,8 @@ struct ValidationResult {
 }
 
 
-<document index="20">
-<source>crates/fontlift-platform-mac/Cargo.toml</source>
-<document_content>
+## crates/fontlift-platform-mac/Cargo.toml
+```toml
 [package]
 name = "fontlift-platform-mac"
 version.workspace = true
@@ -5660,21 +5379,17 @@ thiserror.workspace = true
 anyhow.workspace = true
 log.workspace = true
 
-# macOS specific dependencies
-core-foundation = "0.9"
-core-text = "20.0"
-cocoa = "0.25"
-objc = "0.2"
+# macOS specific dependencies (objc2 ecosystem)
+objc2-core-foundation = { workspace = true }
+objc2-core-text = { workspace = true }
 libc = "0.2"
 
 [dev-dependencies]
 tempfile = "3.0"
-</document_content>
-</document>
+```
 
-<document index="21">
-<source>crates/fontlift-platform-mac/src/lib.rs</source>
-<document_content>
+## crates/fontlift-platform-mac/src/lib.rs
+```rust
 //! macOS platform implementation for fontlift
 //!
 //! This module provides macOS-specific font management using Core Text APIs,
@@ -5690,21 +5405,17 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use core_foundation::array::CFArray;
-use core_foundation::base::TCFType;
-use core_foundation::dictionary::CFDictionary;
-use core_foundation::error::{CFError, CFErrorRef};
-use core_foundation::string::CFString;
-use core_foundation::url::{CFURLRef, CFURL};
-use core_text::font_descriptor::{
-    self as ct_font_descriptor, CTFontDescriptor, CTFontFormat, SymbolicTraitAccessors,
-    TraitAccessors,
+use objc2_core_foundation::{
+    CFDictionary, CFError, CFIndex, CFNumber, CFRetained, CFString, CFType, CFURLPathStyle, CFURL,
 };
-use core_text::font_manager as ct_font_manager;
+use objc2_core_text::{
+    CTFontDescriptor, CTFontFormat, CTFontManagerScope,
+    CTFontManagerRegisterFontsForURL, CTFontManagerUnregisterFontsForURL,
+    kCTFontDisplayNameAttribute, kCTFontFamilyNameAttribute, kCTFontFormatAttribute,
+    kCTFontNameAttribute, kCTFontStyleNameAttribute, kCTFontSymbolicTrait, kCTFontTraitsAttribute,
+    kCTFontURLAttribute, kCTFontWeightTrait,
+};
 
-type CTFontManagerScope = u32;
-const K_CT_FONT_MANAGER_SCOPE_PERSISTENT: CTFontManagerScope = 2; // aligns with user scope
-const K_CT_FONT_MANAGER_SCOPE_USER: CTFontManagerScope = 2;
 const K_CT_FONT_MANAGER_ERROR_ALREADY_REGISTERED: isize = 105;
 const K_CT_FONT_MANAGER_ERROR_DUPLICATED_NAME: isize = 305;
 
@@ -5830,35 +5541,87 @@ fn clear_office_font_cache(home: &Path) -> FontResult<usize> {
     purge_directory_contents(&office_cache)
 }
 
-#[link(name = "CoreText", kind = "framework")]
-extern "C" {
-    fn CTFontManagerRegisterFontsForURL(
-        font_url: CFURLRef,
-        scope: CTFontManagerScope,
-        error: *mut CFErrorRef,
-    ) -> bool;
-
-    fn CTFontManagerUnregisterFontsForURL(
-        font_url: CFURLRef,
-        scope: CTFontManagerScope,
-        error: *mut CFErrorRef,
-    ) -> bool;
-}
-
 fn ct_scope(scope: FontScope) -> CTFontManagerScope {
     match scope {
-        FontScope::User => K_CT_FONT_MANAGER_SCOPE_USER,
-        FontScope::System => K_CT_FONT_MANAGER_SCOPE_PERSISTENT,
+        FontScope::User => CTFontManagerScope::User,
+        FontScope::System => CTFontManagerScope::Persistent,
     }
 }
 
-fn cf_error_to_string(err: CFErrorRef) -> String {
-    if err.is_null() {
-        return "unknown CoreText error".to_string();
+fn cf_error_to_string(err: Option<&CFError>) -> String {
+    match err {
+        None => "unknown CoreText error".to_string(),
+        Some(cf_err) => {
+            // Get the error description
+            match cf_err.description() {
+                Some(desc) => cf_string_to_rust(&desc),
+                None => "unknown CoreText error".to_string(),
+            }
+        }
+    }
+}
+
+fn cf_string_to_rust(cf_str: &CFString) -> String {
+    use objc2_core_foundation::CFStringBuiltInEncodings;
+
+    // Get the length of the string
+    let len = cf_str.length();
+    if len == 0 {
+        return String::new();
     }
 
-    let cf_err = unsafe { CFError::wrap_under_get_rule(err) };
-    cf_err.description().to_string()
+    // Try to get a direct pointer to the UTF-8 representation
+    let ptr = cf_str.c_string_ptr(CFStringBuiltInEncodings::EncodingUTF8.0);
+    if !ptr.is_null() {
+        // Safety: ptr is valid UTF-8 C string
+        let c_str = unsafe { std::ffi::CStr::from_ptr(ptr) };
+        return c_str.to_string_lossy().into_owned();
+    }
+
+    // Fallback: allocate a buffer and copy the string
+    let max_size = (len as usize) * 4 + 1; // UTF-8 can be up to 4 bytes per character
+    let mut buffer = vec![0u8; max_size];
+    let success = unsafe {
+        cf_str.c_string(
+            buffer.as_mut_ptr() as *mut i8,
+            max_size as CFIndex,
+            CFStringBuiltInEncodings::EncodingUTF8.0,
+        )
+    };
+
+    if success {
+        // Find the null terminator
+        let null_pos = buffer.iter().position(|&b| b == 0).unwrap_or(buffer.len());
+        String::from_utf8_lossy(&buffer[..null_pos]).into_owned()
+    } else {
+        String::new()
+    }
+}
+
+fn rust_string_to_cf(s: &str) -> CFRetained<CFString> {
+    use objc2_core_foundation::CFStringBuiltInEncodings;
+
+    let c_str = std::ffi::CString::new(s).unwrap_or_default();
+    unsafe {
+        CFString::with_c_string(None, c_str.as_ptr(), CFStringBuiltInEncodings::EncodingUTF8.0)
+            .expect("Failed to create CFString")
+    }
+}
+
+fn path_to_cfurl(path: &Path) -> Option<CFRetained<CFURL>> {
+    let path_str = path.to_str()?;
+    let cf_path = rust_string_to_cf(path_str);
+    CFURL::with_file_system_path(
+        None,
+        Some(&cf_path),
+        CFURLPathStyle::CFURLPOSIXPathStyle,
+        path.is_dir(),
+    )
+}
+
+fn cfurl_to_path(url: &CFURL) -> Option<PathBuf> {
+    let cf_str = url.file_system_path(CFURLPathStyle::CFURLPOSIXPathStyle);
+    cf_str.map(|s| PathBuf::from(cf_string_to_rust(&s)))
 }
 
 fn scope_from_path(path: &Path) -> FontScope {
@@ -5901,73 +5664,178 @@ fn normalize_path(path: &Path) -> String {
 }
 
 fn font_format_to_string(format: CTFontFormat) -> Option<String> {
-    match format {
-        ct_font_descriptor::kCTFontFormatOpenTypePostScript => {
-            Some("OpenTypePostScript".to_string())
-        }
-        ct_font_descriptor::kCTFontFormatOpenTypeTrueType => Some("OpenTypeTrueType".to_string()),
-        ct_font_descriptor::kCTFontFormatTrueType => Some("TrueType".to_string()),
-        ct_font_descriptor::kCTFontFormatPostScript => Some("PostScript".to_string()),
-        ct_font_descriptor::kCTFontFormatBitmap => Some("Bitmap".to_string()),
-        _ => None,
+    if format == CTFontFormat::OpenTypePostScript {
+        Some("OpenTypePostScript".to_string())
+    } else if format == CTFontFormat::OpenTypeTrueType {
+        Some("OpenTypeTrueType".to_string())
+    } else if format == CTFontFormat::TrueType {
+        Some("TrueType".to_string())
+    } else if format == CTFontFormat::PostScript {
+        Some("PostScript".to_string())
+    } else if format == CTFontFormat::Bitmap {
+        Some("Bitmap".to_string())
+    } else {
+        None
     }
 }
 
 fn is_conflict_error(err: &CFError) -> bool {
-    let domain = err.domain().to_string();
-    if !domain.contains("CTFontManagerErrorDomain") {
+    let domain = match err.domain() {
+        Some(d) => d,
+        None => return false,
+    };
+    let domain_str = cf_string_to_rust(&domain);
+    if !domain_str.contains("CTFontManagerErrorDomain") {
         return false;
     }
 
+    let code = err.code();
     matches!(
-        err.code(),
+        code,
         K_CT_FONT_MANAGER_ERROR_ALREADY_REGISTERED | K_CT_FONT_MANAGER_ERROR_DUPLICATED_NAME
     )
 }
 
+// Helper to check CF type - use ConcreteType trait
+use objc2_core_foundation::ConcreteType;
+
+fn get_descriptor_string_attribute(
+    descriptor: &CTFontDescriptor,
+    attr: &CFString,
+) -> Option<String> {
+    let value = unsafe { descriptor.attribute(attr) };
+    value.and_then(|v| {
+        // Check if it's a CFString using ConcreteType trait
+        let type_id = objc2_core_foundation::CFGetTypeID(Some(v.as_ref()));
+        let string_type_id = CFString::type_id();
+        if type_id == string_type_id {
+            // Cast to CFString - the value is a CFType, we need to reinterpret
+            let cf_str: &CFString = unsafe { &*(v.as_ref() as *const CFType as *const CFString) };
+            Some(cf_string_to_rust(cf_str))
+        } else {
+            None
+        }
+    })
+}
+
+fn get_descriptor_url_attribute(descriptor: &CTFontDescriptor) -> Option<PathBuf> {
+    let value = unsafe { descriptor.attribute(kCTFontURLAttribute) };
+    value.and_then(|v| {
+        let type_id = objc2_core_foundation::CFGetTypeID(Some(v.as_ref()));
+        let url_type_id = CFURL::type_id();
+        if type_id == url_type_id {
+            let cf_url: &CFURL = unsafe { &*(v.as_ref() as *const CFType as *const CFURL) };
+            cfurl_to_path(cf_url)
+        } else {
+            None
+        }
+    })
+}
+
+fn get_descriptor_format_attribute(descriptor: &CTFontDescriptor) -> Option<CTFontFormat> {
+    let value = unsafe { descriptor.attribute(kCTFontFormatAttribute) };
+    value.and_then(|v| {
+        let type_id = objc2_core_foundation::CFGetTypeID(Some(v.as_ref()));
+        let number_type_id = CFNumber::type_id();
+        if type_id == number_type_id {
+            let cf_num: &CFNumber = unsafe { &*(v.as_ref() as *const CFType as *const CFNumber) };
+            let mut format_value: u32 = 0;
+            let success = unsafe {
+                cf_num.value(
+                    objc2_core_foundation::CFNumberType::SInt32Type,
+                    (&mut format_value) as *mut u32 as *mut std::ffi::c_void,
+                )
+            };
+            if success {
+                Some(CTFontFormat(format_value))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    })
+}
+
 fn descriptor_to_font_face_info(descriptor: &CTFontDescriptor) -> Option<FontliftFontFaceInfo> {
-    let path = descriptor.font_path()?;
-    let postscript_name = descriptor.font_name();
-    let display_name = descriptor.display_name();
-    let family_name = descriptor.family_name();
-    let style_name = descriptor.style_name();
+    let path = get_descriptor_url_attribute(descriptor)?;
+    let postscript_name =
+        get_descriptor_string_attribute(descriptor, unsafe { kCTFontNameAttribute })?;
+    let display_name =
+        get_descriptor_string_attribute(descriptor, unsafe { kCTFontDisplayNameAttribute })
+            .unwrap_or_else(|| postscript_name.clone());
+    let family_name =
+        get_descriptor_string_attribute(descriptor, unsafe { kCTFontFamilyNameAttribute })
+            .unwrap_or_else(|| postscript_name.clone());
+    let style_name =
+        get_descriptor_string_attribute(descriptor, unsafe { kCTFontStyleNameAttribute })
+            .unwrap_or_else(|| "Regular".to_string());
 
     let mut source = FontliftFontSource::new(path.clone()).with_scope(Some(scope_from_path(&path)));
 
-    if let Some(format) = descriptor.font_format() {
+    if let Some(format) = get_descriptor_format_attribute(descriptor) {
         source = source.with_format(font_format_to_string(format));
     }
 
     let mut info = FontliftFontFaceInfo::new(
         source,
-        postscript_name.to_string(),
-        display_name.to_string(),
-        family_name.to_string(),
-        style_name.to_string(),
+        postscript_name,
+        display_name,
+        family_name,
+        style_name,
     );
 
-    if let Some(traits) = descriptor
-        .attributes()
-        .find(unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontTraitsAttribute) })
-        .and_then(|traits_cf| {
-            if traits_cf.instance_of::<CFDictionary>() {
-                Some(unsafe {
-                    ct_font_descriptor::CTFontTraits::wrap_under_get_rule(
-                        traits_cf.as_CFTypeRef() as _
-                    )
-                })
-            } else {
-                None
-            }
-        })
-    {
-        let symbolic = traits.symbolic_traits();
-        info.italic = Some(symbolic.is_italic());
+    // Try to get traits
+    let traits_value = unsafe { descriptor.attribute(kCTFontTraitsAttribute) };
+    if let Some(traits_cf) = traits_value {
+        let type_id = objc2_core_foundation::CFGetTypeID(Some(traits_cf.as_ref()));
+        let dict_type_id = CFDictionary::type_id();
+        if type_id == dict_type_id {
+            let traits_dict: &CFDictionary =
+                unsafe { &*(traits_cf.as_ref() as *const CFType as *const CFDictionary) };
 
-        let weight = (traits.normalized_weight() * 400.0 + 500.0).round();
-        if weight.is_finite() {
-            let clamped = weight.clamp(1.0, 1000.0) as u16;
-            info.weight = Some(clamped);
+            // Get symbolic traits (for italic)
+            let symbolic_key = unsafe { kCTFontSymbolicTrait };
+            let symbolic_value = unsafe {
+                traits_dict.value(symbolic_key as *const _ as *const std::ffi::c_void)
+            };
+            if !symbolic_value.is_null() {
+                let cf_num: &CFNumber = unsafe { &*(symbolic_value as *const CFNumber) };
+                let mut symbolic: u32 = 0;
+                let success = unsafe {
+                    cf_num.value(
+                        objc2_core_foundation::CFNumberType::SInt32Type,
+                        (&mut symbolic) as *mut u32 as *mut std::ffi::c_void,
+                    )
+                };
+                if success {
+                    // kCTFontItalicTrait = 1 << 0
+                    info.italic = Some((symbolic & 1) != 0);
+                }
+            }
+
+            // Get weight trait
+            let weight_key = unsafe { kCTFontWeightTrait };
+            let weight_value = unsafe {
+                traits_dict.value(weight_key as *const _ as *const std::ffi::c_void)
+            };
+            if !weight_value.is_null() {
+                let cf_num: &CFNumber = unsafe { &*(weight_value as *const CFNumber) };
+                let mut weight: f64 = 0.0;
+                let success = unsafe {
+                    cf_num.value(
+                        objc2_core_foundation::CFNumberType::Float64Type,
+                        (&mut weight) as *mut f64 as *mut std::ffi::c_void,
+                    )
+                };
+                if success {
+                    let weight_int = (weight * 400.0 + 500.0).round();
+                    if weight_int.is_finite() {
+                        let clamped = weight_int.clamp(1.0, 1000.0) as u16;
+                        info.weight = Some(clamped);
+                    }
+                }
+            }
         }
     }
 
@@ -6110,7 +5978,7 @@ impl MacFontManager {
         validation::validate_font_file(path)?;
 
         // Convert path to CFURL for Core Text
-        let cf_url = match CFURL::from_path(path, false) {
+        let cf_url = match path_to_cfurl(path) {
             Some(url) => url,
             None => {
                 return Err(FontError::InvalidFormat(format!(
@@ -6120,14 +5988,9 @@ impl MacFontManager {
             }
         };
 
-        let mut error: CFErrorRef = std::ptr::null_mut();
-        let result = unsafe {
-            CTFontManagerRegisterFontsForURL(
-                cf_url.as_concrete_TypeRef(),
-                ct_scope(scope),
-                &mut error,
-            )
-        };
+        let mut error: *mut CFError = std::ptr::null_mut();
+        let result =
+            unsafe { CTFontManagerRegisterFontsForURL(&cf_url, ct_scope(scope), &mut error) };
 
         if result {
             return Ok(());
@@ -6140,49 +6003,51 @@ impl MacFontManager {
             )));
         }
 
-        let conflict_error = unsafe { CFError::wrap_under_get_rule(error) };
-        if is_conflict_error(&conflict_error) {
-            let mut unregister_error: CFErrorRef = std::ptr::null_mut();
+        let error_ref = unsafe { &*error };
+        if is_conflict_error(error_ref) {
+            let mut unregister_error: *mut CFError = std::ptr::null_mut();
             let unregistered = unsafe {
-                CTFontManagerUnregisterFontsForURL(
-                    cf_url.as_concrete_TypeRef(),
-                    ct_scope(scope),
-                    &mut unregister_error,
-                )
+                CTFontManagerUnregisterFontsForURL(&cf_url, ct_scope(scope), &mut unregister_error)
             };
 
             if !unregistered {
+                let unregister_err = if unregister_error.is_null() {
+                    None
+                } else {
+                    Some(unsafe { &*unregister_error })
+                };
                 return Err(FontError::RegistrationFailed(format!(
                     "Existing font conflict could not be resolved for {}: {}",
                     path.display(),
-                    cf_error_to_string(unregister_error)
+                    cf_error_to_string(unregister_err)
                 )));
             }
 
-            let mut retry_error: CFErrorRef = std::ptr::null_mut();
+            let mut retry_error: *mut CFError = std::ptr::null_mut();
             let retry = unsafe {
-                CTFontManagerRegisterFontsForURL(
-                    cf_url.as_concrete_TypeRef(),
-                    ct_scope(scope),
-                    &mut retry_error,
-                )
+                CTFontManagerRegisterFontsForURL(&cf_url, ct_scope(scope), &mut retry_error)
             };
 
             if retry {
                 return Ok(());
             }
 
+            let retry_err = if retry_error.is_null() {
+                None
+            } else {
+                Some(unsafe { &*retry_error })
+            };
             return Err(FontError::RegistrationFailed(format!(
                 "Core Text failed to register font {} after resolving conflict: {}",
                 path.display(),
-                cf_error_to_string(retry_error)
+                cf_error_to_string(retry_err)
             )));
         }
 
         Err(FontError::RegistrationFailed(format!(
             "Core Text failed to register font {}: {}",
             path.display(),
-            conflict_error.description()
+            cf_error_to_string(Some(error_ref))
         )))
     }
 
@@ -6352,7 +6217,7 @@ impl FontManager for MacFontManager {
         }
 
         // Convert path to CFURL for Core Text
-        let cf_url = match CFURL::from_path(&target_path, false) {
+        let cf_url = match path_to_cfurl(&target_path) {
             Some(url) => url,
             None => {
                 return Err(FontError::InvalidFormat(format!(
@@ -6362,19 +6227,19 @@ impl FontManager for MacFontManager {
             }
         };
 
-        let mut error: CFErrorRef = std::ptr::null_mut();
-        let result = unsafe {
-            CTFontManagerUnregisterFontsForURL(
-                cf_url.as_concrete_TypeRef(),
-                ct_scope(scope),
-                &mut error,
-            )
-        };
+        let mut error: *mut CFError = std::ptr::null_mut();
+        let result =
+            unsafe { CTFontManagerUnregisterFontsForURL(&cf_url, ct_scope(scope), &mut error) };
 
         if result {
             Ok(())
         } else {
-            let message = cf_error_to_string(error);
+            let err = if error.is_null() {
+                None
+            } else {
+                Some(unsafe { &*error })
+            };
+            let message = cf_error_to_string(err);
             Err(FontError::RegistrationFailed(format!(
                 "Core Text failed to unregister font {}: {}",
                 target_path.display(),
@@ -6460,20 +6325,29 @@ impl FontManager for MacFontManager {
             return Ok(true);
         }
 
-        let font_urls = unsafe { ct_font_manager::CTFontManagerCopyAvailableFontURLs() };
-        if font_urls.is_null() {
-            return Ok(false);
-        }
+        let font_array = unsafe { objc2_core_text::CTFontManagerCopyAvailableFontURLs() };
 
-        let font_array: CFArray<CFURL> = unsafe { CFArray::wrap_under_get_rule(font_urls) };
         let normalized_target = normalize_path(&target_path);
+        let count = font_array.count();
 
-        for i in 0..font_array.len() {
-            if let Some(cf_url) = font_array.get(i) {
-                if let Some(path) = cf_url.to_path() {
-                    if normalize_path(&path) == normalized_target {
-                        return Ok(true);
-                    }
+        for i in 0..count {
+            let value = unsafe { font_array.value_at_index(i) };
+            if value.is_null() {
+                continue;
+            }
+
+            // Check if it's a CFURL
+            let cf_type: &CFType = unsafe { &*(value as *const CFType) };
+            let type_id = objc2_core_foundation::CFGetTypeID(Some(cf_type));
+            let url_type_id = CFURL::type_id();
+            if type_id != url_type_id {
+                continue;
+            }
+
+            let cf_url: &CFURL = unsafe { &*(value as *const CFURL) };
+            if let Some(path) = cfurl_to_path(cf_url) {
+                if normalize_path(&path) == normalized_target {
+                    return Ok(true);
                 }
             }
         }
@@ -6485,54 +6359,65 @@ impl FontManager for MacFontManager {
         if self.is_fake_registry_enabled() {
             return self.list_installed_fonts_fake();
         }
+
         // Get all available font URLs from Core Text
-        let font_urls = unsafe { ct_font_manager::CTFontManagerCopyAvailableFontURLs() };
+        let font_array = unsafe { objc2_core_text::CTFontManagerCopyAvailableFontURLs() };
 
-        if font_urls.is_null() {
-            return Ok(Vec::new());
-        }
-
-        let font_array: CFArray<CFURL> = unsafe { CFArray::wrap_under_get_rule(font_urls) };
         let mut fonts = Vec::new();
+        let count = font_array.count();
 
-        for i in 0..font_array.len() {
-            if let Some(cf_url) = font_array.get(i) {
-                // Try to pull rich metadata via font descriptors first
-                let descriptors = unsafe {
-                    ct_font_manager::CTFontManagerCreateFontDescriptorsFromURL(
-                        cf_url.as_concrete_TypeRef(),
-                    )
-                };
+        for i in 0..count {
+            let value = unsafe { font_array.value_at_index(i) };
+            if value.is_null() {
+                continue;
+            }
 
-                if !descriptors.is_null() {
-                    let descriptor_array: CFArray<CTFontDescriptor> =
-                        unsafe { CFArray::wrap_under_create_rule(descriptors) };
+            // Check if it's a CFURL
+            let cf_type: &CFType = unsafe { &*(value as *const CFType) };
+            let type_id = objc2_core_foundation::CFGetTypeID(Some(cf_type));
+            let url_type_id = CFURL::type_id();
+            if type_id != url_type_id {
+                continue;
+            }
 
-                    for idx in 0..descriptor_array.len() {
-                        if let Some(descriptor) = descriptor_array.get(idx) {
-                            if let Some(info) = descriptor_to_font_face_info(&descriptor) {
-                                fonts.push(info);
-                                continue;
-                            }
-                        }
-                    }
-                }
+            let cf_url: &CFURL = unsafe { &*(value as *const CFURL) };
 
-                // Fallback: basic info from path
-                if let Some(path) = cf_url.to_path() {
-                    if !path.exists() || !validation::is_valid_font_extension(&path) {
+            // Try to pull rich metadata via font descriptors first
+            let descriptors =
+                unsafe { objc2_core_text::CTFontManagerCreateFontDescriptorsFromURL(cf_url) };
+
+            if let Some(descriptor_array) = descriptors {
+                let desc_count = descriptor_array.count();
+
+                for idx in 0..desc_count {
+                    let desc_value = unsafe { descriptor_array.value_at_index(idx) };
+                    if desc_value.is_null() {
                         continue;
                     }
 
-                    match self.get_font_info_from_path(&path) {
-                        Ok(mut font_info) => {
-                            font_info.source.scope = Some(scope_from_path(&path));
-                            fonts.push(font_info);
-                        }
-                        Err(_) => {
-                            // Skip fonts we can't read, but don't fail the entire operation
-                            continue;
-                        }
+                    let descriptor: &CTFontDescriptor =
+                        unsafe { &*(desc_value as *const CTFontDescriptor) };
+                    if let Some(info) = descriptor_to_font_face_info(descriptor) {
+                        fonts.push(info);
+                        continue;
+                    }
+                }
+            }
+
+            // Fallback: basic info from path
+            if let Some(path) = cfurl_to_path(cf_url) {
+                if !path.exists() || !validation::is_valid_font_extension(&path) {
+                    continue;
+                }
+
+                match self.get_font_info_from_path(&path) {
+                    Ok(mut font_info) => {
+                        font_info.source.scope = Some(scope_from_path(&path));
+                        fonts.push(font_info);
+                    }
+                    Err(_) => {
+                        // Skip fonts we can't read, but don't fail the entire operation
+                        continue;
                     }
                 }
             }
@@ -6546,48 +6431,55 @@ impl FontManager for MacFontManager {
             return Ok(0);
         }
 
-        let font_urls = unsafe { ct_font_manager::CTFontManagerCopyAvailableFontURLs() };
+        let font_array = unsafe { objc2_core_text::CTFontManagerCopyAvailableFontURLs() };
 
-        if font_urls.is_null() {
-            return Ok(0);
-        }
-
-        let font_array: CFArray<CFURL> = unsafe { CFArray::wrap_under_get_rule(font_urls) };
         let mut pruned = 0usize;
         let mut failures = Vec::new();
+        let count = font_array.count();
 
-        for i in 0..font_array.len() {
-            if let Some(cf_url) = font_array.get(i) {
-                let path = cf_url.to_path();
+        for i in 0..count {
+            let value = unsafe { font_array.value_at_index(i) };
+            if value.is_null() {
+                continue;
+            }
 
-                if let Some(existing_path) = path.as_ref() {
-                    if scope_from_path(existing_path) != scope {
-                        continue;
-                    }
+            let cf_type: &CFType = unsafe { &*(value as *const CFType) };
+            let type_id = objc2_core_foundation::CFGetTypeID(Some(cf_type));
+            let url_type_id = CFURL::type_id();
+            if type_id != url_type_id {
+                continue;
+            }
 
-                    // Skip registrations that still have a backing file
-                    if existing_path.exists() {
-                        continue;
-                    }
-                } else if scope == FontScope::System && !self.has_admin_privileges() {
-                    // Don't attempt system pruning without privileges
+            let cf_url: &CFURL = unsafe { &*(value as *const CFURL) };
+            let path = cfurl_to_path(cf_url);
+
+            if let Some(ref existing_path) = path {
+                if scope_from_path(existing_path) != scope {
                     continue;
                 }
 
-                let mut error: CFErrorRef = std::ptr::null_mut();
-                let ok = unsafe {
-                    CTFontManagerUnregisterFontsForURL(
-                        cf_url.as_concrete_TypeRef(),
-                        ct_scope(scope),
-                        &mut error,
-                    )
-                };
-
-                if ok {
-                    pruned += 1;
-                } else {
-                    failures.push(cf_error_to_string(error));
+                // Skip registrations that still have a backing file
+                if existing_path.exists() {
+                    continue;
                 }
+            } else if scope == FontScope::System && !self.has_admin_privileges() {
+                // Don't attempt system pruning without privileges
+                continue;
+            }
+
+            let mut error: *mut CFError = std::ptr::null_mut();
+            let ok =
+                unsafe { CTFontManagerUnregisterFontsForURL(cf_url, ct_scope(scope), &mut error) };
+
+            if ok {
+                pruned += 1;
+            } else {
+                let err = if error.is_null() {
+                    None
+                } else {
+                    Some(unsafe { &*error })
+                };
+                failures.push(cf_error_to_string(err));
             }
         }
 
@@ -6683,11 +6575,6 @@ impl FontManager for MacFontManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use core_foundation::dictionary::CFDictionary;
-    use core_foundation::number::CFNumber;
-    use core_foundation::string::CFString;
-    use core_foundation::url::CFURL;
-    use core_text::font_descriptor as ct_font_descriptor;
     use std::fs;
     use std::path::PathBuf;
     use std::sync::{Mutex, OnceLock};
@@ -6744,64 +6631,6 @@ mod tests {
 
         let invalid_path = PathBuf::from("/tmp/test.txt");
         assert!(!validation::is_valid_font_extension(&invalid_path));
-    }
-
-    #[test]
-    fn descriptor_metadata_is_preferred_over_filename() {
-        let path = PathBuf::from("/Library/Fonts/TestSans-Bold.ttf");
-        let cf_url = CFURL::from_path(&path, false).expect("url");
-
-        let name_key =
-            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontNameAttribute) };
-        let display_key = unsafe {
-            CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontDisplayNameAttribute)
-        };
-        let family_key = unsafe {
-            CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontFamilyNameAttribute)
-        };
-        let style_key =
-            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontStyleNameAttribute) };
-        let url_key =
-            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontURLAttribute) };
-        let format_key =
-            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontFormatAttribute) };
-        let traits_key =
-            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontTraitsAttribute) };
-        let symbolic_key =
-            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontSymbolicTrait) };
-        let weight_key =
-            unsafe { CFString::wrap_under_get_rule(ct_font_descriptor::kCTFontWeightTrait) };
-
-        let traits_dict: CFDictionary<CFString, core_foundation::base::CFType> =
-            CFDictionary::from_CFType_pairs(&[
-                (symbolic_key, CFNumber::from(0).as_CFType()),
-                (weight_key, CFNumber::from(0).as_CFType()),
-            ]);
-
-        let attrs: CFDictionary<CFString, core_foundation::base::CFType> =
-            CFDictionary::from_CFType_pairs(&[
-                (url_key, cf_url.as_CFType()),
-                (name_key, CFString::new("TestSans-Bold").as_CFType()),
-                (display_key, CFString::new("Test Sans Bold").as_CFType()),
-                (family_key, CFString::new("Test Sans").as_CFType()),
-                (style_key, CFString::new("Bold").as_CFType()),
-                (
-                    format_key,
-                    CFNumber::from(ct_font_descriptor::kCTFontFormatOpenTypeTrueType as i32)
-                        .as_CFType(),
-                ),
-                (traits_key, traits_dict.as_CFType()),
-            ]);
-
-        let descriptor = ct_font_descriptor::new_from_attributes(&attrs);
-        let info = descriptor_to_font_face_info(&descriptor).expect("font info");
-
-        assert_eq!(info.postscript_name, "TestSans-Bold");
-        assert_eq!(info.full_name, "Test Sans Bold");
-        assert_eq!(info.family_name, "Test Sans");
-        assert_eq!(info.style, "Bold");
-        assert_eq!(info.source.format.as_deref(), Some("OpenTypeTrueType"));
-        assert_eq!(info.source.scope, Some(FontScope::System));
     }
 
     #[test]
@@ -7026,12 +6855,10 @@ mod tests {
         );
     }
 }
-</document_content>
-</document>
+```
 
-<document index="22">
-<source>crates/fontlift-platform-win/Cargo.toml</source>
-<document_content>
+## crates/fontlift-platform-win/Cargo.toml
+```toml
 [package]
 name = "fontlift-platform-win"
 version.workspace = true
@@ -7066,10 +6893,9 @@ windows = { version = "0.54", features = [
 
 [dev-dependencies]
 tempfile = "3.0"
-</document_content>
-</document>
+```
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/crates/fontlift-platform-win/src/lib.rs
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-platform-win/src/lib.rs
 # Language: rust
 
 mod tests;
@@ -7081,9 +6907,8 @@ struct EnvGuard {
 }
 
 
-<document index="23">
-<source>crates/fontlift-python/Cargo.toml</source>
-<document_content>
+## crates/fontlift-python/Cargo.toml
+```toml
 [package]
 name = "fontlift-python"
 version.workspace = true
@@ -7103,7 +6928,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 fontlift-core = { workspace = true }
-pyo3.workspace = true
+pyo3 = { workspace = true, optional = true }
 thiserror.workspace = true
 anyhow.workspace = true
 log.workspace = true
@@ -7117,20 +6942,19 @@ fontlift-platform-mac = { workspace = true }
 fontlift-platform-win = { workspace = true }
 
 [features]
-extension-module = ["pyo3/extension-module"]
-default = ["extension-module"]
+python-bindings = ["pyo3", "pyo3/extension-module"]
+default = []
 
 [build-dependencies]
 pyo3-build-config = "0.24.1"
-</document_content>
-</document>
+```
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/crates/fontlift-python/build.rs
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-python/build.rs
 # Language: rust
 
 
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/crates/fontlift-python/src/lib.rs
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-python/src/bindings.rs
 # Language: rust
 
 mod tests;
@@ -7151,9 +6975,23 @@ struct RecordingManager {
 }
 
 
-<document index="24">
-<source>crates/fontlift-validator/Cargo.toml</source>
-<document_content>
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-python/src/lib.rs
+# Language: rust
+
+mod bindings;
+
+mod stub;
+
+mod feature_flags;
+
+
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-python/src/stub.rs
+# Language: rust
+
+
+
+## crates/fontlift-validator/Cargo.toml
+```toml
 [package]
 name = "fontlift-validator"
 version.workspace = true
@@ -7177,10 +7015,9 @@ thiserror.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
-</document_content>
-</document>
+```
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/crates/fontlift-validator/src/main.rs
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-validator/src/main.rs
 # Language: rust
 
 mod tests;
@@ -7195,15 +7032,14 @@ struct ValidationResult {
 }
 
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/examples/basic_usage.rs
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/examples/basic_usage.rs
 # Language: rust
 
 mod tests;
 
 
-<document index="25">
-<source>publish.sh</source>
-<document_content>
+## publish.sh
+```bash
 #!/usr/bin/env bash
 
 set -euo pipefail
@@ -7243,20 +7079,13 @@ echo "Publishing to PyPI..."
 python3 -m twine upload dist/fontlift-*.whl
 
 echo "Done."
-</document_content>
-</document>
+```
 
-<document index="26">
-<source>pyproject.toml</source>
-<document_content>
+## pyproject.toml
+```toml
 [build-system]
-requires = [
-  "hatchling>=1.25",
-  # Use the published hatchling plugin for PyO3 wheels; package name is `hatchling-pyo3-plugin`
-  "hatchling-pyo3-plugin>=0.1.1",
-  "hatch-vcs>=0.4",
-]
-build-backend = "hatchling.build"
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
 
 [project]
 name = "fontlift"
@@ -7280,21 +7109,15 @@ dynamic = ["version"]
 [project.scripts]
 fontliftpy = "fontlift.cli:main"
 
-[tool.hatch.version]
-source = "vcs"
-tag-pattern = "^v(?P<version>\\d+\\.\\d+\\.\\d+)$"
-
-[tool.hatch.build.targets.wheel]
-packages = ["python/fontlift"]
-
-[tool.hatch.build.hooks.pyo3]
-features = ["extension-module"]
+[tool.maturin]
+manifest-path = "crates/fontlift-python/Cargo.toml"
+python-source = "python"
+features = ["python-bindings"]
 module-name = "fontlift._native"
 strip = true
-</document_content>
-</document>
+```
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/python/fontlift/__init__.py
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/python/fontlift/__init__.py
 # Language: python
 
 from importlib import import_module
@@ -7333,7 +7156,7 @@ def cleanup((
 )) -> None:
 
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/python/fontlift/cli.py
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/python/fontlift/cli.py
 # Language: python
 
 import sys
@@ -7447,7 +7270,7 @@ def cleanup((
 def main((argv: list[str] | None = None)) -> None:
 
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/python/fontlift/render.py
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/python/fontlift/render.py
 # Language: python
 
 import json
@@ -7475,7 +7298,7 @@ def _dedupe_fonts((fonts: List[Dict[str, str]])) -> List[Dict[str, str]]:
 def render_list_output((fonts: List[Dict[str, str]], opts: ListRenderOptions)) -> ListRender:
 
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/python/tests/conftest.py
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/python/tests/conftest.py
 # Language: python
 
 import pathlib
@@ -7488,7 +7311,7 @@ REPO_PYTHON_PATH = =
 def pytest_collection_modifyitems((config, items)):
 
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/python/tests/test_import.py
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/python/tests/test_import.py
 # Language: python
 
 import importlib
@@ -7501,7 +7324,7 @@ def test_version_matches_native((fontlift_modules)) -> None:
 def test_cleanup_dry_run_is_noop((fontlift_modules)) -> None:
 
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/python/tests/test_render.py
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/python/tests/test_render.py
 # Language: python
 
 import pathlib
@@ -7519,30 +7342,37 @@ def test_render_list_with_names_only_outputs_names_sorted(()):
 def test_render_list_json_is_deterministic_and_deduped(()):
 
 
-<document index="27">
-<source>tests/fixtures/README.md</source>
-<document_content>
+## tests/fixtures/README.md
+```markdown
 # Test font fixtures
 
 - `fonts/AtkinsonHyperlegible-Regular.ttf` (SIL Open Font License 1.1) copied from https://github.com/googlefonts/atkinson-hyperlegible (commit current as of 2025-12-03) for test-only use.
 - `fonts/AtkinsonHyperlegible-Regular.otf` (SIL Open Font License 1.1) copied from https://github.com/googlefonts/atkinson-hyperlegible (commit current as of 2025-12-03) for test-only use.
 - `fonts/AtkinsonHyperlegible-Regular.ttc` (SIL Open Font License 1.1) collection generated locally from the upstream TTF using a minimal TTC header for test-only use.
-</document_content>
-</document>
+```
 
-<document index="28">
-<source>tests/fixtures/fonts/malformed.ttf</source>
-<document_content>
+## tests/fixtures/fonts/malformed.ttf
+```
 NOT A FONT FILE
-</document_content>
-</document>
+```
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/tests/integration_tests.rs
+## tests/fixtures/golden_outputs/list_json_schema.json
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "fontlift-list-output",
+  "title": "FontLift List Output Schema",
+  "description": "Expected JSON output structure for fontlift list --json",
+
+... (Data file content truncated to first 5 lines)
+```
+
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/tests/integration_tests.rs
 # Language: rust
 
 
 
-# File: /Users/adam/Developer/vcs/github.fontlaborg/fontlift/tests/test_fonts.rs
+# File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/tests/test_fonts.rs
 # Language: rust
 
 mod tests;
@@ -7552,6 +7382,3 @@ struct TestFont {
 
 struct TestFontDataset {
 }
-
-
-</documents>
