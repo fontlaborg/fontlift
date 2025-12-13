@@ -464,11 +464,11 @@ build_python_bindings() {
 	
 	if command_exists hatch; then
 		print_substep "Using hatch to build wheel..."
-		hatch build -t wheel
+		uvx hatch build -t wheel
 		local wheel
 		wheel=$(ls -t dist/fontlift-*.whl 2>/dev/null | head -n1 || true)
 		if [ -n "$wheel" ]; then
-			python3 -m pip install --force-reinstall "$wheel"
+			uv pip install --force-reinstall "$wheel"
 			print_status "Python wheel built and installed ✓"
 		else
 			print_warning "Hatch build did not produce a wheel; skipping install"
@@ -529,7 +529,7 @@ create_packages() {
 	if [ "$build_mode" == "release" ]; then
 		if command_exists hatch; then
 			print_substep "Building Python wheel with hatch..."
-			if hatch build -t wheel --output "$dist_dir"; then
+			if uvx hatch build -t wheel --output "$dist_dir"; then
 				print_status "Python wheel created"
 			else
 				print_warning "Failed to create Python wheel via hatch"

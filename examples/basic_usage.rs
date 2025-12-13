@@ -1,165 +1,168 @@
-//! Basic Usage Example for FontLift
+//! FontLift: Your Font Manager's Friendly Neighbor
 //!
-//! This example demonstrates how to use the fontlift library to:
-//! - Create a font manager for the current platform
-//! - Install and uninstall fonts
-//! - List installed fonts
-//! - Clear font caches
+//! Watch as fonts dance between installation and removal, all while 
+//! maintaining that delightful system harmony. This example shows how
+//! FontLift handles the heavy lifting so you don't have to:
+//! - Create a platform-aware font manager that just works
+//! - Install fonts like placing books on a cozy shelf
+//! - Uninstall fonts as gently as removing sticky notes
+//! - List your font collection with style
+//! - Clear caches when things get a bit cluttered
 
 use anyhow::Result;
 use fontlift_core::{FontManager, FontScope};
 use std::path::PathBuf;
 
 fn main() -> Result<()> {
-    // Initialize logging
+    // Start the gentle logging dance - traces pirouette to stdout
     env_logger::init();
 
-    // Create the appropriate font manager for the current platform
+    // Summon the font manager that knows your platform's secrets
     let manager = create_font_manager();
 
-    println!("🚀 FontLift Basic Usage Example");
-    println!("================================");
+    println!("🌟 FontLift's Gentle Font Adventure Begins");
+    println!("==========================================");
 
-    // Demo font path (you'll need to provide an actual font file)
+    // Find a font file willing to participate in our demonstration
     let demo_font_path = get_demo_font_path();
 
-    // Example 1: List installed fonts
-    println!("\n📋 Listing installed fonts:");
+    // First act: Greet all the fonts that call this system home
+    println!("\n📚 Saying hello to all resident fonts:");
     list_fonts(&manager)?;
 
-    // Example 2: Install a font (if demo font exists)
+    // Second act: Welcome a new font to the neighborhood (if they show up)
     if demo_font_path.exists() {
-        println!("\n➕ Installing font: {}", demo_font_path.display());
+        println!("\n🏡 Welcoming new font friend: {}", demo_font_path.display());
         install_font(&manager, &demo_font_path)?;
         
-        // List fonts again to see the newly installed font
-        println!("\n📋 Fonts after installation:");
+        // See how the family has grown with our newest member
+        println!("\n📚 The font family after our new arrival:");
         list_fonts(&manager)?;
 
-        // Example 3: Uninstall the font
-        println!("\n➖ Uninstalling font: {}", demo_font_path.display());
+        // Third act: Bid fond farewell as our font guest departs
+        println!("\n👋 Waving goodbye to font friend: {}", demo_font_path.display());
         uninstall_font(&manager, &demo_font_path)?;
         
-        // List fonts to confirm uninstallation
-        println!("\n📋 Fonts after uninstallation:");
+        // Confirm everyone's in their proper place after departure
+        println!("\n📚 Font family back to its cozy original state:");
         list_fonts(&manager)?;
     } else {
-        println!("\n⚠️  Demo font not found at: {}", demo_font_path.display());
-        println!("    Please provide a valid font file path to test installation.");
+        println!("\n🔍 No font at the rendezvous point: {}", demo_font_path.display());
+        println!("    Place your own font file at the path above to join the fun.");
     }
 
-    // Example 4: Clear font caches (user-level only)
-    println!("\n🧹 Clearing user font caches:");
+    // Final act: A gentle spring cleaning for font caches
+    println!("\n🧹 Sweeping away dusty font cobwebs:");
     clear_caches(&manager)?;
 
-    println!("\n✅ Example completed successfully!");
+    println!("\n🎉 Our font adventure concludes with happy endings!");
     
     Ok(())
 }
 
-/// Create the appropriate font manager for the current platform
+/// Summon the font manager that speaks your platform's language
 fn create_font_manager() -> std::sync::Arc<dyn FontManager> {
     #[cfg(target_os = "macos")]
     {
-        println!("🍎 Using macOS font manager");
+        println!("🍎 macOS font manager awakens with CoreText magic");
         std::sync::Arc::new(fontlift_platform_mac::MacFontManager::new())
     }
     
     #[cfg(target_os = "windows")]
     {
-        println!("🪟 Using Windows font manager");
+        println!("🪟 Windows font manager rises through registry mists");
         std::sync::Arc::new(fontlift_platform_win::WinFontManager::new())
     }
     
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        println!("🐧 Using dummy font manager (Linux not yet implemented)");
+        println!("🐧 Linux dreams of font support while using our friendly placeholder");
         std::sync::Arc::new(fontlift_core::DummyFontManager)
     }
 }
 
-/// List all installed fonts
+/// Gently introduce every font currently living on the system
 fn list_fonts(manager: &std::sync::Arc<dyn FontManager>) -> Result<()> {
     match manager.list_installed_fonts() {
         Ok(fonts) => {
             if fonts.is_empty() {
-                println!("   No fonts found");
+                println!("   The font house seems quiet - no fonts found");
             } else {
-                println!("   Found {} font(s):", fonts.len());
+                println!("   {} font(s) call this system home:", fonts.len());
                 for (i, font) in fonts.iter().enumerate().take(10) {
-                    println!("   {}. {} ({})", 
+                    println!("   {}. {} (goes by {})", 
                         i + 1, 
                         font.family_name, 
                         font.postscript_name
                     );
                 }
                 if fonts.len() > 10 {
-                    println!("   ... and {} more fonts", fonts.len() - 10);
+                    println!("   ... and {} more font friends hiding in the wings", fonts.len() - 10);
                 }
             }
         }
         Err(e) => {
-            println!("   ❌ Failed to list fonts: {}", e);
+            println!("   🤷‍♀️ The fonts are feeling shy: {}", e);
         }
     }
     
     Ok(())
 }
 
-/// Install a font
+/// Welcome a new font into the system with gentle hospitality
 fn install_font(manager: &std::sync::Arc<dyn FontManager>, font_path: &PathBuf) -> Result<()> {
     match manager.install_font(font_path, FontScope::User) {
         Ok(()) => {
-            println!("   ✅ Font installed successfully");
+            println!("   🎊 Font has found its happy new home");
         }
         Err(e) => {
-            println!("   ❌ Failed to install font: {}", e);
+            println!("   😅 The font trip encountered turbulence: {}", e);
         }
     }
     
     Ok(())
 }
 
-/// Uninstall a font
+/// Guide a font gracefully to its departure from the system
 fn uninstall_font(manager: &std::sync::Arc<dyn FontManager>, font_path: &PathBuf) -> Result<()> {
     match manager.uninstall_font(font_path, FontScope::User) {
         Ok(()) => {
-            println!("   ✅ Font uninstalled successfully");
+            println!("   😊 Font departed with fond memories and clean goodbyes");
         }
         Err(e) => {
-            println!("   ❌ Failed to uninstall font: {}", e);
+            println!("   😿 The font just can't bear to leave: {}", e);
         }
     }
     
     Ok(())
 }
 
-/// Clear font caches
+/// Gently dust away the digital cobwebs from font caches
 fn clear_caches(manager: &std::sync::Arc<dyn FontManager>) -> Result<()> {
     match manager.clear_font_caches(FontScope::User) {
         Ok(()) => {
-            println!("   ✅ Font caches cleared successfully");
+            println!("   🌤️ Font caches sparkle like fresh morning dew");
         }
         Err(e) => {
-            println!("   ❌ Failed to clear font caches: {}", e);
+            println!("   🧹 The dust bunnies fought back bravely: {}", e);
         }
     }
     
     Ok(())
 }
 
-/// Get a demo font path for testing
+/// Go on a font treasure hunt to find a willing demonstration participant
 fn get_demo_font_path() -> PathBuf {
-    // Try to find a common system font for demonstration
+    // Quest for fonts on Apple's sunny operating system
     #[cfg(target_os = "macos")]
     {
-        let common_paths = [
+        let safari_spots = [
             "/System/Library/Fonts/Arial.ttf",
             "/System/Library/Fonts/Helvetica.ttc",
             "/Library/Fonts/Arial.ttf",
         ];
         
-        for path in &common_paths {
+        for path in &safari_spots {
             let path_buf = PathBuf::from(path);
             if path_buf.exists() {
                 return path_buf;
@@ -167,15 +170,16 @@ fn get_demo_font_path() -> PathBuf {
         }
     }
     
+    // Windows font expedition through the system directory
     #[cfg(target_os = "windows")]
     {
-        let common_paths = [
+        let windows_hiding_places = [
             r"C:\Windows\Fonts\arial.ttf",
             r"C:\Windows\Fonts\calibri.ttf",
             r"C:\Windows\Fonts\tahoma.ttf",
         ];
         
-        for path in &common_paths {
+        for path in &windows_hiding_places {
             let path_buf = PathBuf::from(path);
             if path_buf.exists() {
                 return path_buf;
@@ -183,16 +187,16 @@ fn get_demo_font_path() -> PathBuf {
         }
     }
     
+    // Linux font exploration in the wild
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        // Common Linux font paths
-        let common_paths = [
+        let linux_font Meadows = [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/TTF/arial.ttf",
             "/usr/share/fonts/liberation/LiberationSans-Regular.ttf",
         ];
         
-        for path in &common_paths {
+        for path in &linux_font_Meadows {
             let path_buf = PathBuf::from(path);
             if path_buf.exists() {
                 return path_buf;
@@ -200,7 +204,7 @@ fn get_demo_font_path() -> PathBuf {
         }
     }
     
-    // Fallback to a custom path the user can modify
+    // When no font volunteers, we have a placeholder waiting in the wings
     PathBuf::from("./demo-font.ttf")
 }
 
@@ -210,13 +214,15 @@ mod tests {
 
     #[test]
     fn test_font_manager_creation() {
+        // Summon our font manager and make sure it shows up for duty
         let _manager = create_font_manager();
     }
 
     #[test]
     fn test_demo_font_path() {
+        // Our font hunter should always return with something, even if empty-handed
         let path = get_demo_font_path();
-        // Just ensure we get a valid PathBuf
+        // Ensure our treasure map leads somewhere definite
         assert!(!path.as_os_str().is_empty());
     }
 }
