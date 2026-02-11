@@ -23,5 +23,5 @@
 
 ## Post-release
 - Yank or deprecate superseded versions if needed.
-- Update `CHANGELOG.md`, `PLAN.md`, `TODO.md`, and `WORK.md` with release status.
+- Update `CHANGELOG.md`, `TASKS.md`, `TODO.md`, and `WORK.md` with release status.
 - Announce internally; capture any follow-up bugs in `TODO.md`.

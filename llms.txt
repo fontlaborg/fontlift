@@ -1,4 +1,4 @@
-Project Structure:
+<documents><toc>
 📁 fontlift
 ├── 📁 .github
 │   └── 📁 workflows
@@ -59,35 +59,62 @@ Project Structure:
 │   │   ├── 📁 deps
 │   │   ├── 📁 examples
 │   │   └── 📁 incremental
-│   │       ├── 📁 _native-2se6nsikgohnc
-│   │       │   └── 📁 s-hds0214o46-1mc1sxh-0n1ltb0515woxb8vsjswtcrme
+│   │       ├── 📁 _native-1l8eihqyytzi8
+│   │       │   └── 📁 s-hdzmdmyesf-1ref7h0-6jqvr8m13cafvc4h9k0z6kqan
+│   │       ├── 📁 _native-1yo08smdp5zzl
+│   │       │   └── 📁 s-hdzmdmyf69-015xcd8-1bqflpm70qqi8k0qdff207zcw
+│   │       ├── 📁 _native-2c3ayg8qb3isn
+│   │       │   └── 📁 s-hdzmdgt1y5-1uqq1y1-18264fodu2ptu7443wm8jzp69
+│   │       ├── 📁 build_script_build-378y22x51yrsp
+│   │       │   └── 📁 s-hdzmdkmney-0hryyng-e9zjn4nsjv99z16djngowtyau
 │   │       ├── 📁 build_script_build-3fwpnf4enr75f
-│   │       │   └── 📁 s-hds01xzyip-15e8dns-8d36sjrlhdyrfsdzx91u6pejo
-│   │       ├── 📁 fontlift-1535obyka82s4
-│   │       │   └── 📁 s-hds01wx23p-1ln41wv-5wo5wfy1pbgr0cg82yju5ch1m
-│   │       ├── 📁 fontlift_cli-2t49e8p5tkxt7
-│   │       │   └── 📁 s-hds01wr3wj-0pv4sis-3j9jss0xncw7d7hn335rfycwk
+│   │       │   └── 📁 s-hdzmddzy2p-1pkiylo-8d36sjrlhdyrfsdzx91u6pejo
+│   │       ├── 📁 fontlift-1fq9i3q4lxrc9
+│   │       │   └── 📁 s-hdzmdn0k7v-15itl8l-7p42hvsyvyb3e9iw12fxnq1dv
+│   │       ├── 📁 fontlift-1rdupn9xq4egd
+│   │       │   └── 📁 s-hdzmdn0k7v-03fkymf-09cm856ll5lqs3acq6rf2n1o1
+│   │       ├── 📁 fontlift-314np96j3eqlx
+│   │       │   └── 📁 s-hdzmdcseal-01dnp16-ck6xj8patxgatukwks0emth76
+│   │       ├── 📁 fontlift_cli-05yc3eqtz8tzn
+│   │       │   └── 📁 s-hdzmdcm0en-140t9gh-1t0r2k7v8b3syo3rt2g3h03vb
+│   │       ├── 📁 fontlift_cli-0ym8hr9oqdjvg
+│   │       │   └── 📁 s-hdzmdmtiw7-0747bgr-di472msulx7n7bud91ycxow2o
+│   │       ├── 📁 fontlift_cli-28k3flb4w6i60
+│   │       │   └── 📁 s-hdzmdmyi4s-0leti0d-dqoqtugh6n48xofasr4ml1413
 │   │       ├── 📁 fontlift_core-03l38ynx1jftr
-│   │       │   └── 📁 s-hds01uupvg-088ghk3-c64dr68tw6d5p9hb757vy2qbc
+│   │       │   └── 📁 s-hdzmda9wjg-1i8cx8y-6yqbhrao1ig9dyluzg6znkbc9
+│   │       ├── 📁 fontlift_core-12375w1p64t8t
+│   │       │   └── 📁 s-hdzmdmyina-03mtt2d-5tfdla7hxlb2c9z2sbwp7s8y3
 │   │       ├── 📁 fontlift_core-1q3h5eqs3fcm0
-│   │       │   └── 📁 s-hds01zyvqi-1tsxpi2-8ly10u3olpbb5n32gawduyfto
+│   │       │   └── 📁 s-hdzmdfmcm0-0lm2a5f-5ytsibgxqg2mezr4o50x7cc23
+│   │       ├── 📁 fontlift_core-3dgc5heis1qut
+│   │       │   └── 📁 s-hdzmdmmsld-1q3dd6m-doc31mo79ed12xsbo77pji586
 │   │       ├── 📁 fontlift_core-3m2o36hyimxft
-│   │       │   └── 📁 s-hds01vznmn-10uwz45-4fs97mgaqc5hc6ipp2jpyc2pd
-│   │       ├── 📁 fontlift_platform_mac-02u8zx6wplend
-│   │       │   └── 📁 s-hds01w4boq-0071nts-23a1ba27plzvf419gkqj4u3gw
-│   │       ├── 📁 fontlift_platform_mac-03oxzcqrba6yl
-│   │       │   └── 📁 s-hdszee6ske-1deerpq-cl9854y62snieu0kyhammn3bk
-│   │       ├── 📁 fontlift_platform_mac-0gqjjemgqveco
-│   │       │   └── 📁 s-hds01vseib-0qe3rmq-2pqy3ffxnphysinr6jntx2ig3
+│   │       │   └── 📁 s-hdzmdbtr4s-030nati-bgp4cilv8u59if32mbh9p79hm
 │   │       ├── 📁 fontlift_platform_mac-0r67r2a76d67s
-│   │       │   └── 📁 s-hdszee6skg-0fij3e0-2l3ayka9re0ntndqv6cqpx6zr
-│   │       └── 📁 fontlift_platform_mac-32zp9r15uw3zl
-│   │           └── 📁 s-hds0203viw-0ot9dhg-dka5ldqut0efszsdv3hpwwivb
+│   │       │   └── 📁 s-hdzmdbo1lo-0w7k9lw-cry3oh86ugsb04k2oplh4qkcm
+│   │       ├── 📁 fontlift_platform_mac-0rhbyqnhuf2n3
+│   │       │   └── 📁 s-hdzmdmyi1z-107e6nl-2dii95gwkc3vc9fayu7s50557
+│   │       ├── 📁 fontlift_platform_mac-2pzcxfc10bkod
+│   │       │   └── 📁 s-hdzmdmrmur-09rst5r-ai4va7nfc2v3dbn92asy84d76
+│   │       ├── 📁 fontlift_platform_mac-38yrfjw9t8z46
+│   │       │   └── 📁 s-hdzmdfqzsf-13sd74e-323piymh78gs52w9q2ok1992o
+│   │       ├── 📁 fontlift_platform_mac-3i6ujypfd8pmp
+│   │       │   └── 📁 s-hdzmdbyjbr-0dsdwhz-d497yu81t84wzjximnbbwju2e
+│   │       ├── 📁 fontlift_platform_win-07w43truohoel
+│   │       │   └── 📁 s-hdzmdmrn2k-0oa4imh-0ikru4t88vjpojglhvc52vkhu
+│   │       ├── 📁 fontlift_platform_win-3ju7yp35a38ng
+│   │       │   └── 📁 s-hdzmdmyhw5-1y2zawd-763pfolpd1jb24prr7ykyliqk
+│   │       ├── 📁 fontlift_validator-3mudloz1c6poo
+│   │       │   └── 📁 s-hdzmdmyhhb-1v2gm6h-bf6w0s4gx1egqluyzfkvpvts2
+│   │       └── 📁 macos_fake_registry_tests-0zkoe26z35987
+│   │           └── 📁 s-hdzmdn0kwr-0ooes6y-doa5gb8p70320pg9m6j7sv0n0
 │   ├── 📁 maturin
 │   ├── 📁 release
 │   │   ├── 📁 deps
 │   │   ├── 📁 examples
 │   │   └── 📁 incremental
+│   ├── 📁 tmp
 │   └── 📁 wheels
 ├── 📁 tests
 │   ├── 📁 fixtures
@@ -105,18 +132,20 @@ Project Structure:
 ├── 📄 FEATURE_MATRIX.md
 ├── 📄 IMPROVE--fontlift.md
 ├── 📄 LICENSE
-├── 📄 PLAN.md
 ├── 📄 publish.sh
 ├── 📄 pyproject.toml
 ├── 📄 README.md
 ├── 📄 RELEASE_CHECKLIST.md
 ├── 📄 SECURITY_CONSIDERATIONS.md
+├── 📄 TASKS.md
 ├── 📄 TODO.md
 └── 📄 USAGE.md
 
 
-## .github/workflows/ci.yml
-```yaml
+</toc>
+<document index="1">
+<source>.github/workflows/ci.yml</source>
+<document_content>
 name: CI
 
 on:
@@ -183,10 +212,12 @@ jobs:
       - name: Python tests
         shell: bash
         run: pytest python/tests -v
-```
+</document_content>
+</document>
 
-## .github/workflows/release.yml
-```yaml
+<document index="2">
+<source>.github/workflows/release.yml</source>
+<document_content>
 name: Release
 
 on:
@@ -296,10 +327,12 @@ PY
           cargo publish -p fontlift-platform-win
           cargo publish -p fontlift-cli
           cargo publish -p fontlift-python
-```
+</document_content>
+</document>
 
-## .gitignore
-```
+<document index="3">
+<source>.gitignore</source>
+<document_content>
 # Generated by Cargo
 # will have compiled files and executables
 debug
@@ -326,17 +359,19 @@ target
 dist/
 .hatch/
 .venv/
-```
+</document_content>
+</document>
 
-## CLAUDE.md
-````markdown
+<document index="4">
+<source>CLAUDE.md</source>
+<document_content>
 # Development Guidelines
 
 ## Quick-Start Checklist
 
 **For every task, follow this baseline:**
 
-1. [ ] Read `README.md`, `PLAN.md`, `TODO.md`, `WORK.md` to understand context
+1. [ ] Read `README.md`, `TASKS.md`, `TODO.md`, `WORK.md` to understand context
 2. [ ] Apply Chain-of-Thought: "Let me think step by step..."
 3. [ ] Search when <90% confident (codebase, references, web)
 4. [ ] Check if this problem has been solved before (packages > custom code)
@@ -448,7 +483,7 @@ After drafting any solution:
 
 ### 3.1 Before Starting (MUST)
 
-1. Read `README.md`, `WORK.md`, `CHANGELOG.md`, `PLAN.md`, `TODO.md`
+1. Read `README.md`, `WORK.md`, `CHANGELOG.md`, `TASKS.md`, `TODO.md`
 2. Run existing tests to understand current state
 3. Apply Enhanced CoT (Analyze → Abstract → Execute)
 4. Search for existing solutions before writing code
@@ -632,8 +667,8 @@ uvx ruff check --fix . && uvx ruff format . && pytest
 
 - **README.md** – Purpose and quick start (<200 lines)
 - **CHANGELOG.md** – Cumulative release notes
-- **PLAN.md** – Detailed future goals and architecture
-- **TODO.md** – Flat task list from PLAN.md with status:
+- **TASKS.md** – Detailed future goals and architecture
+- **TODO.md** – Flat task list from TASKS.md with status:
   - `[ ]` Not started
   - `[x]` Completed  
   - `[~]` In progress
@@ -654,7 +689,7 @@ When invoked, MUST:
 2. **Deconstruct** into core requirements and constraints
 3. **Analyze** feasibility and identify packages to use
 4. **Structure** into phases with dependencies
-5. **Document** in PLAN.md with TODO.md checklist
+5. **Document** in TASKS.md with TODO.md checklist
 
 ### `/test` (Comprehensive Testing)
 
@@ -672,7 +707,7 @@ cargo fmt --check && cargo clippy -- -D warnings && cargo test
 
 ### `/work` (Execution Loop)
 
-1. Read TODO.md and PLAN.md
+1. Read TODO.md and TASKS.md
 2. Write iteration goals to WORK.md
 3. **Write tests first**
 4. Implement incrementally
@@ -820,10 +855,12 @@ Define scope in ONE sentence. Reject EVERYTHING else.
 ---
 
 **Remember: The best code is no code. The second best is someone else's well-tested code. Write as little as possible, test everything, and delete ruthlessly.**
-````
+</document_content>
+</document>
 
-## Cargo.toml
-```toml
+<document index="5">
+<source>Cargo.toml</source>
+<document_content>
 [workspace]
 resolver = "2"
 members = [
@@ -896,10 +933,12 @@ opt-level = 3
 strip = true
 lto = true
 codegen-units = 1
-```
+</document_content>
+</document>
 
-## FEATURE_MATRIX.md
-```markdown
+<document index="6">
+<source>FEATURE_MATRIX.md</source>
+<document_content>
 # FontLift Feature Matrix
 
 This document compares the feature set between existing Swift/macOS and C++/Windows implementations with the target unified Rust implementation.
@@ -1096,10 +1135,12 @@ This document compares the feature set between existing Swift/macOS and C++/Wind
 
 **Status**: Phase 0 Complete, Phase 1 In Progress
 **Next**: Complete core platform implementations and CLI functionality
-```
+</document_content>
+</document>
 
-## IMPROVE--fontlift.md
-````markdown
+<document index="7">
+<source>IMPROVE--fontlift.md</source>
+<document_content>
 Here’s what I see (high confidence): there *is* breakthrough potential, primarily in **security/robustness**, not raw performance. Font management is mostly I/O + OS calls, so big speedups are limited, but we *can* make the system significantly safer and more failure‑resistant in ways most tools don’t bother with. 
 
 Below is a concrete, implementable plan.
@@ -1485,10 +1526,12 @@ If you want to keep things tight and avoid extra abstraction bloat (per your CLA
 ---
 
 If you’d like, I can next sketch the exact code signatures and a migration plan for integrating the validator + journal while keeping the public CLI and Python APIs stable.
-````
+</document_content>
+</document>
 
-## LICENSE
-```
+<document index="8">
+<source>LICENSE</source>
+<document_content>
                                  Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
@@ -1690,161 +1733,12 @@ If you’d like, I can next sketch the exact code signatures and a migration pla
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
-```
+</document_content>
+</document>
 
-## PLAN.md
-```markdown
-# FontLift Superset Convergence Plan (2025-12-01)
-
-**One-sentence scope:** Deliver `fontlift` (Rust library + CLI + Python bindings) as a strict superset of `fontlift-mac-cli` and `fontlift-win-cli`, matching every behavior while adding a unified, testable, and convenient API surface.
-
-## Current State (facts)
-- Workspace crates exist (`core`, `platform-mac`, `platform-win`, `cli`, `python`), but macOS Core Text calls fail to compile; Windows path is unverified on non-Windows.
-- CLI surface is minimal (list/install/uninstall/remove/cleanup) and lacks legacy flags (`--prune-only`, `--cache-only`, `--json`, batch ops, simulation/dry-run, aliases).
-- Python bindings expose only path-based operations; no metadata, name-based operations, or cleanup/prune options; no packaging story for PyPI wheels.
-- No automated parity checks against Swift/C++ CLIs; no fixture fonts; tests currently fail on macOS.
-
-## Gap analysis vs legacy CLIs
-- **macOS (Swift CLI)** missing: Core Text register/unregister, conflict detection/auto-resolve, rich metadata extraction, prune + third-party cache cleanup, system font protections with overrides, simulation/fake registry mode, environment overrides, complete flag set.
-- **Windows (C++ CLI)** missing: real registry + GDI wiring for install/uninstall/list, conflict removal, cache cleanup (FontCache service + Adobe caches), admin detection paths, robust registry pruning, exit-code parity.
-- **Cross-platform/CLI UX** missing: aliases (`i/u/rm/c/l`), `-p/-n/-s` toggles, JSON output, batch file/dir handling, quiet/verbose, dry-run, deterministic sorting, consistent error strings.
-- **Python** missing: typed `FontliftFontSource/FontliftFontFaceInfo`, name-based operations, cleanup/prune toggles, JSON-friendly outputs, Fire-compatible CLI, maturin/pyproject for wheels, version sync with Cargo.
-- **Verification** missing: golden-output tests, fixture fonts, CI matrix for macOS/Windows, migration docs from legacy CLIs.
-
-## Workstreams (actionable)
-
-### WS0 — Parity audit & build hygiene
-- [x] Catalogue every command/flag/behavior in both legacy CLIs; update `FEATURE_MATRIX.md` with a parity checklist.
-- [x] Fix macOS build blockers (Core Text constants, CFDictionary construction, feature gates) so `cargo test --workspace` passes locally.
-- [x] Gate Windows-specific code to compile cleanly on macOS; add minimal mock stubs for non-target hosts to keep tests green.
-
-### WS1 — macOS parity (Swift → Rust)
-- Implement Core Text register/unregister with scope options; copy fonts into user/system dirs with system font protection and conflict detection/auto-resolve. *(Done 2025-12-03: installs now copy into scope-specific dirs, auto-unregister/retry on CT conflicts, replace-on-reinstall in fake/user scopes, and `is_font_installed` inspects Core Text registrations/paths.)*
-- Implement listing via `CTFontManagerCopyAvailableFontURLs` + descriptor metadata (PostScript/full/family/style/format) and scope tagging. *(Done 2025-12-02: descriptor-based listing with scope tagging and trait extraction.)*
-- Implement cleanup: prune missing registrations, clear ATS caches, clear Adobe/Microsoft caches; flags `--prune-only`, `--cache-only`, `--admin`. *(Done 2025-12-02: pruning + cache clearing wired with flags and dry-run support.)*
-- Add simulation/dry-run and fake registry mode for tests. *(Done 2025-12-03: `FONTLIFT_FAKE_REGISTRY_ROOT` plus CLI dry-run paths.)*
-
-### WS2 — Windows parity (C++ → Rust)
-- Wire install/uninstall/remove to registry + GDI with file copy to per-user/system fonts, admin detection, conflict auto-removal.
-- Implement listing from registry + fonts directory with metadata, deduplication, and scope detection.
-- Implement cleanup: prune missing registry entries, clear FontCache service data, clear Adobe caches; support `--prune-only`, `--cache-only`, `--admin` and exit-code parity.
-- *Progress 2025-12-03:* Registry pruning and FontCache stop/clear/start flow implemented; AdobeFnt*.lst purging added under Program Files; still pending validation on Windows hosts.
-- *Progress 2025-12-03:* Install path now auto-detects conflicts (path/PostScript/family-style) and unregisters/removes duplicates before copy, while refusing to touch protected system font paths.
-- *Progress 2025-12-03:* Listing now prefers name table metadata via `read-fonts` (PostScript/family/subfamily/full name) for registry + directory entries with scope tagging and deduplication.
-- *Progress 2025-12-03:* Added cross-platform unit coverage for Adobe cache discovery/removal and ProgramFiles vs ProgramFiles(x86) deduplication to harden cleanup logic pending Windows host validation.
-- *Progress 2025-12-03:* Registry values are stored as filenames when installed under Fonts roots and normalized back to absolute paths for listing/uninstall; cleanup now stops both FontCache and optional WPF font cache services before deleting cache files.
-- *Progress 2025-12-03:* CLI cleanup now downgrades user-scope cache-clear `PermissionDenied` errors to warnings so default `fontlift cleanup` succeeds without `--admin` while keeping system-scope failures fatal.
-- *Progress 2025-12-03:* Registry unregister/prune now normalize filename-only entries (case-insensitive) to prevent false positives and stale values when removing/pruning fonts.
-- *Progress 2025-12-03:* Registry value matching helper now builds on non-Windows hosts so `cargo test -p fontlift-platform-win` stays green cross-platform while Windows validation remains pending.
-
-### WS3 — Unified CLI ergonomics
-- Align commands/flags with legacy binaries: aliases, batch install/remove, name- and path-based operations, JSON output, quiet/verbose, dry-run, deterministic sorting.
-- Add migration-safe help text and consistent error/exit codes; add shell completion generation.
-  - [x] Shell completion generation via `fontlift completions <shell>` writing to stdout.
-  - [x] Exit code alignment with legacy binaries for common failure cases.
-  - [x] Implemented `list --json` output with deterministic sorting and deduplication to stabilize scripting surface.
-  - [x] Added batch file/dir handling plus `--dry-run`/`--quiet`/`--verbose` toggles for install/uninstall/remove commands.
-
-### WS4 — Python bindings & packaging
-- Expose full surface: typed `FontliftFontSource`/`FontliftFontFaceInfo`, list/install/uninstall/remove/cleanup with scope/admin/prune/cache/dry-run options, name-based ops, JSON-friendly return values.
-- Add Fire-based CLI entry mirroring Rust CLI; keep behavior parity.
-- Ship `pyproject.toml` + `maturin` workflow for universal2 macOS and win64/aarch64 wheels; sync versioning with Cargo.
-- Progress 2025-12-03: PyO3 exports `FontSource` + `FontFaceInfo` classes (scope/format/face_index metadata), list/install/uninstall/remove now route through `FontliftFontSource`; cleanup/prune/cache toggles added to Python API; name-based uninstall/remove with dry-run support and Fire CLI cleanup toggles are wired; Fire CLI now mirrors Rust JSON list rendering and quiet/verbose/dry-run messaging; remaining gap is validating wheel packaging on macOS/Windows.
-
-- Add font fixtures (TTF/OTF/TTC) and golden-output recordings from legacy binaries for list/install/uninstall/remove/cleanup.
-- *Progress 2025-12-03:* Added Atkinson Hyperlegible TTF/OTF/TTC fixtures under `tests/fixtures/fonts`; golden outputs remain.
-- Add Rust integration tests per platform using temp dirs and admin-check mocks; add Python `pytest` integration via `maturin develop`. *(Done 2025-12-03: macOS fake-registry integration coverage plus pytest harness with import skips when the extension isn't built.)*
-- Stand up CI matrix (macOS + Windows) running `cargo test`, CLI smoke tests with fixtures, and Python wheel build/test; enforce coverage (>80% initial). *(Done 2025-12-03: Added GitHub Actions CI for macOS 14 + Windows runners with rustfmt/clippy, platform-scoped cargo test, maturin develop, and pytest against the Python bindings.)*
-
-### WS6 — Documentation & release
-- Update README/USAGE/FEATURE_MATRIX with parity status, flags, migration guide, and Python examples. *(Updated 2025-12-03: added packaging section documenting build.sh wheel output and Windows prerequisites.)*
-- Harden build script (`build.sh`) and Windows packaging and document prerequisites.
-- Publish release checklist, CHANGELOG entries, and distribution plan (crates.io, GitHub releases with binaries, PyPI wheels). *(Done 2025-12-03: added RELEASE_CHECKLIST.md for Rust crates + PyPI/GitHub steps.)*
-
-### WS7 — Out-of-process font validation pipeline (Security/Robustness)
-**Goal:** Move all "dangerous" font parsing into a separate, short-lived, resource-limited helper process using `read-fonts` for structural validation before the OS font stack ever sees the bytes.
-
-- [x] Create `fontlift-validator` binary crate (`crates/fontlift-validator`) as a small helper process:
-  - Accept list of paths + optional config (max size, timeout, allowed formats) via CLI flags or JSON stdin.
-  - Use `read-fonts` to structurally parse fonts and extract metadata (PostScript name, family, style, weight, italic).
-  - Enforce resource limits: max file size (default 64MB), timeout watchdog, extension + MIME sniffing.
-  - Return JSON array of `{ ok: bool, info?: FontliftFontFaceInfo, error?: String }`.
-  - Sanitize error strings (no internal paths/stack traces).
-- [x] Add `validation_ext` module to `fontlift-core`:
-  - `ValidatorConfig { max_file_size_bytes, timeout_ms, allow_collections }`.
-  - `validate_and_introspect(paths, config) -> FontResult<Vec<Result<FontliftFontFaceInfo, FontError>>>`.
-  - Spawn validator child process, send paths/config over stdin, parse JSON response.
-- [x] Wire validator into macOS install path (`MacFontManager::install_font`):
-  - Early call to `validate_single` before copy/registration when `validation_config` is set on manager.
-  - Abort with `FontError::InvalidFormat` if validation fails.
-  - Manager exposes `with_validation(config)` constructor and `set_validation_config()` setter.
-- [x] Wire validator into Windows install path (`WinFontManager::install_font`) when fleshing out Windows parity.
-- [x] Expose validation config in Python bindings:
-  - Added `strict: bool = False` parameter on `install()` function and `FontliftManager.install_font()` method.
-  - When `strict=True`, creates manager with `ValidatorConfig::default()` for out-of-process validation.
-- [x] Expose validation in CLI:
-  - `--no-validate` flag (default: validate on install).
-  - `--validation-strictness {lenient,normal,paranoid}` presets.
-  - Batch validation for installs (amortize process overhead).
-- [x] Add unit tests:
-  - Known-bad font samples (random binary with `.ttf` extension) → clean error, no crash.
-  - Max size / timeout behaviour with dummy files.
-- [x] Add integration tests:
-  - Malformed font fixture + `fontlift install` → fails with `InvalidFormat`, no CT registration.
-  - Tests in `crates/fontlift-cli/tests/macos_fake_registry_tests.rs` verify CLI and manager-level validation.
-
-### WS8 — Transactional operation journal for crash-safe install/remove
-**Goal:** Wrap multi-step operations (copy, register, unregister, delete, clear cache) in a small operation journal so interrupted operations can be auto-repaired on next run.
-
-- [x] Add `journal` module to `fontlift-core`:
-  - `JournalAction` enum: `CopyFile { from, to }`, `RegisterFont { path, scope }`, `UnregisterFont { path, scope }`, `DeleteFile { path }`, `ClearCache { scope }`.
-  - `JournalEntry { id: Uuid, started_at, completed, actions: Vec<JournalAction>, current_step: usize }`.
-  - Journal file location: macOS `~/Library/Application Support/FontLift/journal.json`, Windows `%LOCALAPPDATA%\FontLift\journal.json`.
-  - Atomic write pattern (write to `.tmp` then rename).
-- [x] Implement journal helpers:
-  - `journal_path() -> PathBuf` (platform-specific).
-  - `load_journal() -> Vec<JournalEntry>`, `save_journal(&[JournalEntry])`.
-  - `record_operation(actions) -> JournalEntry`, `mark_step(entry_id, step)`, `mark_completed(entry_id)`.
-- [x] Implement crash recovery logic:
-  - `recover_incomplete_operations<F>(manager, handler)` iterates incomplete entries and rolls forward or back.
-  - Policy per action: CopyFile (check exists/size), RegisterFont (check is_font_installed), UnregisterFont (retry if still installed), DeleteFile (delete if exists).
-- [x] Wire journal into `MacFontManager::install_font`:
-  - Build actions list: CopyFile (if needed), RegisterFont.
-  - Call `record_operation`, execute actions with `mark_step` after each, then `mark_completed`.
-- [x] Wire journal into `MacFontManager::remove_font` (UnregisterFont → DeleteFile).
-- [x] Wire journal into Windows manager when fully implemented.
-- [x] Add CLI `fontlift doctor` command:
-  - Runs `recover_incomplete_operations` and prints actions taken.
-  - Optionally auto-run at process start (behind flag or env var).
-- [x] Add unit tests:
-  - Simulate starting entry, advancing steps, calling recovery → verify expected rollback/forward.
-- [x] Add integration tests:
-  - `mac_fake_registry_doctor_recovers_incomplete_copy`: simulates crash after CopyFile record, verifies doctor recovery.
-  - `mac_fake_registry_doctor_recovers_incomplete_delete`: simulates crash after DeleteFile record, verifies recovery.
-
-## Milestones
-- **M1:** Build passes on macOS and parity checklist completed (WS0).
-- **M2:** macOS parity validated against Swift CLI fixtures (WS1).
-- **M3:** Windows parity validated against C++ CLI fixtures (WS2).
-- **M4:** Unified CLI + Python parity done (WS3–WS4).
-- **M5:** CI matrix green with parity tests and docs/release updates (WS5–WS6).
-
-## Verification approach (superset guarantee)
-- Keep a living parity checklist derived from legacy help/output; every item mapped to Rust/Python behavior or explicitly deprecated with rationale.
-- Golden-output tests compare Rust CLI/Python binding results to recorded legacy outputs for core commands on each platform.
-- Contract tests ensure Python JSON structures match Rust CLI JSON output.
-- Treat any missing feature or divergent behavior as a release blocker until resolved or documented.
-
-## Architecture snapshot (for reference)
-- Workspace crates: `fontlift-core` (errors, validation, traits), `fontlift-platform-mac`, `fontlift-platform-win`, `fontlift-cli`, `fontlift-python`.
-- Platform APIs: macOS via Core Text/Objective-C; Windows via `windows` crate (GDI + Registry).
-- Tooling: Rust 1.75+, PyO3 + maturin for bindings; clap for CLI; tests via `cargo test` + `pytest`.
-
-*Last updated: 2025-12-03*
-```
-
-## README.md
-````markdown
+<document index="9">
+<source>README.md</source>
+<document_content>
 # FontLift
 
 A cross-platform font management library and CLI tool written in Rust, consolidating the functionality of the existing Swift and C++ implementations into a unified codebase.
@@ -2154,10 +2048,12 @@ See [CHANGELOG.md](CHANGELOG.md) for version history and release notes.
 ---
 
 Made by FontLab https://www.fontlab.com/
-````
+</document_content>
+</document>
 
-## RELEASE_CHECKLIST.md
-```markdown
+<document index="10">
+<source>RELEASE_CHECKLIST.md</source>
+<document_content>
 # FontLift Release Checklist (2025-12-03)
 
 ## Preconditions
@@ -2183,12 +2079,14 @@ Made by FontLab https://www.fontlab.com/
 
 ## Post-release
 - Yank or deprecate superseded versions if needed.
-- Update `CHANGELOG.md`, `PLAN.md`, `TODO.md`, and `WORK.md` with release status.
+- Update `CHANGELOG.md`, `TASKS.md`, `TODO.md`, and `WORK.md` with release status.
 - Announce internally; capture any follow-up bugs in `TODO.md`.
-```
+</document_content>
+</document>
 
-## SECURITY_CONSIDERATIONS.md
-````markdown
+<document index="11">
+<source>SECURITY_CONSIDERATIONS.md</source>
+<document_content>
 # FontLift Security Considerations
 
 This document outlines the security considerations, threat model, and protective measures implemented in FontLift to ensure safe font management operations across platforms.
@@ -2648,10 +2546,165 @@ mod security_tests {
 **Review Schedule**: Quarterly security reviews and after major feature updates
 
 *Last Updated: 2025-11-21*
-````
+</document_content>
+</document>
 
-## TODO.md
-```markdown
+<document index="12">
+<source>TASKS.md</source>
+<document_content>
+# FontLift Superset Convergence Plan (2025-12-01)
+
+**One-sentence scope:** Deliver `fontlift` (Rust library + CLI + Python bindings) as a strict superset of `fontlift-mac-cli` and `fontlift-win-cli`, matching every behavior while adding a unified, testable, and convenient API surface.
+
+## Current State (facts)
+- Workspace crates exist (`core`, `platform-mac`, `platform-win`, `cli`, `python`), but macOS Core Text calls fail to compile; Windows path is unverified on non-Windows.
+- CLI surface is minimal (list/install/uninstall/remove/cleanup) and lacks legacy flags (`--prune-only`, `--cache-only`, `--json`, batch ops, simulation/dry-run, aliases).
+- Python bindings expose only path-based operations; no metadata, name-based operations, or cleanup/prune options; no packaging story for PyPI wheels.
+- No automated parity checks against Swift/C++ CLIs; no fixture fonts; tests currently fail on macOS.
+
+## Gap analysis vs legacy CLIs
+- **macOS (Swift CLI)** missing: Core Text register/unregister, conflict detection/auto-resolve, rich metadata extraction, prune + third-party cache cleanup, system font protections with overrides, simulation/fake registry mode, environment overrides, complete flag set.
+- **Windows (C++ CLI)** missing: real registry + GDI wiring for install/uninstall/list, conflict removal, cache cleanup (FontCache service + Adobe caches), admin detection paths, robust registry pruning, exit-code parity.
+- **Cross-platform/CLI UX** missing: aliases (`i/u/rm/c/l`), `-p/-n/-s` toggles, JSON output, batch file/dir handling, quiet/verbose, dry-run, deterministic sorting, consistent error strings.
+- **Python** missing: typed `FontliftFontSource/FontliftFontFaceInfo`, name-based operations, cleanup/prune toggles, JSON-friendly outputs, Fire-compatible CLI, maturin/pyproject for wheels, version sync with Cargo.
+- **Verification** missing: golden-output tests, fixture fonts, CI matrix for macOS/Windows, migration docs from legacy CLIs.
+
+## Workstreams (actionable)
+
+### WS0 — Parity audit & build hygiene
+- [x] Catalogue every command/flag/behavior in both legacy CLIs; update `FEATURE_MATRIX.md` with a parity checklist.
+- [x] Fix macOS build blockers (Core Text constants, CFDictionary construction, feature gates) so `cargo test --workspace` passes locally.
+- [x] Gate Windows-specific code to compile cleanly on macOS; add minimal mock stubs for non-target hosts to keep tests green.
+
+### WS1 — macOS parity (Swift → Rust)
+- Implement Core Text register/unregister with scope options; copy fonts into user/system dirs with system font protection and conflict detection/auto-resolve. *(Done 2025-12-03: installs now copy into scope-specific dirs, auto-unregister/retry on CT conflicts, replace-on-reinstall in fake/user scopes, and `is_font_installed` inspects Core Text registrations/paths.)*
+- Implement listing via `CTFontManagerCopyAvailableFontURLs` + descriptor metadata (PostScript/full/family/style/format) and scope tagging. *(Done 2025-12-02: descriptor-based listing with scope tagging and trait extraction.)*
+- Implement cleanup: prune missing registrations, clear ATS caches, clear Adobe/Microsoft caches; flags `--prune-only`, `--cache-only`, `--admin`. *(Done 2025-12-02: pruning + cache clearing wired with flags and dry-run support.)*
+- Add simulation/dry-run and fake registry mode for tests. *(Done 2025-12-03: `FONTLIFT_FAKE_REGISTRY_ROOT` plus CLI dry-run paths.)*
+
+### WS2 — Windows parity (C++ → Rust)
+- Wire install/uninstall/remove to registry + GDI with file copy to per-user/system fonts, admin detection, conflict auto-removal.
+- Implement listing from registry + fonts directory with metadata, deduplication, and scope detection.
+- Implement cleanup: prune missing registry entries, clear FontCache service data, clear Adobe caches; support `--prune-only`, `--cache-only`, `--admin` and exit-code parity.
+- *Progress 2025-12-03:* Registry pruning and FontCache stop/clear/start flow implemented; AdobeFnt*.lst purging added under Program Files; still pending validation on Windows hosts.
+- *Progress 2025-12-03:* Install path now auto-detects conflicts (path/PostScript/family-style) and unregisters/removes duplicates before copy, while refusing to touch protected system font paths.
+- *Progress 2025-12-03:* Listing now prefers name table metadata via `read-fonts` (PostScript/family/subfamily/full name) for registry + directory entries with scope tagging and deduplication.
+- *Progress 2025-12-03:* Added cross-platform unit coverage for Adobe cache discovery/removal and ProgramFiles vs ProgramFiles(x86) deduplication to harden cleanup logic pending Windows host validation.
+- *Progress 2025-12-03:* Registry values are stored as filenames when installed under Fonts roots and normalized back to absolute paths for listing/uninstall; cleanup now stops both FontCache and optional WPF font cache services before deleting cache files.
+- *Progress 2025-12-03:* CLI cleanup now downgrades user-scope cache-clear `PermissionDenied` errors to warnings so default `fontlift cleanup` succeeds without `--admin` while keeping system-scope failures fatal.
+- *Progress 2025-12-03:* Registry unregister/prune now normalize filename-only entries (case-insensitive) to prevent false positives and stale values when removing/pruning fonts.
+- *Progress 2025-12-03:* Registry value matching helper now builds on non-Windows hosts so `cargo test -p fontlift-platform-win` stays green cross-platform while Windows validation remains pending.
+
+### WS3 — Unified CLI ergonomics
+- Align commands/flags with legacy binaries: aliases, batch install/remove, name- and path-based operations, JSON output, quiet/verbose, dry-run, deterministic sorting.
+- Add migration-safe help text and consistent error/exit codes; add shell completion generation.
+  - [x] Shell completion generation via `fontlift completions <shell>` writing to stdout.
+  - [x] Exit code alignment with legacy binaries for common failure cases.
+  - [x] Implemented `list --json` output with deterministic sorting and deduplication to stabilize scripting surface.
+  - [x] Added batch file/dir handling plus `--dry-run`/`--quiet`/`--verbose` toggles for install/uninstall/remove commands.
+
+### WS4 — Python bindings & packaging
+- Expose full surface: typed `FontliftFontSource`/`FontliftFontFaceInfo`, list/install/uninstall/remove/cleanup with scope/admin/prune/cache/dry-run options, name-based ops, JSON-friendly return values.
+- Add Fire-based CLI entry mirroring Rust CLI; keep behavior parity.
+- Ship `pyproject.toml` + `maturin` workflow for universal2 macOS and win64/aarch64 wheels; sync versioning with Cargo.
+- Progress 2025-12-03: PyO3 exports `FontSource` + `FontFaceInfo` classes (scope/format/face_index metadata), list/install/uninstall/remove now route through `FontliftFontSource`; cleanup/prune/cache toggles added to Python API; name-based uninstall/remove with dry-run support and Fire CLI cleanup toggles are wired; Fire CLI now mirrors Rust JSON list rendering and quiet/verbose/dry-run messaging; remaining gap is validating wheel packaging on macOS/Windows.
+
+- Add font fixtures (TTF/OTF/TTC) and golden-output recordings from legacy binaries for list/install/uninstall/remove/cleanup.
+- *Progress 2025-12-03:* Added Atkinson Hyperlegible TTF/OTF/TTC fixtures under `tests/fixtures/fonts`; golden outputs remain.
+- Add Rust integration tests per platform using temp dirs and admin-check mocks; add Python `pytest` integration via `maturin develop`. *(Done 2025-12-03: macOS fake-registry integration coverage plus pytest harness with import skips when the extension isn't built.)*
+- Stand up CI matrix (macOS + Windows) running `cargo test`, CLI smoke tests with fixtures, and Python wheel build/test; enforce coverage (>80% initial). *(Done 2025-12-03: Added GitHub Actions CI for macOS 14 + Windows runners with rustfmt/clippy, platform-scoped cargo test, maturin develop, and pytest against the Python bindings.)*
+
+### WS6 — Documentation & release
+- Update README/USAGE/FEATURE_MATRIX with parity status, flags, migration guide, and Python examples. *(Updated 2025-12-03: added packaging section documenting build.sh wheel output and Windows prerequisites.)*
+- Harden build script (`build.sh`) and Windows packaging and document prerequisites.
+- Publish release checklist, CHANGELOG entries, and distribution plan (crates.io, GitHub releases with binaries, PyPI wheels). *(Done 2025-12-03: added RELEASE_CHECKLIST.md for Rust crates + PyPI/GitHub steps.)*
+
+### WS7 — Out-of-process font validation pipeline (Security/Robustness)
+**Goal:** Move all "dangerous" font parsing into a separate, short-lived, resource-limited helper process using `read-fonts` for structural validation before the OS font stack ever sees the bytes.
+
+- [x] Create `fontlift-validator` binary crate (`crates/fontlift-validator`) as a small helper process:
+  - Accept list of paths + optional config (max size, timeout, allowed formats) via CLI flags or JSON stdin.
+  - Use `read-fonts` to structurally parse fonts and extract metadata (PostScript name, family, style, weight, italic).
+  - Enforce resource limits: max file size (default 64MB), timeout watchdog, extension + MIME sniffing.
+  - Return JSON array of `{ ok: bool, info?: FontliftFontFaceInfo, error?: String }`.
+  - Sanitize error strings (no internal paths/stack traces).
+- [x] Add `validation_ext` module to `fontlift-core`:
+  - `ValidatorConfig { max_file_size_bytes, timeout_ms, allow_collections }`.
+  - `validate_and_introspect(paths, config) -> FontResult<Vec<Result<FontliftFontFaceInfo, FontError>>>`.
+  - Spawn validator child process, send paths/config over stdin, parse JSON response.
+- [x] Wire validator into macOS install path (`MacFontManager::install_font`):
+  - Early call to `validate_single` before copy/registration when `validation_config` is set on manager.
+  - Abort with `FontError::InvalidFormat` if validation fails.
+  - Manager exposes `with_validation(config)` constructor and `set_validation_config()` setter.
+- [x] Wire validator into Windows install path (`WinFontManager::install_font`) when fleshing out Windows parity.
+- [x] Expose validation config in Python bindings:
+  - Added `strict: bool = False` parameter on `install()` function and `FontliftManager.install_font()` method.
+  - When `strict=True`, creates manager with `ValidatorConfig::default()` for out-of-process validation.
+- [x] Expose validation in CLI:
+  - `--no-validate` flag (default: validate on install).
+  - `--validation-strictness {lenient,normal,paranoid}` presets.
+  - Batch validation for installs (amortize process overhead).
+- [x] Add unit tests:
+  - Known-bad font samples (random binary with `.ttf` extension) → clean error, no crash.
+  - Max size / timeout behaviour with dummy files.
+- [x] Add integration tests:
+  - Malformed font fixture + `fontlift install` → fails with `InvalidFormat`, no CT registration.
+  - Tests in `crates/fontlift-cli/tests/macos_fake_registry_tests.rs` verify CLI and manager-level validation.
+
+### WS8 — Transactional operation journal for crash-safe install/remove
+**Goal:** Wrap multi-step operations (copy, register, unregister, delete, clear cache) in a small operation journal so interrupted operations can be auto-repaired on next run.
+
+- [x] Add `journal` module to `fontlift-core`:
+  - `JournalAction` enum: `CopyFile { from, to }`, `RegisterFont { path, scope }`, `UnregisterFont { path, scope }`, `DeleteFile { path }`, `ClearCache { scope }`.
+  - `JournalEntry { id: Uuid, started_at, completed, actions: Vec<JournalAction>, current_step: usize }`.
+  - Journal file location: macOS `~/Library/Application Support/FontLift/journal.json`, Windows `%LOCALAPPDATA%\FontLift\journal.json`.
+  - Atomic write pattern (write to `.tmp` then rename).
+- [x] Implement journal helpers:
+  - `journal_path() -> PathBuf` (platform-specific).
+  - `load_journal() -> Vec<JournalEntry>`, `save_journal(&[JournalEntry])`.
+  - `record_operation(actions) -> JournalEntry`, `mark_step(entry_id, step)`, `mark_completed(entry_id)`.
+- [x] Implement crash recovery logic:
+  - `recover_incomplete_operations<F>(manager, handler)` iterates incomplete entries and rolls forward or back.
+  - Policy per action: CopyFile (check exists/size), RegisterFont (check is_font_installed), UnregisterFont (retry if still installed), DeleteFile (delete if exists).
+- [x] Wire journal into `MacFontManager::install_font`:
+  - Build actions list: CopyFile (if needed), RegisterFont.
+  - Call `record_operation`, execute actions with `mark_step` after each, then `mark_completed`.
+- [x] Wire journal into `MacFontManager::remove_font` (UnregisterFont → DeleteFile).
+- [x] Wire journal into Windows manager when fully implemented.
+- [x] Add CLI `fontlift doctor` command:
+  - Runs `recover_incomplete_operations` and prints actions taken.
+  - Optionally auto-run at process start (behind flag or env var).
+- [x] Add unit tests:
+  - Simulate starting entry, advancing steps, calling recovery → verify expected rollback/forward.
+- [x] Add integration tests:
+  - `mac_fake_registry_doctor_recovers_incomplete_copy`: simulates crash after CopyFile record, verifies doctor recovery.
+  - `mac_fake_registry_doctor_recovers_incomplete_delete`: simulates crash after DeleteFile record, verifies recovery.
+
+## Milestones
+- **M1:** Build passes on macOS and parity checklist completed (WS0).
+- **M2:** macOS parity validated against Swift CLI fixtures (WS1).
+- **M3:** Windows parity validated against C++ CLI fixtures (WS2).
+- **M4:** Unified CLI + Python parity done (WS3–WS4).
+- **M5:** CI matrix green with parity tests and docs/release updates (WS5–WS6).
+
+## Verification approach (superset guarantee)
+- Keep a living parity checklist derived from legacy help/output; every item mapped to Rust/Python behavior or explicitly deprecated with rationale.
+- Golden-output tests compare Rust CLI/Python binding results to recorded legacy outputs for core commands on each platform.
+- Contract tests ensure Python JSON structures match Rust CLI JSON output.
+- Treat any missing feature or divergent behavior as a release blocker until resolved or documented.
+
+## Architecture snapshot (for reference)
+- Workspace crates: `fontlift-core` (errors, validation, traits), `fontlift-platform-mac`, `fontlift-platform-win`, `fontlift-cli`, `fontlift-python`.
+- Platform APIs: macOS via Core Text/Objective-C; Windows via `windows` crate (GDI + Registry).
+- Tooling: Rust 1.75+, PyO3 + maturin for bindings; clap for CLI; tests via `cargo test` + `pytest`.
+
+*Last updated: 2025-12-03*
+</document_content>
+</document>
+
+<document index="13">
+<source>TODO.md</source>
+<document_content>
 # fontlift TODO (2025-12-01)
 
 - [x] Audit legacy `fontlift-mac-cli` and `fontlift-win-cli` commands/flags/behaviors and update `FEATURE_MATRIX.md` with a parity checklist.
@@ -2714,10 +2767,12 @@ mod security_tests {
 - [x] Add integration tests with fault injection (panic mid-install) and recovery verification.
   - `mac_fake_registry_doctor_recovers_incomplete_copy`: simulates crash after CopyFile journal record, verifies doctor recovery.
   - `mac_fake_registry_doctor_recovers_incomplete_delete`: simulates crash after DeleteFile journal record, verifies doctor recovery.
-```
+</document_content>
+</document>
 
-## USAGE.md
-````markdown
+<document index="14">
+<source>USAGE.md</source>
+<document_content>
 # FontLift Usage Guide
 
 This guide provides comprehensive usage examples for FontLift, both as a library and as a CLI tool.
@@ -2965,10 +3020,12 @@ match manager.install_font(&font_path, FontScope::User) {
 
 - Planned support via fontconfig integration
 - Will support standard font directories
-````
+</document_content>
+</document>
 
-## build.sh
-```bash
+<document index="15">
+<source>build.sh</source>
+<document_content>
 #!/bin/bash
 
 # FontLift Build Script - Production Ready
@@ -3770,10 +3827,12 @@ main() {
 
 # Run main function with all arguments
 main "$@"
-```
+</document_content>
+</document>
 
-## crates/fontlift-cli/Cargo.toml
-```toml
+<document index="16">
+<source>crates/fontlift-cli/Cargo.toml</source>
+<document_content>
 [package]
 name = "fontlift-cli"
 version.workspace = true
@@ -3811,7 +3870,8 @@ fontlift-platform-win = { workspace = true }
 tempfile = "3.0"
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 serde_json = { workspace = true }
-```
+</document_content>
+</document>
 
 # File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-cli/src/args.rs
 # Language: rust
@@ -3861,8 +3921,9 @@ struct DenyCacheManager {
 }
 
 
-## crates/fontlift-cli/tests/macos_fake_registry_tests.rs
-```rust
+<document index="17">
+<source>crates/fontlift-cli/tests/macos_fake_registry_tests.rs</source>
+<document_content>
 #![cfg(target_os = "macos")]
 
 use std::env;
@@ -4634,10 +4695,12 @@ async fn mac_fake_registry_doctor_recovers_incomplete_delete() {
         "journal should have no incomplete entries after recovery"
     );
 }
-```
+</document_content>
+</document>
 
-## crates/fontlift-core/Cargo.toml
-```toml
+<document index="18">
+<source>crates/fontlift-core/Cargo.toml</source>
+<document_content>
 [package]
 name = "fontlift-core"
 version.workspace = true
@@ -4664,7 +4727,8 @@ read-fonts = "0.36"
 [dev-dependencies]
 tokio-test = "0.4"
 tempfile = "3.0"
-```
+</document_content>
+</document>
 
 # File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-core/src/config.rs
 # Language: rust
@@ -4704,8 +4768,9 @@ struct ActionRecoveryResult {
 }
 
 
-## crates/fontlift-core/src/lib.rs
-```rust
+<document index="19">
+<source>crates/fontlift-core/src/lib.rs</source>
+<document_content>
 //! fontlift-core - Core font management library for fontlift
 //!
 //! This library provides the core abstractions and types for cross-platform
@@ -5338,7 +5403,8 @@ mod tests {
         assert_eq!(result.warnings.len(), 1);
     }
 }
-```
+</document_content>
+</document>
 
 # File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-core/src/tests.rs
 # Language: rust
@@ -5361,8 +5427,9 @@ struct ValidationResult {
 }
 
 
-## crates/fontlift-platform-mac/Cargo.toml
-```toml
+<document index="20">
+<source>crates/fontlift-platform-mac/Cargo.toml</source>
+<document_content>
 [package]
 name = "fontlift-platform-mac"
 version.workspace = true
@@ -5386,10 +5453,12 @@ libc = "0.2"
 
 [dev-dependencies]
 tempfile = "3.0"
-```
+</document_content>
+</document>
 
-## crates/fontlift-platform-mac/src/lib.rs
-```rust
+<document index="21">
+<source>crates/fontlift-platform-mac/src/lib.rs</source>
+<document_content>
 //! macOS platform implementation for fontlift
 //!
 //! This module provides macOS-specific font management using Core Text APIs,
@@ -5409,11 +5478,10 @@ use objc2_core_foundation::{
     CFDictionary, CFError, CFIndex, CFNumber, CFRetained, CFString, CFType, CFURLPathStyle, CFURL,
 };
 use objc2_core_text::{
-    CTFontDescriptor, CTFontFormat, CTFontManagerScope,
-    CTFontManagerRegisterFontsForURL, CTFontManagerUnregisterFontsForURL,
     kCTFontDisplayNameAttribute, kCTFontFamilyNameAttribute, kCTFontFormatAttribute,
     kCTFontNameAttribute, kCTFontStyleNameAttribute, kCTFontSymbolicTrait, kCTFontTraitsAttribute,
-    kCTFontURLAttribute, kCTFontWeightTrait,
+    kCTFontURLAttribute, kCTFontWeightTrait, CTFontDescriptor, CTFontFormat,
+    CTFontManagerRegisterFontsForURL, CTFontManagerScope, CTFontManagerUnregisterFontsForURL,
 };
 
 const K_CT_FONT_MANAGER_ERROR_ALREADY_REGISTERED: isize = 105;
@@ -5603,8 +5671,12 @@ fn rust_string_to_cf(s: &str) -> CFRetained<CFString> {
 
     let c_str = std::ffi::CString::new(s).unwrap_or_default();
     unsafe {
-        CFString::with_c_string(None, c_str.as_ptr(), CFStringBuiltInEncodings::EncodingUTF8.0)
-            .expect("Failed to create CFString")
+        CFString::with_c_string(
+            None,
+            c_str.as_ptr(),
+            CFStringBuiltInEncodings::EncodingUTF8.0,
+        )
+        .expect("Failed to create CFString")
     }
 }
 
@@ -5796,9 +5868,8 @@ fn descriptor_to_font_face_info(descriptor: &CTFontDescriptor) -> Option<Fontlif
 
             // Get symbolic traits (for italic)
             let symbolic_key = unsafe { kCTFontSymbolicTrait };
-            let symbolic_value = unsafe {
-                traits_dict.value(symbolic_key as *const _ as *const std::ffi::c_void)
-            };
+            let symbolic_value =
+                unsafe { traits_dict.value(symbolic_key as *const _ as *const std::ffi::c_void) };
             if !symbolic_value.is_null() {
                 let cf_num: &CFNumber = unsafe { &*(symbolic_value as *const CFNumber) };
                 let mut symbolic: u32 = 0;
@@ -5816,9 +5887,8 @@ fn descriptor_to_font_face_info(descriptor: &CTFontDescriptor) -> Option<Fontlif
 
             // Get weight trait
             let weight_key = unsafe { kCTFontWeightTrait };
-            let weight_value = unsafe {
-                traits_dict.value(weight_key as *const _ as *const std::ffi::c_void)
-            };
+            let weight_value =
+                unsafe { traits_dict.value(weight_key as *const _ as *const std::ffi::c_void) };
             if !weight_value.is_null() {
                 let cf_num: &CFNumber = unsafe { &*(weight_value as *const CFNumber) };
                 let mut weight: f64 = 0.0;
@@ -6855,10 +6925,12 @@ mod tests {
         );
     }
 }
-```
+</document_content>
+</document>
 
-## crates/fontlift-platform-win/Cargo.toml
-```toml
+<document index="22">
+<source>crates/fontlift-platform-win/Cargo.toml</source>
+<document_content>
 [package]
 name = "fontlift-platform-win"
 version.workspace = true
@@ -6893,7 +6965,8 @@ windows = { version = "0.54", features = [
 
 [dev-dependencies]
 tempfile = "3.0"
-```
+</document_content>
+</document>
 
 # File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-platform-win/src/lib.rs
 # Language: rust
@@ -6907,8 +6980,9 @@ struct EnvGuard {
 }
 
 
-## crates/fontlift-python/Cargo.toml
-```toml
+<document index="23">
+<source>crates/fontlift-python/Cargo.toml</source>
+<document_content>
 [package]
 name = "fontlift-python"
 version.workspace = true
@@ -6947,7 +7021,8 @@ default = []
 
 [build-dependencies]
 pyo3-build-config = "0.24.1"
-```
+</document_content>
+</document>
 
 # File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-python/build.rs
 # Language: rust
@@ -6990,8 +7065,9 @@ mod feature_flags;
 
 
 
-## crates/fontlift-validator/Cargo.toml
-```toml
+<document index="24">
+<source>crates/fontlift-validator/Cargo.toml</source>
+<document_content>
 [package]
 name = "fontlift-validator"
 version.workspace = true
@@ -7015,7 +7091,8 @@ thiserror.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
-```
+</document_content>
+</document>
 
 # File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/crates/fontlift-validator/src/main.rs
 # Language: rust
@@ -7038,8 +7115,9 @@ struct ValidationResult {
 mod tests;
 
 
-## publish.sh
-```bash
+<document index="25">
+<source>publish.sh</source>
+<document_content>
 #!/usr/bin/env bash
 
 set -euo pipefail
@@ -7081,10 +7159,12 @@ echo "Publishing to PyPI..."
 uv publish
 
 echo "Done."
-```
+</document_content>
+</document>
 
-## pyproject.toml
-```toml
+<document index="26">
+<source>pyproject.toml</source>
+<document_content>
 [build-system]
 requires = ["maturin>=1.7,<2.0"]
 build-backend = "maturin"
@@ -7117,7 +7197,8 @@ python-source = "python"
 features = ["python-bindings"]
 module-name = "fontlift._native"
 strip = true
-```
+</document_content>
+</document>
 
 # File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/python/fontlift/__init__.py
 # Language: python
@@ -7278,7 +7359,7 @@ def main((argv: list[str] | None = None)) -> None:
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 class ListRenderOptions:
 
@@ -7344,22 +7425,27 @@ def test_render_list_with_names_only_outputs_names_sorted(()):
 def test_render_list_json_is_deterministic_and_deduped(()):
 
 
-## tests/fixtures/README.md
-```markdown
+<document index="27">
+<source>tests/fixtures/README.md</source>
+<document_content>
 # Test font fixtures
 
 - `fonts/AtkinsonHyperlegible-Regular.ttf` (SIL Open Font License 1.1) copied from https://github.com/googlefonts/atkinson-hyperlegible (commit current as of 2025-12-03) for test-only use.
 - `fonts/AtkinsonHyperlegible-Regular.otf` (SIL Open Font License 1.1) copied from https://github.com/googlefonts/atkinson-hyperlegible (commit current as of 2025-12-03) for test-only use.
 - `fonts/AtkinsonHyperlegible-Regular.ttc` (SIL Open Font License 1.1) collection generated locally from the upstream TTF using a minimal TTC header for test-only use.
-```
+</document_content>
+</document>
 
-## tests/fixtures/fonts/malformed.ttf
-```
+<document index="28">
+<source>tests/fixtures/fonts/malformed.ttf</source>
+<document_content>
 NOT A FONT FILE
-```
+</document_content>
+</document>
 
-## tests/fixtures/golden_outputs/list_json_schema.json
-```json
+<document index="29">
+<source>tests/fixtures/golden_outputs/list_json_schema.json</source>
+<document_content>
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "fontlift-list-output",
@@ -7367,7 +7453,8 @@ NOT A FONT FILE
   "description": "Expected JSON output structure for fontlift list --json",
 
 ... (Data file content truncated to first 5 lines)
-```
+</document_content>
+</document>
 
 # File: /Users/adam/Developer/vcs3/github.fontlaborg/fontlift/tests/integration_tests.rs
 # Language: rust
@@ -7384,3 +7471,6 @@ struct TestFont {
 
 struct TestFontDataset {
 }
+
+
+</documents>

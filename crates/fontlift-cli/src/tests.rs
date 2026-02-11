@@ -254,24 +254,28 @@ struct DenyCacheManager {
 
 impl FontManager for DenyCacheManager {
     fn install_font(&self, _source: &FontliftFontSource) -> fontlift_core::FontResult<()> {
-        Err(FontError::UnsupportedOperation("install not used in test".into()))
+        Err(FontError::UnsupportedOperation(
+            "install not used in test".into(),
+        ))
     }
 
     fn uninstall_font(&self, _source: &FontliftFontSource) -> fontlift_core::FontResult<()> {
-        Err(FontError::UnsupportedOperation("uninstall not used in test".into()))
+        Err(FontError::UnsupportedOperation(
+            "uninstall not used in test".into(),
+        ))
     }
 
     fn remove_font(&self, _source: &FontliftFontSource) -> fontlift_core::FontResult<()> {
-        Err(FontError::UnsupportedOperation("remove not used in test".into()))
+        Err(FontError::UnsupportedOperation(
+            "remove not used in test".into(),
+        ))
     }
 
     fn is_font_installed(&self, _source: &FontliftFontSource) -> fontlift_core::FontResult<bool> {
         Ok(false)
     }
 
-    fn list_installed_fonts(
-        &self,
-    ) -> fontlift_core::FontResult<Vec<FontliftFontFaceInfo>> {
+    fn list_installed_fonts(&self) -> fontlift_core::FontResult<Vec<FontliftFontFaceInfo>> {
         Ok(vec![])
     }
 
@@ -383,12 +387,11 @@ fn cleanup_skips_cache_clear_permission_denied_on_windows_user_scope() {
         base_opts,
     ));
 
-    assert!(result.is_ok(), "cleanup should not fail when cache clear needs admin");
-    assert_eq!(
-        *manager.prunes.lock().expect("lock"),
-        1,
-        "prune should run"
+    assert!(
+        result.is_ok(),
+        "cleanup should not fail when cache clear needs admin"
     );
+    assert_eq!(*manager.prunes.lock().expect("lock"), 1, "prune should run");
     assert_eq!(
         *manager.cache_attempts.lock().expect("lock"),
         1,

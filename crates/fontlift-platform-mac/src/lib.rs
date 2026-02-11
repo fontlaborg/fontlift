@@ -17,11 +17,10 @@ use objc2_core_foundation::{
     CFDictionary, CFError, CFIndex, CFNumber, CFRetained, CFString, CFType, CFURLPathStyle, CFURL,
 };
 use objc2_core_text::{
-    CTFontDescriptor, CTFontFormat, CTFontManagerScope,
-    CTFontManagerRegisterFontsForURL, CTFontManagerUnregisterFontsForURL,
     kCTFontDisplayNameAttribute, kCTFontFamilyNameAttribute, kCTFontFormatAttribute,
     kCTFontNameAttribute, kCTFontStyleNameAttribute, kCTFontSymbolicTrait, kCTFontTraitsAttribute,
-    kCTFontURLAttribute, kCTFontWeightTrait,
+    kCTFontURLAttribute, kCTFontWeightTrait, CTFontDescriptor, CTFontFormat,
+    CTFontManagerRegisterFontsForURL, CTFontManagerScope, CTFontManagerUnregisterFontsForURL,
 };
 
 const K_CT_FONT_MANAGER_ERROR_ALREADY_REGISTERED: isize = 105;
@@ -211,8 +210,12 @@ fn rust_string_to_cf(s: &str) -> CFRetained<CFString> {
 
     let c_str = std::ffi::CString::new(s).unwrap_or_default();
     unsafe {
-        CFString::with_c_string(None, c_str.as_ptr(), CFStringBuiltInEncodings::EncodingUTF8.0)
-            .expect("Failed to create CFString")
+        CFString::with_c_string(
+            None,
+            c_str.as_ptr(),
+            CFStringBuiltInEncodings::EncodingUTF8.0,
+        )
+        .expect("Failed to create CFString")
     }
 }
 
@@ -404,9 +407,8 @@ fn descriptor_to_font_face_info(descriptor: &CTFontDescriptor) -> Option<Fontlif
 
             // Get symbolic traits (for italic)
             let symbolic_key = unsafe { kCTFontSymbolicTrait };
-            let symbolic_value = unsafe {
-                traits_dict.value(symbolic_key as *const _ as *const std::ffi::c_void)
-            };
+            let symbolic_value =
+                unsafe { traits_dict.value(symbolic_key as *const _ as *const std::ffi::c_void) };
             if !symbolic_value.is_null() {
                 let cf_num: &CFNumber = unsafe { &*(symbolic_value as *const CFNumber) };
                 let mut symbolic: u32 = 0;
@@ -424,9 +426,8 @@ fn descriptor_to_font_face_info(descriptor: &CTFontDescriptor) -> Option<Fontlif
 
             // Get weight trait
             let weight_key = unsafe { kCTFontWeightTrait };
-            let weight_value = unsafe {
-                traits_dict.value(weight_key as *const _ as *const std::ffi::c_void)
-            };
+            let weight_value =
+                unsafe { traits_dict.value(weight_key as *const _ as *const std::ffi::c_void) };
             if !weight_value.is_null() {
                 let cf_num: &CFNumber = unsafe { &*(weight_value as *const CFNumber) };
                 let mut weight: f64 = 0.0;
