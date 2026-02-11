@@ -1,12 +1,12 @@
 [workspace]
 resolver = "2"
 members = [
-  "crates/fontlift-cli",
-  "crates/fontlift-core",
-  "crates/fontlift-platform-mac",
-  "crates/fontlift-platform-win",
-  "crates/fontlift-python",
-  "crates/fontlift-validator",
+  "cli",
+  "core",
+  "platform-mac",
+  "platform-win",
+  "python",
+  "validator",
 ]
 
 [workspace.package]
@@ -23,14 +23,14 @@ clap = { version = "4.0", features = ["derive"] }
 clap_complete = "4.5"
 env_logger = "0.11"
 # CLI and Python crates
-fontlift-cli = { path = "crates/fontlift-cli" }
+fontlift-cli = { path = "cli" }
 # Core crates
-fontlift-core = { path = "crates/fontlift-core" }
+fontlift-core = { path = "core" }
 # Platform crates
-fontlift-platform-mac = { path = "crates/fontlift-platform-mac" }
-fontlift-platform-win = { path = "crates/fontlift-platform-win" }
-fontlift-python = { path = "crates/fontlift-python" }
-fontlift-validator = { path = "crates/fontlift-validator" }
+fontlift-platform-mac = { path = "platform-mac" }
+fontlift-platform-win = { path = "platform-win" }
+fontlift-python = { path = "python" }
+fontlift-validator = { path = "validator" }
 log = "0.4"
 read-fonts = "0.26"
 uuid = { version = "1.11", features = ["v4", "serde"] }
