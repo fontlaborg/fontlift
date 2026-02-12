@@ -231,3 +231,6 @@ site/
 # Platform-specific
 mutants.out*/
 .mutagen/
+llms.txt
+/.claude
+.DS_Store
