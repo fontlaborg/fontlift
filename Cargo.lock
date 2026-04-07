@@ -298,6 +298,7 @@ dependencies = [
  "anyhow",
  "clap",
  "clap_complete",
+ "dirs",
  "env_logger",
  "fontlift-core",
  "fontlift-platform-mac",
