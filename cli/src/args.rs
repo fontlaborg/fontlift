@@ -19,7 +19,7 @@ pub enum ValidationStrictness {
 #[derive(Parser)]
 #[command(name = "fontlift")]
 #[command(about = "Install, uninstall, list, and remove fonts cross-platform", long_about = None)]
-#[command(version = "2.0.0-dev")]
+#[command(version = env!("GIT_VERSION"))]
 pub struct Cli {
     /// Simulate actions without changing system state
     #[arg(

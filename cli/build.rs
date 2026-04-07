@@ -1,5 +1,4 @@
 fn main() {
-    // Set GIT_VERSION from git tags for the Python __version__ attribute
     let version = std::process::Command::new("git")
         .args(["describe", "--tags", "--always"])
         .output()
@@ -12,13 +11,7 @@ fn main() {
         });
 
     println!("cargo:rustc-env=GIT_VERSION={version}");
+    // Rebuild when HEAD or tags change
     println!("cargo:rerun-if-changed=../.git/HEAD");
     println!("cargo:rerun-if-changed=../.git/refs/tags");
-
-    // Only adjust linker args when building the actual Python extension.
-    if std::env::var_os("CARGO_FEATURE_PYTHON_BINDINGS").is_some() {
-        // Ensure macOS builds use -undefined dynamic_lookup so Python symbols
-        // are resolved at import time instead of link time.
-        pyo3_build_config::add_extension_module_link_args();
-    }
 }

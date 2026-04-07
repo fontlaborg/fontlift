@@ -1,0 +1,267 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1775598471046,
+  "projectRoot": "/Users/adam/Developer/vcs3/github.fontlaborg/fontlift",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Rust",
+        "version": "1.75",
+        "confidence": "high",
+        "markers": [
+          "Cargo.toml"
+        ]
+      },
+      {
+        "name": "Python",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "pyproject.toml"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": "cargo",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "cargo build",
+    "testCommand": "cargo test",
+    "lintCommand": "cargo clippy",
+    "devCommand": "cargo run",
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "examples",
+      "tests"
+    ],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "cli": {
+      "path": "cli",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1775598471039,
+      "keyFiles": [
+        "Cargo.toml"
+      ]
+    },
+    "core": {
+      "path": "core",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1775598471039,
+      "keyFiles": [
+        "Cargo.toml"
+      ]
+    },
+    "dist": {
+      "path": "dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 3,
+      "lastAccessed": 1775598471039,
+      "keyFiles": [
+        "fontlift-2.0.0.dev0-cp312-cp312-macosx_11_0_arm64.whl",
+        "fontlift-2.0.0.dev0-cp313-cp313-macosx_11_0_arm64.whl",
+        "fontlift-2.0.0.dev0.tar.gz"
+      ]
+    },
+    "examples": {
+      "path": "examples",
+      "purpose": "Example code",
+      "fileCount": 2,
+      "lastAccessed": 1775598471039,
+      "keyFiles": [
+        "basic_usage.rs"
+      ]
+    },
+    "issues": {
+      "path": "issues",
+      "purpose": null,
+      "fileCount": 3,
+      "lastAccessed": 1775598471040,
+      "keyFiles": [
+        "101.md",
+        "102.md"
+      ]
+    },
+    "mac-cli": {
+      "path": "mac-cli",
+      "purpose": null,
+      "fileCount": 21,
+      "lastAccessed": 1775598471040,
+      "keyFiles": [
+        "AGENTS.md",
+        "CHANGELOG.md",
+        "CLAUDE.md",
+        "DEPENDENCIES.md",
+        "GEMINI.md"
+      ]
+    },
+    "platform-mac": {
+      "path": "platform-mac",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1775598471040,
+      "keyFiles": [
+        "Cargo.toml"
+      ]
+    },
+    "platform-win": {
+      "path": "platform-win",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1775598471040,
+      "keyFiles": [
+        "Cargo.toml"
+      ]
+    },
+    "python": {
+      "path": "python",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1775598471041,
+      "keyFiles": [
+        "Cargo.toml",
+        "build.rs"
+      ]
+    },
+    "target": {
+      "path": "target",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1775598471041,
+      "keyFiles": [
+        "CACHEDIR.TAG"
+      ]
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 3,
+      "lastAccessed": 1775598471041,
+      "keyFiles": [
+        "Lato-Thin.ttf",
+        "integration_tests.rs",
+        "test_fonts.rs"
+      ]
+    },
+    "validator": {
+      "path": "validator",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1775598471042,
+      "keyFiles": [
+        "Cargo.toml"
+      ]
+    },
+    "win-cli": {
+      "path": "win-cli",
+      "purpose": null,
+      "fileCount": 21,
+      "lastAccessed": 1775598471042,
+      "keyFiles": [
+        "AGENTS.md",
+        "CHANGELOG.md",
+        "CLAUDE.md",
+        "CONTRIBUTING.md",
+        "DEPENDENCIES.md"
+      ]
+    },
+    "cli/src": {
+      "path": "cli/src",
+      "purpose": "Source code",
+      "fileCount": 5,
+      "lastAccessed": 1775598471043,
+      "keyFiles": [
+        "args.rs",
+        "lib.rs",
+        "main.rs"
+      ]
+    },
+    "cli/tests": {
+      "path": "cli/tests",
+      "purpose": "Test files",
+      "fileCount": 1,
+      "lastAccessed": 1775598471044,
+      "keyFiles": [
+        "macos_fake_registry_tests.rs"
+      ]
+    },
+    "core/src": {
+      "path": "core/src",
+      "purpose": "Source code",
+      "fileCount": 5,
+      "lastAccessed": 1775598471044,
+      "keyFiles": [
+        "config.rs",
+        "journal.rs",
+        "lib.rs"
+      ]
+    },
+    "platform-mac/src": {
+      "path": "platform-mac/src",
+      "purpose": "Source code",
+      "fileCount": 1,
+      "lastAccessed": 1775598471045,
+      "keyFiles": [
+        "lib.rs"
+      ]
+    },
+    "platform-win/src": {
+      "path": "platform-win/src",
+      "purpose": "Source code",
+      "fileCount": 1,
+      "lastAccessed": 1775598471045,
+      "keyFiles": [
+        "lib.rs"
+      ]
+    },
+    "python/src": {
+      "path": "python/src",
+      "purpose": "Source code",
+      "fileCount": 3,
+      "lastAccessed": 1775598471045,
+      "keyFiles": [
+        "bindings.rs",
+        "lib.rs",
+        "stub.rs"
+      ]
+    },
+    "tests/fixtures": {
+      "path": "tests/fixtures",
+      "purpose": "Test fixtures",
+      "fileCount": 1,
+      "lastAccessed": 1775598471045,
+      "keyFiles": [
+        "README.md"
+      ]
+    },
+    "validator/src": {
+      "path": "validator/src",
+      "purpose": "Source code",
+      "fileCount": 1,
+      "lastAccessed": 1775598471045,
+      "keyFiles": [
+        "main.rs"
+      ]
+    }
+  },
+  "hotPaths": [],
+  "userDirectives": []
+}

@@ -24,7 +24,7 @@ use std::collections::VecDeque;
 use std::sync::Mutex;
 
 pub const PYTHON_BINDINGS_ENABLED: bool = true;
-const VERSION: &str = env!("CARGO_PKG_VERSION");
+const VERSION: &str = env!("GIT_VERSION");
 
 fn py_error(action: &str, err: FontError) -> PyErr {
     PyRuntimeError::new_err(format!("Failed to {action}: {err}"))
