@@ -23,14 +23,14 @@ clap = { version = "4.0", features = ["derive"] }
 clap_complete = "4.5"
 env_logger = "0.11"
 # CLI and Python crates
-fontlift-cli = { path = "cli" }
+fontlift-cli = { version = "=5.0.4", path = "cli" }
 # Core crates
-fontlift-core = { path = "core" }
+fontlift-core = { version = "=5.0.4", path = "core" }
 # Platform crates
-fontlift-platform-mac = { path = "platform-mac" }
-fontlift-platform-win = { path = "platform-win" }
-fontlift-python = { path = "python" }
-fontlift-validator = { path = "validator" }
+fontlift-platform-mac = { version = "=5.0.4", path = "platform-mac" }
+fontlift-platform-win = { version = "=5.0.4", path = "platform-win" }
+fontlift-python = { version = "=5.0.4", path = "python" }
+fontlift-validator = { version = "=5.0.4", path = "validator" }
 dirs = "5.0"
 libc = "0.2"
 log = "0.4"
