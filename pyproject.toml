@@ -25,7 +25,7 @@ dynamic = ["version"]
 fontliftpy = "fontlift.cli:main"
 
 [tool.maturin]
-manifest-path = "crates/fontlift-python/Cargo.toml"
+manifest-path = "python/Cargo.toml"
 python-source = "python"
 features = ["python-bindings"]
 module-name = "fontlift._native"

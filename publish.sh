@@ -42,12 +42,9 @@ cargo publish -p fontlift-cli
 cargo publish -p fontlift-python
 
 echo "Preparing Python wheel..."
-uv venv --clear
-source .venv/bin/activate
-uv pip install --upgrade pip hatch hatchling hatchling-pyo3-plugin hatch-vcs fire
-uvx hatch build -t wheel
+uvx maturin build --release
 
 echo "Publishing to PyPI..."
-uv publish
+uv publish target/wheels/fontlift-${version}*.whl
 
 echo "Done."
