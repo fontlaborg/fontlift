@@ -93,6 +93,17 @@ else
     # Use cargo install (installs to ~/.cargo/bin by default)
     log_info "Installing fontlift CLI via cargo install..."
     cargo install --path "$SCRIPT_DIR/cli"
+    CARGO_BIN="$HOME/.cargo/bin/fontlift"
+
+    # If another fontlift binary shadows ~/.cargo/bin on PATH, update it too
+    WHICH_BIN="$(which fontlift 2>/dev/null || true)"
+    if [[ -n "$WHICH_BIN" && "$WHICH_BIN" != "$CARGO_BIN" && -f "$CARGO_BIN" ]]; then
+        log_info "Updating shadowing binary at $WHICH_BIN..."
+        cp "$CARGO_BIN" "$WHICH_BIN"
+        chmod +x "$WHICH_BIN"
+        log_success "Updated $WHICH_BIN"
+    fi
+
     log_success "Installed fontlift to $(which fontlift 2>/dev/null || echo '~/.cargo/bin/fontlift')"
 fi
 

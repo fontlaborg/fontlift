@@ -17,7 +17,7 @@ NC='\033[0m' # No Color
 
 # Script configuration
 SCRIPT_NAME="FontLift Production Builder"
-VERSION="2.0.0-dev"
+VERSION="$(git describe --tags --always 2>/dev/null | sed 's/^v//' || echo 'unknown')"
 MIN_RUST_VERSION="1.75.0"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
