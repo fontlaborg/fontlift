@@ -25,6 +25,11 @@ sed -i '' "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"${version}\"/" Ca
 # Update internal dependency version pins (=X.Y.Z)
 sed -i '' "s/version = \"=[0-9]*\.[0-9]*\.[0-9]*\"/version = \"=${version}\"/g" Cargo.toml
 
+git add Cargo.toml
+git commit -m "sync Cargo.toml to ${version}"
+git tag -f "$tag"
+git push origin main "$tag" --force-with-lease
+
 echo "Building release artifacts..."
 cargo build -p fontlift-cli --release
 
