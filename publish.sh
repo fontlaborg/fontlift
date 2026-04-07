@@ -19,6 +19,12 @@ echo "Publishing FontLift version ${version}"
 
 cd "$ROOT"
 
+echo "Syncing Cargo.toml versions to ${version}..."
+# Update workspace version
+sed -i '' "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"${version}\"/" Cargo.toml
+# Update internal dependency version pins (=X.Y.Z)
+sed -i '' "s/version = \"=[0-9]*\.[0-9]*\.[0-9]*\"/version = \"=${version}\"/g" Cargo.toml
+
 echo "Building release artifacts..."
 cargo build -p fontlift-cli --release
 

@@ -293,7 +293,7 @@ dependencies = [
 
 [[package]]
 name = "fontlift-cli"
-version = "5.0.4"
+version = "5.0.6"
 dependencies = [
  "anyhow",
  "clap",
@@ -313,7 +313,7 @@ dependencies = [
 
 [[package]]
 name = "fontlift-core"
-version = "5.0.4"
+version = "5.0.6"
 dependencies = [
  "anyhow",
  "dirs",
@@ -330,7 +330,7 @@ dependencies = [
 
 [[package]]
 name = "fontlift-platform-mac"
-version = "5.0.4"
+version = "5.0.6"
 dependencies = [
  "anyhow",
  "fontlift-core",
@@ -344,7 +344,7 @@ dependencies = [
 
 [[package]]
 name = "fontlift-platform-win"
-version = "5.0.4"
+version = "5.0.6"
 dependencies = [
  "anyhow",
  "fontlift-core",
@@ -358,7 +358,7 @@ dependencies = [
 
 [[package]]
 name = "fontlift-python"
-version = "5.0.4"
+version = "5.0.6"
 dependencies = [
  "anyhow",
  "fontlift-core",
@@ -373,7 +373,7 @@ dependencies = [
 
 [[package]]
 name = "fontlift-validator"
-version = "5.0.4"
+version = "5.0.6"
 dependencies = [
  "fontlift-core",
  "read-fonts 0.26.0",
