@@ -28,7 +28,8 @@ sed -i '' "s/version = \"=[0-9]*\.[0-9]*\.[0-9]*\"/version = \"=${version}\"/g" 
 git add Cargo.toml
 git commit -m "sync Cargo.toml to ${version}"
 git tag -f "$tag"
-git push origin main "$tag" --force-with-lease
+git push origin main
+git push origin "$tag" --force
 
 echo "Building release artifacts..."
 cargo build -p fontlift-cli --release
