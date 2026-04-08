@@ -1,27 +1,62 @@
+//! CLI argument definitions for `fontlift`.
+//!
+//! This module declares the command surface with `clap` derive macros.
+//! It does not perform any font operations. `ops.rs` does that.
+//!
+//! Main types:
+//! - [`Cli`] for global flags plus the chosen subcommand.
+//! - [`Commands`] for the subcommands.
+//! - [`ValidationStrictness`] for install-time validation presets.
+//! - [`exit_code_for_clap_error`] for script-friendly clap exit codes.
+
 use clap::error::ErrorKind;
 use clap::{Parser, Subcommand, ValueEnum, ValueHint};
 use clap_complete::Shell;
 use std::path::PathBuf;
 
-/// Validation strictness presets for font installation
+/// How strictly `fontlift install` validates a font before touching the OS.
+///
+/// Validation runs in a separate process so a malformed font cannot take down
+/// `fontlift` itself. These presets trade speed for caution depending on where
+/// the font came from and how large it is.
+///
+/// | Preset | File size cap | Parse timeout | Good for |
+/// |---|---|---|---|
+/// | `lenient` | 128 MB | 10 s | CJK superfamilies, large variable fonts |
+/// | `normal` | 64 MB | 5 s | Everyday use, the default |
+/// | `paranoid` | 32 MB | 2 s | Fonts from untrusted sources |
+///
+/// Use `lenient` for legitimately large CJK families or heavy variable fonts.
+/// Use `paranoid` for files you do not fully trust.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
 pub enum ValidationStrictness {
-    /// Lenient: larger size limits (128MB), longer timeouts (10s)
+    /// 128 MB, 10 s. Best for large CJK families and heavy variable fonts.
     Lenient,
-    /// Normal: default settings (64MB, 5s timeout)
+    /// 64 MB, 5 s. Default for most fonts.
     #[default]
     Normal,
-    /// Paranoid: strict limits (32MB, 2s timeout)
+    /// 32 MB, 2 s. Best for untrusted files.
     Paranoid,
 }
 
-/// Font management CLI tool
+/// Cross-platform font installation and cleanup.
+///
+/// `install` registers a font with the OS. `uninstall` removes the OS
+/// registration but keeps the file. `remove` deregisters the font and deletes
+/// the file.
+///
+/// Global flags apply to every subcommand and can appear anywhere on the line:
+///
+/// ```sh
+/// fontlift --dry-run install MyFont.otf
+/// fontlift install --dry-run MyFont.otf   # same thing
+/// ```
 #[derive(Parser)]
 #[command(name = "fontlift")]
 #[command(about = "Install, uninstall, list, and remove fonts cross-platform", long_about = None)]
 #[command(version = env!("GIT_VERSION"))]
 pub struct Cli {
-    /// Simulate actions without changing system state
+    /// Preview actions without changing files, registrations, or caches.
     #[arg(
         global = true,
         long,
@@ -29,7 +64,7 @@ pub struct Cli {
     )]
     pub dry_run: bool,
 
-    /// Reduce output to errors only
+    /// Suppress routine output. Only errors are printed.
     #[arg(
         global = true,
         short = 'q',
@@ -39,7 +74,7 @@ pub struct Cli {
     )]
     pub quiet: bool,
 
-    /// Show additional status output
+    /// Print extra detail such as chosen scope and resolved paths.
     #[arg(
         global = true,
         short = 'v',
@@ -49,7 +84,7 @@ pub struct Cli {
     )]
     pub verbose: bool,
 
-    /// Output as JSON (deterministic ordering)
+    /// Emit machine-readable JSON instead of human-readable text.
     #[arg(global = true, short = 'j', long, help = "Output results as JSON")]
     pub json: bool,
 
@@ -57,154 +92,287 @@ pub struct Cli {
     pub command: Commands,
 }
 
+/// The available subcommands.
+///
+/// Each variant maps to a handler in `ops.rs`. Short aliases such as
+/// `fontlift l`, `fontlift i`, and `fontlift rm` are also supported.
 #[derive(Subcommand)]
 pub enum Commands {
-    /// List installed fonts
+    /// List installed fonts.
+    ///
+    /// By default this prints one file path per line. Add `--name` to print
+    /// PostScript names instead, or combine `--path --name` for
+    /// `path::PostScriptName` pairs. `--sorted` produces stable, deduplicated
+    /// output for scripts and diffs.
+    ///
+    /// Examples:
+    /// ```sh
+    /// fontlift list                    # one path per line
+    /// fontlift list --name             # PostScript names only
+    /// fontlift list --path --name      # path::name pairs
+    /// fontlift list --sorted --json    # deduplicated JSON snapshot
+    /// ```
     #[command(alias = "l")]
     List {
+        /// Show font file paths. This is the default when neither flag is set.
         #[arg(short, long, help = "Show font file paths")]
         path: bool,
 
-        #[arg(short, long, help = "Show internal font names")]
+        /// Show PostScript names such as `HelveticaNeue-BoldItalic`.
+        ///
+        /// This is the face identifier most applications and workflows use
+        /// programmatically. It is not the filename or the family name.
+        #[arg(short, long, help = "Show PostScript names of installed font faces")]
         name: bool,
 
-        #[arg(short, long, help = "Remove duplicates; output is always sorted")]
+        /// Sort output and remove duplicates for stable comparisons.
+        #[arg(short, long, help = "Sort output and remove duplicates")]
         sorted: bool,
     },
 
-    /// Install fonts from file paths
+    /// Install fonts into user or system scope.
+    ///
+    /// By default, `fontlift` copies each font into the OS font directory for
+    /// the chosen scope and then registers it. With `--inplace`, it registers
+    /// the file where it already lives. If that file later moves or disappears,
+    /// the registration goes stale.
+    ///
+    /// Directories are scanned one level deep for supported font files.
+    ///
+    /// Examples:
+    /// ```sh
+    /// fontlift install MyFont.otf
+    /// fontlift install ~/Downloads/fonts/          # install all fonts in dir
+    /// fontlift install --admin MyFont.otf          # system-wide (needs sudo)
+    /// fontlift install --inplace /opt/fonts/*.otf  # register without copying
+    /// fontlift install --validation-strictness lenient BigCJKFamily.otf
+    /// fontlift install --no-validate QuickTest.ttf # skip validation entirely
+    /// ```
     #[command(alias = "i")]
     Install {
-        /// Font file path(s) or directory/ies containing fonts
+        /// One or more font files or directories to install.
+        ///
+        /// Directories are scanned one level deep, not recursively.
         #[arg(
             value_name = "FONT|DIR",
             num_args = 1..,
             value_hint = ValueHint::AnyPath,
-            help = "Font file(s) or directory/ies to install; directories are scanned for font files"
+            help = "Font file(s) or directories to install"
         )]
         font_inputs: Vec<PathBuf>,
 
+        /// Install in system scope for all users.
+        ///
+        /// On macOS this targets `/Library/Fonts`. Without this flag, install
+        /// targets the current user only.
         #[arg(
             short,
             long,
-            help = "Install at system level (all users, requires admin)"
+            help = "Install system-wide for all users (requires admin privileges)"
         )]
         admin: bool,
 
-        #[arg(short = 'V', long, help = "Skip out-of-process font validation")]
+        /// Skip the out-of-process validator before install.
+        #[arg(short = 'V', long, help = "Skip font validation before installing")]
         no_validate: bool,
 
+        /// Validation preset to use before install.
+        ///
+        /// See [`ValidationStrictness`]. `lenient` suits very large fonts.
+        /// `paranoid` suits untrusted files.
         #[arg(
             long,
             value_enum,
             default_value = "normal",
-            help = "Validation strictness preset"
+            help = "Validation strictness: lenient | normal | paranoid"
         )]
         validation_strictness: ValidationStrictness,
 
+        /// Copy into the font directory before registering.
+        ///
+        /// This is the default even when the flag is omitted. The flag mainly
+        /// exists so scripts can be explicit.
         #[arg(
             short = 'c',
             long,
-            help = "Copy the font file to the fonts folder and install (default)",
+            help = "Copy font to the fonts directory then register (default behaviour)",
             conflicts_with = "inplace"
         )]
         copy: bool,
 
+        /// Register the font where it already lives, without copying it.
+        ///
+        /// If the file later moves or is deleted, the registration becomes
+        /// stale. `fontlift cleanup` can prune those stale entries.
         #[arg(
             short = 'i',
             long,
-            help = "Keep the font file in place but install it",
+            help = "Register font at its current path without copying",
             conflicts_with = "copy"
         )]
         inplace: bool,
     },
 
-    /// Uninstall fonts (keeping files)
+    /// Unregister a font while leaving the file on disk.
+    ///
+    /// Target by path, or by `--name`, which matches a PostScript name or a
+    /// full name. `fontlift` tries the preferred scope first, then falls back
+    /// to the other scope.
+    ///
+    /// Examples:
+    /// ```sh
+    /// fontlift uninstall ~/Library/Fonts/MyFont.otf
+    /// fontlift uninstall --name HelveticaNeue-Bold
+    /// fontlift uninstall --admin /Library/Fonts/MyFont.otf
+    /// ```
     #[command(alias = "u")]
     Uninstall {
-        #[arg(short, long, help = "Font name to uninstall")]
+        /// Use a PostScript name or full name instead of a file path.
+        #[arg(short, long, help = "PostScript or full name of the font to uninstall")]
         name: Option<String>,
 
-        /// Font file path(s) or directory/ies containing fonts
+        /// Font files or directories whose fonts should be uninstalled.
         #[arg(
             value_name = "FONT|DIR",
             num_args = 0..,
             value_hint = ValueHint::AnyPath,
-            help = "Font file(s) or directory/ies to uninstall; directories are scanned for font files"
+            help = "Font file(s) or directories to uninstall"
         )]
         font_inputs: Vec<PathBuf>,
 
         #[arg(
             short,
             long,
-            help = "Uninstall at system level (all users, requires admin)"
+            help = "Uninstall from system scope (requires admin privileges)"
         )]
         admin: bool,
     },
 
-    /// Remove fonts (uninstall and delete files)
+    /// Unregister a font and delete its file.
+    ///
+    /// This is the destructive counterpart to `uninstall`. If deregistration
+    /// fails, `fontlift` still tries to delete the file so the font is gone
+    /// from disk.
+    ///
+    /// Use `--dry-run` first to see exactly what will be deleted.
+    ///
+    /// Examples:
+    /// ```sh
+    /// fontlift remove ~/Library/Fonts/OldFont.otf
+    /// fontlift remove --name OldFont-Regular
+    /// fontlift --dry-run remove ~/Library/Fonts/OldFont.otf
+    /// ```
     #[command(alias = "rm")]
     Remove {
-        #[arg(short, long, help = "Font name to remove")]
+        /// Use a PostScript name or full name instead of a file path.
+        #[arg(short, long, help = "PostScript or full name of the font to remove")]
         name: Option<String>,
 
-        /// Font file path(s) or directory/ies containing fonts
+        /// Font files or directories whose fonts should be removed.
         #[arg(
             value_name = "FONT|DIR",
             num_args = 0..,
             value_hint = ValueHint::AnyPath,
-            help = "Font file(s) or directory/ies to remove; directories are scanned for font files"
+            help = "Font file(s) or directories to remove"
         )]
         font_inputs: Vec<PathBuf>,
 
         #[arg(
             short,
             long,
-            help = "Remove at system level (all users, requires admin)"
+            help = "Remove from system scope (requires admin privileges)"
         )]
         admin: bool,
     },
 
-    /// Cleanup registry entries and font caches
+    /// Prune stale registrations, clear font caches, or both.
+    ///
+    /// Stale registrations point at files that no longer exist. Cache clearing
+    /// asks the OS, and common font-heavy apps where supported, to rescan fonts.
+    /// By default both steps run.
+    ///
+    /// Examples:
+    /// ```sh
+    /// fontlift cleanup                # prune + clear caches (user scope)
+    /// fontlift cleanup --prune-only   # remove stale registrations only
+    /// fontlift cleanup --cache-only   # rebuild caches only
+    /// fontlift cleanup --admin        # include system-wide cleanup
+    /// fontlift --dry-run cleanup      # preview without changing anything
+    /// ```
     #[command(alias = "c")]
     Cleanup {
-        #[arg(short, long, help = "Include system-wide cleanup (requires admin)")]
+        /// Include system-wide registrations and caches.
+        #[arg(
+            short,
+            long,
+            help = "Include system-wide cleanup (requires admin privileges)"
+        )]
         admin: bool,
 
+        /// Prune stale registrations only.
         #[arg(
             short = 'p',
             long,
-            help = "Only prune stale registrations; skip cache clearing",
+            help = "Prune stale registrations only; skip cache clearing",
             conflicts_with = "cache_only"
         )]
         prune_only: bool,
 
+        /// Clear font caches only.
         #[arg(
             short = 'C',
             long,
-            help = "Only clear caches; skip pruning stale registrations",
+            help = "Clear font caches only; skip pruning stale registrations",
             conflicts_with = "prune_only"
         )]
         cache_only: bool,
     },
 
-    /// Generate shell completions
+    /// Print a shell completion script to stdout.
+    ///
+    /// Examples:
+    /// ```sh
+    /// # bash
+    /// fontlift completions bash >> ~/.bashrc
+    ///
+    /// # zsh (with a completions directory on $fpath)
+    /// fontlift completions zsh > ~/.zsh/completions/_fontlift
+    ///
+    /// # fish
+    /// fontlift completions fish > ~/.config/fish/completions/fontlift.fish
+    /// ```
     Completions {
-        /// Target shell (bash, zsh, fish, powershell, elvish)
+        /// The shell to generate completions for.
         #[arg(value_enum, help = "Shell to generate completions for")]
         shell: Shell,
     },
 
-    /// Recover from interrupted operations
+    /// Inspect the crash-recovery journal and continue interrupted work.
+    ///
+    /// `fontlift` records multi-step operations, such as copy then register.
+    /// If the process stops halfway through, `doctor` shows the unfinished
+    /// steps and attempts recovery.
+    ///
+    /// Run with `--preview` (or `--dry-run`) first to see what recovery would
+    /// do before committing to it.
+    ///
+    /// Examples:
+    /// ```sh
+    /// fontlift doctor             # show and attempt recovery
+    /// fontlift doctor --preview   # show incomplete ops without recovering
+    /// ```
     #[command(alias = "d")]
     Doctor {
-        /// Show what would be recovered without taking action
-        #[arg(short = 'P', long, help = "Preview recovery actions without executing")]
+        /// Show the recovery plan without changing anything.
+        #[arg(short = 'P', long, help = "Show recovery plan without executing it")]
         preview: bool,
     },
 }
 
-/// Map clap error kinds to legacy exit codes (0 for help/version, 1 for other errors)
+/// Map clap outcomes to script-friendly exit codes.
+///
+/// `--help` and `--version` succeed with exit code 0. Other clap failures are
+/// user errors and exit 1.
 pub fn exit_code_for_clap_error(kind: ErrorKind) -> i32 {
     match kind {
         ErrorKind::DisplayHelp | ErrorKind::DisplayVersion => 0,

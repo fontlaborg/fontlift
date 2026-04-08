@@ -15,7 +15,6 @@ use std::sync::Arc;
 
 use crate::args::{Cli, ValidationStrictness};
 
-/// List rendering options resolved from CLI flags
 #[derive(Debug, Clone, Copy)]
 pub struct ListRenderOptions {
     pub show_path: bool,
@@ -24,14 +23,12 @@ pub struct ListRenderOptions {
     pub json: bool,
 }
 
-/// Possible render outputs for list command
 #[derive(Debug, PartialEq)]
 pub enum ListRender {
     Lines(Vec<String>),
     Json(String),
 }
 
-/// Output controls for CLI commands
 #[derive(Debug, Clone, Copy)]
 pub struct OutputOptions {
     pub quiet: bool,
@@ -48,7 +45,6 @@ impl OutputOptions {
     }
 }
 
-/// Execution controls shared by mutating commands
 #[derive(Debug, Clone, Copy)]
 pub struct OperationOptions {
     pub dry_run: bool,
@@ -116,7 +112,6 @@ fn uninstall_across_scopes(
     }
 }
 
-/// Prepare list output according to options (sorting/deduplication is deterministic)
 pub fn render_list_output(
     mut fonts: Vec<FontliftFontFaceInfo>,
     opts: ListRenderOptions,
@@ -164,7 +159,6 @@ pub fn render_list_output(
     Ok(ListRender::Lines(lines))
 }
 
-/// Expand user-provided font inputs (files or directories) into a unique, sorted list of font files
 pub fn collect_font_inputs(inputs: &[PathBuf]) -> Result<Vec<PathBuf>, FontError> {
     if inputs.is_empty() {
         return Err(FontError::InvalidFormat(
@@ -206,7 +200,6 @@ pub fn collect_font_inputs(inputs: &[PathBuf]) -> Result<Vec<PathBuf>, FontError
     Ok(found.into_iter().collect())
 }
 
-/// Create the appropriate font manager for the current platform
 pub fn create_font_manager() -> Arc<dyn FontManager> {
     #[cfg(target_os = "macos")]
     {
@@ -224,7 +217,6 @@ pub fn create_font_manager() -> Arc<dyn FontManager> {
     }
 }
 
-/// Generate shell completion script for the given shell
 pub fn write_completions<W: Write>(shell: Shell, mut writer: W) -> Result<(), FontError> {
     let mut command = Cli::command();
     let bin_name = command.get_name().to_string();
@@ -234,7 +226,6 @@ pub fn write_completions<W: Write>(shell: Shell, mut writer: W) -> Result<(), Fo
     Ok(())
 }
 
-/// Handle the list command
 pub async fn handle_list_command(
     manager: Arc<dyn FontManager>,
     path: bool,
@@ -264,7 +255,6 @@ pub async fn handle_list_command(
     Ok(())
 }
 
-/// Convert CLI strictness to core config
 fn to_core_strictness(s: ValidationStrictness) -> validation_ext::ValidationStrictness {
     match s {
         ValidationStrictness::Lenient => validation_ext::ValidationStrictness::Lenient,
@@ -273,7 +263,6 @@ fn to_core_strictness(s: ValidationStrictness) -> validation_ext::ValidationStri
     }
 }
 
-/// Handle the install command
 pub async fn handle_install_command(
     manager: Arc<dyn FontManager>,
     font_inputs: Vec<PathBuf>,
@@ -382,7 +371,6 @@ pub async fn handle_install_command(
     Ok(())
 }
 
-/// Handle the uninstall command
 pub async fn handle_uninstall_command(
     manager: Arc<dyn FontManager>,
     name: Option<String>,
@@ -494,7 +482,6 @@ pub async fn handle_uninstall_command(
     Ok(())
 }
 
-/// Handle the remove command
 pub async fn handle_remove_command(
     manager: Arc<dyn FontManager>,
     name: Option<String>,
@@ -628,7 +615,6 @@ pub async fn handle_remove_command(
     Ok(())
 }
 
-/// Handle the cleanup command
 pub async fn handle_cleanup_command(
     manager: Arc<dyn FontManager>,
     admin: bool,
@@ -696,7 +682,6 @@ pub async fn handle_cleanup_command(
     Ok(())
 }
 
-/// Handle the doctor command (recover from interrupted operations)
 pub async fn handle_doctor_command(preview: bool, opts: OperationOptions) -> Result<(), FontError> {
     log_status(&opts, "Checking for interrupted operations...");
 

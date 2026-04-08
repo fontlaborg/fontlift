@@ -1,8 +1,49 @@
-//! Transactional operation journal for crash-safe font operations
+//! Crash-recovery journal for multi-step font operations.
 //!
-//! This module provides a small operation journal that tracks multi-step
-//! operations (install, remove, cleanup) so that interrupted operations
-//! can be detected and repaired on the next run.
+//! Installing or removing a font usually involves more than one step, such as
+//! copy, register, unregister, delete, or cache clearing. If `fontlift` stops
+//! halfway through, the journal preserves what was planned and how far the work
+//! got.
+//!
+//! `fontlift doctor` reads incomplete entries and asks recovery code to resume
+//! the remaining steps. The current built-in flow mostly rolls work forward or
+//! skips steps that already happened.
+//!
+//! ## How it works
+//!
+//! 1. Call [`Journal::record_operation`] with the list of [`JournalAction`]s
+//!    planned for an install or removal. This writes the entry to disk.
+//! 2. Execute each action. After each one succeeds, call [`Journal::mark_step`]
+//!    so the journal knows how far you got.
+//! 3. When all actions are done, call [`Journal::mark_completed`].
+//! 4. If something crashes, the entry stays incomplete. On the next startup,
+//!    [`recover_incomplete_operations`] finds it and resumes the remaining
+//!    steps according to [`RecoveryPolicy`].
+//!
+//! ## Running recovery
+//!
+//! ```text
+//! fontlift doctor
+//! ```
+//!
+//! That command calls [`recover_incomplete_operations`] and reports what it
+//! found and what recovery succeeded.
+//!
+//! ## Journal file location
+//!
+//! | Platform | Default path |
+//! |---|---|
+//! | macOS | `~/Library/Application Support/FontLift/journal.json` |
+//! | Windows | `%LOCALAPPDATA%\FontLift\journal.json` |
+//! | Linux / other | `~/.local/share/fontlift/journal.json` |
+//!
+//! Override with `FONTLIFT_JOURNAL_PATH`, which is especially handy in tests.
+//!
+//! ## Atomic writes
+//!
+//! The journal is always written to a `.tmp` file first, then renamed into
+//! place. Within one filesystem, that rename is atomic, so readers see either
+//! the old journal or the new one, never a half-written mix.
 
 use crate::{FontError, FontResult, FontScope};
 use serde::{Deserialize, Serialize};
@@ -11,23 +52,17 @@ use std::path::PathBuf;
 use std::time::SystemTime;
 use uuid::Uuid;
 
-/// Actions that can be recorded in the journal
+/// One recoverable step recorded in the journal.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum JournalAction {
-    /// Copy a file from source to destination
     CopyFile { from: PathBuf, to: PathBuf },
-    /// Register a font with the OS
     RegisterFont { path: PathBuf, scope: FontScope },
-    /// Unregister a font from the OS
     UnregisterFont { path: PathBuf, scope: FontScope },
-    /// Delete a file
     DeleteFile { path: PathBuf },
-    /// Clear font caches
     ClearCache { scope: FontScope },
 }
 
 impl JournalAction {
-    /// Human-readable description of the action
     pub fn description(&self) -> String {
         match self {
             JournalAction::CopyFile { from, to } => {
@@ -49,26 +84,23 @@ impl JournalAction {
     }
 }
 
-/// A journal entry representing a multi-step operation
+/// Recorded state for one multi-step operation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JournalEntry {
-    /// Unique identifier for this operation
     pub id: Uuid,
-    /// When the operation started
     #[serde(with = "systemtime_serde")]
     pub started_at: SystemTime,
-    /// Whether the operation completed successfully
     pub completed: bool,
-    /// The actions to perform (in order)
     pub actions: Vec<JournalAction>,
-    /// Index of the current step (0-based)
+    /// Index of the next action to attempt.
+    ///
+    /// `0` means nothing has finished yet. `actions.len()` means every action
+    /// has finished.
     pub current_step: usize,
-    /// Optional description of the operation
     pub description: Option<String>,
 }
 
 impl JournalEntry {
-    /// Create a new journal entry
     pub fn new(actions: Vec<JournalAction>, description: Option<String>) -> Self {
         Self {
             id: Uuid::new_v4(),
@@ -80,17 +112,14 @@ impl JournalEntry {
         }
     }
 
-    /// Check if this entry is incomplete (started but not finished)
     pub fn is_incomplete(&self) -> bool {
         !self.completed && !self.actions.is_empty()
     }
 
-    /// Get the current action (if any)
     pub fn current_action(&self) -> Option<&JournalAction> {
         self.actions.get(self.current_step)
     }
 
-    /// Get remaining actions (from current step onwards)
     pub fn remaining_actions(&self) -> &[JournalAction] {
         if self.current_step < self.actions.len() {
             &self.actions[self.current_step..]
@@ -100,7 +129,7 @@ impl JournalEntry {
     }
 }
 
-/// SystemTime serde helpers
+/// Serde helpers for `SystemTime`.
 mod systemtime_serde {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -122,21 +151,18 @@ mod systemtime_serde {
     }
 }
 
-/// The journal containing all entries
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Journal {
     pub entries: Vec<JournalEntry>,
 }
 
 impl Journal {
-    /// Create an empty journal
     pub fn new() -> Self {
         Self {
             entries: Vec::new(),
         }
     }
 
-    /// Add an entry and return its ID
     pub fn record_operation(
         &mut self,
         actions: Vec<JournalAction>,
@@ -148,17 +174,14 @@ impl Journal {
         id
     }
 
-    /// Find an entry by ID
     pub fn find_entry(&self, id: Uuid) -> Option<&JournalEntry> {
         self.entries.iter().find(|e| e.id == id)
     }
 
-    /// Find an entry by ID (mutable)
     pub fn find_entry_mut(&mut self, id: Uuid) -> Option<&mut JournalEntry> {
         self.entries.iter_mut().find(|e| e.id == id)
     }
 
-    /// Mark a step as completed
     pub fn mark_step(&mut self, id: Uuid, step: usize) -> FontResult<()> {
         let entry = self
             .find_entry_mut(id)
@@ -167,7 +190,6 @@ impl Journal {
         Ok(())
     }
 
-    /// Mark an operation as completed
     pub fn mark_completed(&mut self, id: Uuid) -> FontResult<()> {
         let entry = self
             .find_entry_mut(id)
@@ -176,12 +198,10 @@ impl Journal {
         Ok(())
     }
 
-    /// Get all incomplete entries
     pub fn incomplete_entries(&self) -> Vec<&JournalEntry> {
         self.entries.iter().filter(|e| e.is_incomplete()).collect()
     }
 
-    /// Remove completed entries older than the specified duration
     pub fn cleanup_old_entries(&mut self, max_age_secs: u64) {
         let now = SystemTime::now();
         self.entries.retain(|e| {
@@ -196,7 +216,10 @@ impl Journal {
     }
 }
 
-/// Get the platform-specific journal file path
+/// Return the journal path for the current platform.
+///
+/// `FONTLIFT_JOURNAL_PATH` overrides the normal location. Test code can also
+/// redirect the journal via `FONTLIFT_FAKE_REGISTRY_ROOT`.
 pub fn journal_path() -> PathBuf {
     // Check for override (useful for testing)
     if let Ok(override_path) = std::env::var("FONTLIFT_JOURNAL_PATH") {
@@ -233,7 +256,9 @@ pub fn journal_path() -> PathBuf {
     }
 }
 
-/// Load the journal from disk
+/// Load the journal from disk.
+///
+/// Missing files are treated as an empty journal.
 pub fn load_journal() -> FontResult<Journal> {
     let path = journal_path();
     if !path.exists() {
@@ -251,7 +276,7 @@ pub fn load_journal() -> FontResult<Journal> {
         .map_err(|e| FontError::InvalidFormat(format!("Failed to parse journal: {e}")))
 }
 
-/// Save the journal to disk (atomic write)
+/// Save the journal with a temp-file-then-rename write.
 pub fn save_journal(journal: &Journal) -> FontResult<()> {
     let path = journal_path();
 
@@ -283,18 +308,13 @@ pub fn save_journal(journal: &Journal) -> FontResult<()> {
     Ok(())
 }
 
-/// Policy for recovering incomplete operations
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RecoveryPolicy {
-    /// Roll forward: try to complete the operation
     RollForward,
-    /// Roll back: undo what was done
     RollBack,
-    /// Skip: mark as completed without action
     Skip,
 }
 
-/// Result of attempting to recover a single action
 #[derive(Debug)]
 pub struct ActionRecoveryResult {
     pub action: JournalAction,
@@ -303,16 +323,13 @@ pub struct ActionRecoveryResult {
     pub message: Option<String>,
 }
 
-/// Recover incomplete operations
+/// Recover incomplete operations.
 ///
-/// This function iterates through incomplete journal entries and attempts
-/// to either complete them (roll forward) or undo them (roll back).
-///
-/// # Arguments
-/// * `handler` - Callback to execute recovery actions
-///
-/// # Returns
-/// Results of recovery attempts
+/// For each incomplete entry, this walks the remaining actions from
+/// `current_step`, chooses a default [`RecoveryPolicy`] for each action, and
+/// calls `handler`. Successful actions advance the journal. The first failed
+/// action stops recovery for that entry. Updated journal state is saved before
+/// returning.
 pub fn recover_incomplete_operations<F>(handler: F) -> FontResult<Vec<ActionRecoveryResult>>
 where
     F: Fn(&JournalAction, RecoveryPolicy) -> FontResult<bool>,
@@ -363,7 +380,10 @@ where
     Ok(results)
 }
 
-/// Determine the default recovery policy for an action
+/// Choose the built-in recovery policy for one action.
+///
+/// The current strategy is conservative: continue missing file operations and
+/// registrations, skip cache clears, and skip steps that are already satisfied.
 fn determine_recovery_policy(action: &JournalAction) -> RecoveryPolicy {
     match action {
         // File operations: roll forward (complete if partially done)

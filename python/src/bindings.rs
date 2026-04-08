@@ -1,7 +1,33 @@
-//! Python bindings for fontlift
+//! PyO3 bindings for `fontlift`.
 //!
-//! This module provides Python bindings using PyO3, exposing fontlift's
-//! cross-platform font management capabilities to Python developers.
+//! This file defines the `fontlift._native` module.
+//! - The one-shot functions (`install`, `list`, `uninstall`, `remove`,
+//!   `cleanup`) create a manager, do one job, and return.
+//! - [`FontliftManager`] keeps a platform manager alive across calls.
+//! - `FontSource` and `FontFaceInfo` expose Rust structs as Python-friendly
+//!   objects and dicts.
+//!
+//! ## Module layout
+//!
+//! ```text
+//! fontlift._native
+//! ├── __version__          string, e.g. "5.0.12"
+//! ├── FontSource           class  — where a font file lives and how it's scoped
+//! ├── FontFaceInfo         class  — metadata for one face inside a font file
+//! ├── FontliftManager      class  — reusable manager; create once, call many times
+//! ├── install(...)         fn     — one-shot convenience: install a font file
+//! ├── list()               fn     — one-shot convenience: list installed fonts
+//! ├── uninstall(...)       fn     — one-shot convenience: uninstall by path or name
+//! ├── remove(...)          fn     — one-shot convenience: uninstall + delete the file
+//! └── cleanup(...)         fn     — one-shot convenience: prune & clear caches
+//! ```
+//!
+//! Naming and scope match the Rust core:
+//! - `uninstall` removes the OS registration and keeps the file.
+//! - `remove` deregisters the font and deletes the file.
+//! - Scope controls who sees the font:
+//! - `"user"` — only the current user sees it; no admin rights needed.
+//! - `"system"` — every user on the machine sees it; requires elevated privileges.
 
 #![allow(non_local_definitions)]
 
@@ -26,10 +52,19 @@ use std::sync::Mutex;
 pub const PYTHON_BINDINGS_ENABLED: bool = true;
 const VERSION: &str = env!("GIT_VERSION");
 
+/// Convert a Rust [`FontError`] into a Python `RuntimeError`.
+///
+/// Public Python entry points use this so errors read like
+/// `Failed to install font: ...`.
 fn py_error(action: &str, err: FontError) -> PyErr {
     PyRuntimeError::new_err(format!("Failed to {action}: {err}"))
 }
 
+/// Run cleanup against an existing manager.
+///
+/// Shared by `FontliftManager.cleanup()` and the module-level `cleanup()` so
+/// the behavior stays identical. At least one of `prune` or `cache` must be
+/// enabled.
 fn cleanup_with_manager(
     manager: &Arc<dyn FontManager>,
     admin: bool,
@@ -68,6 +103,9 @@ fn cleanup_with_manager(
     Ok(())
 }
 
+/// Return the two scopes in fallback order, preferred scope first.
+///
+/// Uninstall tries the expected scope first, then the other scope.
 fn scope_order(preferred: FontScope) -> [FontScope; 2] {
     match preferred {
         FontScope::User => [FontScope::User, FontScope::System],
@@ -75,6 +113,14 @@ fn scope_order(preferred: FontScope) -> [FontScope; 2] {
     }
 }
 
+/// Resolve a Python font identifier to a filesystem path and scope.
+///
+/// Callers must pass exactly one of:
+/// - `font_path`, used as-is and paired with `default_scope`
+/// - `name`, matched against installed fonts by PostScript name or full name
+///
+/// Name-based lookup returns the scope recorded for the installed font so a
+/// later uninstall or remove targets the right registry first.
 fn resolve_font_target(
     manager: &Arc<dyn FontManager>,
     font_path: Option<&str>,
@@ -109,6 +155,11 @@ fn resolve_font_target(
     }
 }
 
+/// Uninstall a known font path, trying scopes in fallback order.
+///
+/// `uninstall` removes the OS registration and keeps the file on disk.
+/// `dry_run` returns the scope that would be tried first without changing the
+/// OS.
 fn uninstall_resolved(
     manager: &Arc<dyn FontManager>,
     path: &Path,
@@ -154,7 +205,10 @@ fn remove_resolved(
         .map_err(|e| py_error("remove font", e))
 }
 
-/// Python representation of `FontliftFontSource`
+/// Python view of a `FontliftFontSource`.
+///
+/// Fields use plain Python values: strings for paths and scope, `int | None`
+/// for `face_index`, and `bool | None` for `is_collection`.
 #[pyclass(module = "fontlift._native", name = "FontSource")]
 #[derive(Clone)]
 struct PyFontSource {
@@ -196,7 +250,12 @@ fn source_dict<'py>(py: Python<'py>, source: &PyFontSource) -> PyResult<Bound<'p
     Ok(dict)
 }
 
-/// Python representation of `FontliftFontFaceInfo` returned by Rust core
+/// Python view of one installed font face.
+///
+/// Name fields keep the same distinctions as the Rust core:
+/// `postscript_name` is the stable programmatic identifier, `full_name` is the
+/// menu-facing name, `family_name` groups related faces, and `style` names the
+/// variant within that family.
 #[pyclass(module = "fontlift._native", name = "FontFaceInfo")]
 #[derive(Clone)]
 struct PyFontFaceInfo {
@@ -234,7 +293,11 @@ impl From<FontliftFontFaceInfo> for PyFontFaceInfo {
 
 #[pymethods]
 impl PyFontFaceInfo {
-    /// Return a JSON/dict-friendly representation of the font
+    /// Return a plain `dict` for JSON and interop.
+    ///
+    /// Keys mirror the object fields. For backward compatibility, `path`,
+    /// `format`, and `scope` are duplicated at the top level as well as inside
+    /// the nested `source` dict.
     #[pyo3(name = "dict")]
     fn dict_py<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let dict = PyDict::new(py);
@@ -261,7 +324,21 @@ impl PyFontFaceInfo {
     }
 }
 
-/// Python wrapper for fontlift manager
+/// Reusable Python font manager.
+///
+/// Use this when you want one object that can perform several operations in a
+/// row. For quick scripts, the module-level one-shot helpers are usually enough.
+///
+/// ```python
+/// from fontlift import FontliftManager
+///
+/// mgr = FontliftManager()
+/// mgr.install_font("/tmp/MyFont.ttf")
+/// faces = mgr.list_fonts()
+/// for face in faces:
+///     print(face.postscript_name, face.source.path)
+/// mgr.cleanup(prune=True, cache=True)
+/// ```
 #[pyclass]
 struct FontliftManager {
     manager: Arc<dyn FontManager>,
@@ -270,14 +347,17 @@ struct FontliftManager {
 #[allow(non_local_definitions)]
 #[pymethods]
 impl FontliftManager {
-    /// Create a new fontlift manager
+    /// Create a manager backed by the current platform.
     #[new]
     fn new() -> PyResult<Self> {
         let manager = create_platform_manager();
         Ok(Self { manager })
     }
 
-    /// List all installed fonts
+    /// Return one `FontFaceInfo` object per installed face.
+    ///
+    /// Collection files produce multiple entries. Results are not limited to
+    /// fonts installed by `fontlift`.
     fn list_fonts(&self, py: Python) -> PyResult<Vec<PyObject>> {
         let fonts = self
             .manager
@@ -296,12 +376,6 @@ impl FontliftManager {
         Ok(result)
     }
 
-    /// Install a font file
-    ///
-    /// Args:
-    ///     font_path: Path to the font file to install
-    ///     admin: If true, install to system scope (requires admin privileges)
-    ///     strict: If true, perform full out-of-process font validation before install
     #[pyo3(signature = (font_path, admin=false, strict=false))]
     fn install_font(&self, font_path: &str, admin: bool, strict: bool) -> PyResult<()> {
         let path = PathBuf::from(font_path);
@@ -326,7 +400,7 @@ impl FontliftManager {
         Ok(())
     }
 
-    /// Check if a font is installed
+    /// Return whether the OS currently has a registration for `font_path`.
     fn is_font_installed(&self, font_path: &str) -> PyResult<bool> {
         let path = PathBuf::from(font_path);
         let source = FontliftFontSource::new(path);
@@ -339,7 +413,11 @@ impl FontliftManager {
         Ok(installed)
     }
 
-    /// Uninstall a font file
+    /// Uninstall by `font_path` or `name`.
+    ///
+    /// `name` matches either a PostScript name or a full name. The file stays
+    /// on disk. `dry_run=True` resolves the target and scope without changing
+    /// the OS.
     #[pyo3(signature = (font_path=None, name=None, admin=false, dry_run=false))]
     fn uninstall_font(
         &self,
@@ -360,7 +438,6 @@ impl FontliftManager {
         uninstall_resolved(&self.manager, &path, starting_scope, dry_run).map(|_| ())
     }
 
-    /// Remove a font file (uninstall and delete)
     #[pyo3(signature = (font_path=None, name=None, admin=false, dry_run=false))]
     fn remove_font(
         &self,
@@ -380,25 +457,25 @@ impl FontliftManager {
         remove_resolved(&self.manager, &path, scope, dry_run)
     }
 
-    /// Cleanup font registrations and caches
+    /// Prune stale registrations, clear caches, or both.
     #[pyo3(signature = (admin=false, prune=true, cache=true, dry_run=false))]
     fn cleanup(&self, admin: bool, prune: bool, cache: bool, dry_run: bool) -> PyResult<()> {
         cleanup_with_manager(&self.manager, admin, prune, cache, dry_run)
     }
 
-    /// Clear font caches (compatibility wrapper)
+    /// Clear caches only.
+    ///
+    /// Compatibility wrapper for `cleanup(prune=False, cache=True)`.
     #[pyo3(signature = (admin=false))]
     fn clear_caches(&self, admin: bool) -> PyResult<()> {
         cleanup_with_manager(&self.manager, admin, false, true, false)
     }
 }
 
-/// Create the appropriate font manager for the current platform
 fn create_platform_manager() -> Arc<dyn FontManager> {
     create_platform_manager_with_validation(None)
 }
 
-/// Create the appropriate font manager with optional validation config
 fn create_platform_manager_with_validation(
     validation_config: Option<ValidatorConfig>,
 ) -> Arc<dyn FontManager> {
@@ -430,12 +507,6 @@ fn create_platform_manager_with_validation(
     }
 }
 
-/// Fire CLI interface for fontlift
-///
-/// Args:
-///     font_path: Path to the font file to install
-///     admin: If true, install to system scope (requires admin privileges)
-///     strict: If true, perform full out-of-process font validation before install
 #[pyfunction]
 #[pyo3(signature = (font_path, admin=false, strict=false))]
 fn install(font_path: &str, admin: bool, strict: bool) -> PyResult<()> {
@@ -520,7 +591,6 @@ fn cleanup(admin: bool, prune: bool, cache: bool, dry_run: bool) -> PyResult<()>
     cleanup_with_manager(&manager, admin, prune, cache, dry_run)
 }
 
-/// Python module definition
 #[pymodule]
 fn _native(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyFontSource>()?;

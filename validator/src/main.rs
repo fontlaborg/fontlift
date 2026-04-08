@@ -1,8 +1,50 @@
-//! fontlift-validator - Out-of-process font validation helper
+//! fontlift-validator — the font parser that crashes so fontlift doesn't have to.
 //!
-//! Parses font files using `read-fonts` to validate structure and extract
-//! metadata before the OS font stack sees them. Designed to run as a short-lived
-//! helper process with resource limits.
+//! A malformed font file can crash any parser. If that parser runs inside
+//! fontlift itself, the user loses their entire session. Running it in a
+//! separate short-lived process means the worst case is a clean error
+//! message instead of a segfault.
+//!
+//! # Protocol
+//!
+//! The parent process (fontlift) sends a JSON blob to stdin:
+//!
+//! ```json
+//! {
+//!   "paths": ["/path/to/font.ttf", "/path/to/another.otf"],
+//!   "config": { "max_file_size_bytes": 67108864, "timeout_ms": 5000 }
+//! }
+//! ```
+//!
+//! This process validates each font and writes a JSON array to stdout:
+//!
+//! ```json
+//! [
+//!   { "path": "/path/to/font.ttf", "ok": true, "info": { ... } },
+//!   { "path": "/path/to/another.otf", "ok": false, "error": "Invalid font structure: ..." }
+//! ]
+//! ```
+//!
+//! You can also pass paths as CLI arguments for quick manual checks:
+//! ```sh
+//! fontlift-validator /path/to/font.ttf
+//! ```
+//!
+//! # What it checks
+//!
+//! 1. File exists and is a regular file
+//! 2. Extension is a recognized font format (.ttf, .otf, .ttc, .otc, .woff, .woff2, .dfont)
+//! 3. File size is within limits (default: 64 MB — CJK fonts can be large)
+//! 4. The binary structure parses as a valid font (via `read-fonts`)
+//! 5. The `name` table contains required metadata (family, style, PostScript name)
+//! 6. The `OS/2` table provides weight and italic flags
+//!
+//! # The `read-fonts` crate
+//!
+//! This uses Google Fonts' `read-fonts` crate for parsing. It reads the
+//! font's binary tables — `name` (human-readable strings), `OS/2`
+//! (weight, width, selection flags), `head` (global metrics) — without
+//! needing any OS font APIs. Pure Rust, cross-platform.
 
 use fontlift_core::{FontliftFontFaceInfo, FontliftFontSource};
 use read_fonts::{FileRef, FontRef, TableProvider};
@@ -11,24 +53,31 @@ use std::io::{self, BufRead};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-/// Default maximum file size (64 MB)
+/// Reject files larger than this. 64 MB covers the largest legitimate
+/// fonts (CJK families, variable fonts with many masters) while catching
+/// garbage files that would waste time and memory.
 const DEFAULT_MAX_SIZE: u64 = 64 * 1024 * 1024;
 
-/// Default timeout per font (5 seconds)
+/// Give up on a single font after this long. Parsing a valid font takes
+/// milliseconds; 5 seconds means something is very wrong.
 const DEFAULT_TIMEOUT_MS: u64 = 5000;
 
-/// Configuration for validation
+/// Tuning knobs for validation strictness and resource limits.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidatorConfig {
-    /// Maximum file size in bytes (default: 64MB)
+    /// Maximum file size in bytes. Files larger than this are rejected
+    /// without parsing. Default: 64 MB.
     #[serde(default = "default_max_size")]
     pub max_file_size_bytes: u64,
 
-    /// Timeout per font in milliseconds (default: 5000)
+    /// Per-font timeout in milliseconds. If parsing takes longer than
+    /// this, the font is rejected. Default: 5000 ms.
     #[serde(default = "default_timeout_ms")]
     pub timeout_ms: u64,
 
-    /// Whether to allow font collections (TTC/OTC)
+    /// Allow font collections (`.ttc`/`.otc` files that bundle multiple
+    /// faces in one file). Default: true. Set to false if you only want
+    /// single-face fonts.
     #[serde(default = "default_allow_collections")]
     pub allow_collections: bool,
 }
@@ -53,21 +102,30 @@ impl Default for ValidatorConfig {
     }
 }
 
-/// Input to the validator (paths + config)
+/// JSON payload from the parent process: which fonts to check, and how strictly.
 #[derive(Debug, Deserialize)]
 pub struct ValidatorInput {
+    /// Font file paths to validate (absolute or relative).
     pub paths: Vec<PathBuf>,
+    /// Validation settings. Omit for defaults.
     #[serde(default)]
     pub config: ValidatorConfig,
 }
 
-/// Result for a single font validation
+/// Outcome for a single font: either parsed metadata or an error string.
+///
+/// The parent process gets an array of these, one per input path, in the
+/// same order. It can check `ok` to decide whether to proceed with install.
 #[derive(Debug, Serialize)]
 pub struct ValidationResult {
+    /// Which file this result is for.
     pub path: PathBuf,
+    /// `true` if the font parsed successfully; `false` if validation failed.
     pub ok: bool,
+    /// Extracted metadata (names, weight, italic, format). Present only when `ok` is true.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub info: Option<FontliftFontFaceInfo>,
+    /// What went wrong. Present only when `ok` is false.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
@@ -92,11 +150,11 @@ impl ValidationResult {
     }
 }
 
-/// Sanitize error messages to avoid leaking internal paths or stack traces
+/// Clean up error messages before sending them back to the parent.
+/// Strips backslashes (Windows paths) and truncates to 200 chars so
+/// a massive parse error doesn't blow up the JSON response.
 fn sanitize_error(error: &str) -> String {
-    // Remove absolute paths, keep just the error essence
     let error = error.replace('\\', "/");
-    // Truncate excessively long errors
     if error.len() > 200 {
         format!("{}...", &error[..200])
     } else {
@@ -104,7 +162,9 @@ fn sanitize_error(error: &str) -> String {
     }
 }
 
-/// Validate a single font file and extract metadata
+/// Validate one font file: check existence, extension, size, then parse
+/// the binary structure and extract metadata from the `name` and `OS/2` tables.
+/// Returns success with full metadata, or failure with a human-readable reason.
 fn validate_font(path: &PathBuf, config: &ValidatorConfig) -> ValidationResult {
     let start = Instant::now();
     let timeout = Duration::from_millis(config.timeout_ms);
@@ -160,7 +220,8 @@ fn validate_font(path: &PathBuf, config: &ValidatorConfig) -> ValidationResult {
         return ValidationResult::failure(path.clone(), "Validation timeout");
     }
 
-    // Parse with read-fonts
+    // Parse the binary font structure. FileRef distinguishes between
+    // single fonts (FileRef::Font) and collections (FileRef::Collection).
     let file_ref = match FileRef::new(&data) {
         Ok(f) => f,
         Err(e) => {
@@ -174,7 +235,8 @@ fn validate_font(path: &PathBuf, config: &ValidatorConfig) -> ValidationResult {
         return ValidationResult::failure(path.clone(), "Font collections not allowed");
     }
 
-    // Get first font (or single font)
+    // For collections, we validate face 0 (the first face in the file).
+    // A .ttc with 10 faces only needs one to pass structural validation.
     let font = match file_ref {
         FileRef::Font(f) => f,
         FileRef::Collection(c) => match c.get(0) {
@@ -193,10 +255,14 @@ fn validate_font(path: &PathBuf, config: &ValidatorConfig) -> ValidationResult {
         return ValidationResult::failure(path.clone(), "Validation timeout");
     }
 
-    // Extract metadata from name table
+    // The `name` table holds human-readable strings: family, style,
+    // PostScript name, full name. Every valid font has one.
     let (postscript_name, full_name, family_name, style_name) = extract_names(&font);
 
-    // Extract weight and italic from OS/2 table
+    // The `OS/2` table (yes, named after OS/2 Warp from 1994) holds
+    // numeric metrics: weight class (100–900), width class, and
+    // fsSelection flags (bit 0 = italic). Present in virtually all
+    // modern fonts.
     let (weight, italic) = extract_os2_info(&font);
 
     let format = match ext.as_str() {
@@ -227,7 +293,15 @@ fn validate_font(path: &PathBuf, config: &ValidatorConfig) -> ValidationResult {
     ValidationResult::success(path.clone(), info)
 }
 
-/// Extract names from font's name table
+/// Read the font's `name` table and extract the four key identifiers.
+///
+/// The name table stores localized strings keyed by name ID:
+/// - ID 1: Family name (e.g. "Helvetica Neue")
+/// - ID 2: Subfamily / style (e.g. "Bold Italic")
+/// - ID 4: Full name (e.g. "Helvetica Neue Bold Italic")
+/// - ID 6: PostScript name (e.g. "HelveticaNeue-BoldItalic") — unique, no spaces
+///
+/// If any are missing, we synthesize reasonable defaults from what we have.
 fn extract_names(font: &FontRef) -> (String, String, String, String) {
     let name_table = match font.name() {
         Ok(t) => t,
@@ -251,7 +325,8 @@ fn extract_names(font: &FontRef) -> (String, String, String, String) {
             .map(|s| s.to_string())
     };
 
-    // Name IDs: 1=family, 2=subfamily, 4=full name, 6=PostScript name
+    // Look up each name ID. The name table can have multiple entries per ID
+    // (different platforms, languages); we take the first match.
     let family = find_name(1).unwrap_or_else(|| "Unknown".to_string());
     let style = find_name(2).unwrap_or_else(|| "Regular".to_string());
     let full_name = find_name(4).unwrap_or_else(|| format!("{} {}", family, style));

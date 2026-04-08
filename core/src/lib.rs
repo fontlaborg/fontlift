@@ -1,53 +1,92 @@
-//! fontlift-core - Core font management library for fontlift
+//! Shared font management types and contracts for all platform backends.
 //!
-//! This library provides the core abstractions and types for cross-platform
-//! font management, including the FontManager trait and common data structures.
+//! This crate defines the data model and public API that stay the same across
+//! macOS and Windows. Platform crates such as `fontlift-platform-mac` and
+//! `fontlift-platform-win` implement [`FontManager`] with the real OS calls.
+//! `fontlift-core` itself does not call Core Text, GDI, or registry APIs.
+//!
+//! # Key abstractions
+//!
+//! - [`FontliftFontSource`] — a pointer to a font file on disk, plus optional
+//!   metadata like format and scope.
+//! - [`FontliftFontFaceInfo`] — everything we know about one *face* inside a
+//!   font file: family, style, weight, PostScript name.
+//! - [`FontManager`] — the trait each platform implements: install, uninstall,
+//!   list, remove, clear caches.
+//! - [`FontError`] — every failure fontlift can produce, with a human-readable
+//!   suggestion baked into the `Display` output.
+//!
+//! # Font terminology
+//!
+//! A **font file** can contain one or more **faces**.
+//! A **font collection** (`.ttc`, `.otc`) bundles several faces into one file.
+//!
+//! Each face has a **PostScript name** (a stable programmatic identifier such
+//! as `"ArialMT"`), a **full name** for menus, a **family name**, and a
+//! **style**. Weight uses the common 100 to 900 scale where 400 is Regular and
+//! 700 is Bold.
 
 use std::path::PathBuf;
 use thiserror::Error;
 
-/// Core errors for font management operations
+/// Errors returned by fontlift's core API.
+///
+/// The `Display` text includes a short suggestion because many callers surface
+/// it directly to users.
 #[derive(Error, Debug)]
 pub enum FontError {
-    #[error("Font file not found: {0}\n→ Suggestion: Check the file path and ensure the font file exists")]
+    /// The target path no longer exists.
+    #[error("Font file not found: {0}\n→ Check the path. Does the file exist? Was it moved?")]
     FontNotFound(PathBuf),
 
-    #[error("Invalid font format: {0}\n→ Suggestion: Ensure the file is a valid font (.ttf, .otf, .woff, etc.)")]
+    /// The file exists but is not a supported font, or failed structural parsing.
+    #[error("Invalid font format: {0}\n→ Accepted formats: .ttf, .otf, .ttc, .otc, .woff, .woff2, .dfont")]
     InvalidFormat(String),
 
-    #[error("Font registration failed: {0}\n→ Suggestion: Try restarting your system or using administrator/sudo privileges")]
+    /// The OS refused to register the font.
+    #[error("Font registration failed: {0}\n→ Try restarting your system, or run with admin/sudo privileges")]
     RegistrationFailed(String),
 
-    #[error("System font protection: cannot modify system font {0}\n→ Suggestion: System fonts are protected for stability. Use user-level installation instead.")]
+    /// You tried to modify a font in an OS-owned location.
+    #[error("System font protection: cannot modify {0}\n→ System fonts are off-limits for stability. Use user-level installation instead")]
     SystemFontProtection(PathBuf),
 
-    #[error("IO error: {0}\n→ Suggestion: Check file permissions and disk space")]
+    /// A filesystem operation failed.
+    #[error("IO error: {0}\n→ Check file permissions and available disk space")]
     IoError(#[from] std::io::Error),
 
-    #[error("Permission denied: {0}\n→ Suggestion: Run with administrator privileges on Windows or use sudo on macOS")]
+    /// The operation needs privileges the process does not have.
+    #[error("Permission denied: {0}\n→ On macOS: use sudo. On Windows: run as Administrator")]
     PermissionDenied(String),
 
-    #[error("Font already installed: {0}\n→ Suggestion: Use 'fontlift uninstall' first if you want to reinstall the font")]
+    /// A font file with the same target name already exists.
+    #[error("Font already installed: {0}\n→ Uninstall it first with 'fontlift uninstall', or reinstall with --inplace")]
     AlreadyInstalled(PathBuf),
 
-    #[error("Unsupported operation: {0}\n→ Suggestion: This feature may not be available on your platform or in this version")]
+    /// This feature is not available on the current platform or build.
+    #[error("Unsupported operation: {0}\n→ This feature may not be available on your platform or in this version")]
     UnsupportedOperation(String),
 }
 
-/// Result type for font operations
+/// Shorthand for `Result<T, FontError>`.
 pub type FontResult<T> = Result<T, FontError>;
 
-/// Font installation scope
+/// Where a font is installed, and who can use it.
+///
+/// - **User** scope installs only for the current account.
+///   - macOS: `~/Library/Fonts/`
+///   - Windows: per-user font registration in `HKCU`
+///
+/// - **System** scope installs for all users on the machine.
+///   - macOS: `/Library/Fonts/`
+///   - Windows: `C:\Windows\Fonts\` + `HKLM` Registry entry
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum FontScope {
-    /// User-level installation (affects only current user)
     User,
-    /// System-level installation (affects all users, requires admin)
     System,
 }
 
 impl FontScope {
-    /// Get a human-readable description
     pub fn description(self) -> &'static str {
         match self {
             FontScope::User => "user-level",
@@ -56,18 +95,17 @@ impl FontScope {
     }
 }
 
-/// Reference to a font container (file, TTC index, optional scope hint)
+/// Identifies a font file and, when needed, one face inside it.
+///
+/// `face_index` is used for collection files such as `.ttc` and `.otc`, which
+/// can hold several faces in one file. For ordinary single-face files,
+/// `face_index` stays `None`.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FontliftFontSource {
-    /// Path to the font file
     pub path: PathBuf,
-    /// Font format (TrueType, OpenType, etc.)
     pub format: Option<String>,
-    /// Optional face index for collections
     pub face_index: Option<u32>,
-    /// Whether the source is a collection
     pub is_collection: Option<bool>,
-    /// Optional installation scope hint
     pub scope: Option<FontScope>,
 }
 
@@ -107,33 +145,25 @@ impl FontliftFontSource {
     }
 }
 
-/// Font face metadata paired with its source
+/// Metadata for one face inside a font file.
+///
+/// Name fields have different jobs:
+/// - `postscript_name` is the stable programmatic identifier.
+/// - `full_name` is the menu-facing display name.
+/// - `family_name` groups related faces together.
+/// - `style` names the specific variant inside that family.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FontliftFontFaceInfo {
-    /// Source (path + format + optional scope/index)
     pub source: FontliftFontSource,
-
-    /// PostScript name of the font
     pub postscript_name: String,
-
-    /// Full display name
     pub full_name: String,
-
-    /// Font family name
     pub family_name: String,
-
-    /// Font style/subfamily name
     pub style: String,
-
-    /// Font weight (100-900)
     pub weight: Option<u16>,
-
-    /// Whether font is italic
     pub italic: Option<bool>,
 }
 
 impl FontliftFontFaceInfo {
-    /// Create a new font face info with basic information
     pub fn new(
         source: FontliftFontSource,
         postscript_name: String,
@@ -152,51 +182,77 @@ impl FontliftFontFaceInfo {
         }
     }
 
-    /// Get filename without extension
     pub fn filename_stem(&self) -> Option<&str> {
         self.source.path.file_stem()?.to_str()
     }
 
-    /// Attach an installation scope hint to the underlying source
     pub fn with_scope(mut self, scope: Option<FontScope>) -> Self {
         self.source.scope = scope;
         self
     }
 }
 
-/// Font manager trait that must be implemented by each platform
+/// Platform contract for font management.
+///
+/// Implementations handle the OS-specific work: register fonts, unregister
+/// them, enumerate installed faces, clear caches, and prune stale records.
+/// The caller decides whether install happens after copying the file or by
+/// registering the original path in place.
 pub trait FontManager: Send + Sync {
-    /// Install a font file at the specified scope
+    /// Register the font at `source.path` so applications can use it.
+    ///
+    /// The caller may already have copied the file into an OS font directory,
+    /// or may be doing an in-place install.
     fn install_font(&self, source: &FontliftFontSource) -> FontResult<()>;
 
-    /// Uninstall a font (remove from system but keep file)
+    /// Unregister a font without deleting the file.
     fn uninstall_font(&self, source: &FontliftFontSource) -> FontResult<()>;
 
-    /// Remove a font (uninstall and delete file)
+    /// Unregister a font and delete the file.
     fn remove_font(&self, source: &FontliftFontSource) -> FontResult<()>;
 
-    /// Check if a font is installed
+    /// Check whether the OS currently knows about this font.
     fn is_font_installed(&self, source: &FontliftFontSource) -> FontResult<bool>;
 
-    /// List all installed fonts
+    /// Enumerate every font the OS knows about, across all scopes.
+    ///
+    /// Returns one [`FontliftFontFaceInfo`] per face, so a collection file may
+    /// produce several entries.
     fn list_installed_fonts(&self) -> FontResult<Vec<FontliftFontFaceInfo>>;
 
-    /// Clear font caches
+    /// Flush the OS font cache for the given scope.
+    ///
+    /// Platform implementations may also clear common application caches where
+    /// that is practical.
     fn clear_font_caches(&self, scope: FontScope) -> FontResult<()>;
 
-    /// Prune registrations that point to missing or invalid font files.
-    /// Default implementation performs no pruning.
+    /// Prune registrations whose backing files no longer exist.
+    ///
+    /// Returns the number of pruned entries. The default implementation is a
+    /// no-op for platforms that do not need this cleanup.
     fn prune_missing_fonts(&self, _scope: FontScope) -> FontResult<usize> {
         Ok(0)
     }
 }
 
-/// Font validation utilities
+/// Quick-and-cheap font file checks that don't require parsing the file contents.
+///
+/// These functions answer surface-level questions: Does the file exist?
+/// Is the extension one we recognize? Can we guess the family name from
+/// the filename? They run in microseconds and never open the file for
+/// deep inspection — that's what [`validation_ext`] is for.
 pub mod validation {
     use super::*;
     use std::path::Path;
 
-    /// Check if file has a valid font extension
+    /// Does the file extension look like a font format we support?
+    ///
+    /// Recognized extensions (case-insensitive):
+    /// - `.ttf` — TrueType (single face)
+    /// - `.otf` — OpenType with PostScript or TrueType outlines
+    /// - `.ttc` / `.otc` — TrueType / OpenType Collection (multiple faces in one file)
+    /// - `.woff` / `.woff2` — Web Open Font Format (compressed for the web)
+    /// - `.dfont` — macOS data-fork suitcase (legacy macOS format)
     pub fn is_valid_font_extension(path: &Path) -> bool {
         if let Some(extension) = path.extension() {
             if let Some(ext_str) = extension.to_str() {
@@ -212,7 +268,8 @@ pub mod validation {
         }
     }
 
-    /// Validate font file exists and is readable
+    /// Verify that `path` exists, is a regular file (not a directory),
+    /// and has a recognized font extension. Does *not* parse the file contents.
     pub fn validate_font_file(path: &Path) -> FontResult<()> {
         if !path.exists() {
             return Err(FontError::FontNotFound(path.to_path_buf()));
@@ -234,7 +291,16 @@ pub mod validation {
         Ok(())
     }
 
-    /// Extract basic font information from filename (fallback method)
+    /// Guess font names from the filename when we can't (or haven't yet)
+    /// parsed the file's internal name table.
+    ///
+    /// Splits on the last hyphen or space:
+    /// - `"OpenSans-Bold.ttf"` → family `"OpenSans"`, style `"Bold"`
+    /// - `"Noto Sans Light.otf"` → family `"Noto Sans"`, style `"Light"`
+    /// - `"Courier.ttf"` → family `"Courier"`, style `"Regular"` (no separator found)
+    ///
+    /// This is a rough heuristic — real font metadata comes from the OS
+    /// (Core Text / GDI) or from parsing the font's `name` table.
     pub fn extract_basic_info_from_path(path: &Path) -> FontliftFontFaceInfo {
         let filename_stem = path
             .file_stem()
@@ -242,7 +308,7 @@ pub mod validation {
             .unwrap_or("Unknown")
             .to_string();
 
-        // Simple heuristics for family/style separation
+        // Split "FamilyName-Style" or "Family Name Style" at the last separator
         let (family, style) = if let Some(hyphen_pos) = filename_stem.rfind('-') {
             let family = filename_stem[..hyphen_pos].trim().to_string();
             let style = filename_stem[hyphen_pos + 1..].trim().to_string();
@@ -266,38 +332,62 @@ pub mod validation {
     }
 }
 
-/// Extended validation via out-of-process validator
+/// Deep font validation in a separate process.
+///
+/// Why out-of-process? A malformed font file can crash the parser.
+/// Running the parser in a child process means a crash kills the child,
+/// not fontlift itself. See [`validation_ext::validate_and_introspect`].
 pub mod validation_ext;
 
-/// Transactional operation journal for crash-safe operations
+/// Crash-safe operation journal.
+///
+/// Font installation is multi-step: copy the file, then register with
+/// the OS. If fontlift is killed between those steps, the journal
+/// records what happened so `fontlift doctor` can finish or undo the
+/// interrupted operation on the next run.
 pub mod journal;
 
-/// Font cache management utilities
+/// Font cache management.
+///
+/// Operating systems and some desktop applications maintain
+/// internal caches of font data — glyph outlines, name tables, metrics —
+/// to avoid re-reading font files on every launch. When you install or
+/// remove a font, these caches can go stale: an app might keep showing
+/// a font you deleted, or refuse to see one you just installed.
+///
+/// Clearing the cache forces apps to re-scan the fonts directory.
+/// On macOS, this means deleting files under `~/Library/Caches/`
+/// and other app-specific font cache locations.
+/// On Windows, it means restarting the Windows Font Cache Service.
 pub mod cache {
 
-    /// Cache clearing strategy
+    /// Which caches to clear.
     #[derive(Debug, Clone)]
     pub enum CacheClearStrategy {
-        /// Clear only user caches
+        /// Only the current user's caches. Safe, no admin needed.
         UserOnly,
-        /// Clear only system caches (requires admin)
+        /// Only system-wide caches. Requires admin privileges.
         SystemOnly,
-        /// Clear both user and system caches
+        /// Both user and system caches.
         Both,
     }
 
-    /// Result of cache clearing operation
+    /// What happened when we tried to clear caches.
     #[derive(Debug, Clone)]
     pub struct CacheClearResult {
-        /// Number of cache entries cleared
+        /// How many cache files or entries were deleted.
         pub entries_cleared: usize,
-        /// Whether system restart is required
+        /// Some cache changes only take effect after a reboot (looking
+        /// at you, Windows Font Cache Service).
         pub restart_required: bool,
-        /// Any warnings that occurred
+        /// Non-fatal issues encountered during cleanup. For example,
+        /// "app cache directory not found" means there was nothing to clear for
+        /// that cache location.
         pub warnings: Vec<String>,
     }
 
     impl CacheClearResult {
+        /// Create a successful result with the given count and restart flag.
         pub fn success(entries_cleared: usize, restart_required: bool) -> Self {
             Self {
                 entries_cleared,
@@ -306,6 +396,7 @@ pub mod cache {
             }
         }
 
+        /// Append a warning message. Builder-style.
         pub fn with_warning(mut self, warning: String) -> Self {
             self.warnings.push(warning);
             self
@@ -313,12 +404,24 @@ pub mod cache {
     }
 }
 
-/// Helpers for system font protection and duplicate handling
+/// Guard rails: system font protection and deduplication.
+///
+/// Some fonts ship with the OS and must not be modified. Deleting
+/// `SFNS.ttf` on macOS breaks the entire system UI. Removing `segoeui.ttf`
+/// on Windows makes dialog boxes unreadable. This module identifies those
+/// protected paths and refuses to touch them.
+///
+/// It also handles deduplication: when listing fonts, the same face can
+/// appear multiple times (e.g. registered under both user and system scope).
+/// [`dedupe_fonts`] collapses those duplicates deterministically.
 pub mod protection {
     use super::FontliftFontFaceInfo;
     use std::path::Path;
 
-    /// Normalize a path for comparison across platforms (lowercase, forward slashes)
+    /// Normalize a path for cross-platform comparison: lowercase,
+    /// forward slashes, no doubled separators. This lets us compare
+    /// `/Library/Fonts/Helvetica.ttc` and `/library/fonts/helvetica.ttc`
+    /// as equal.
     fn normalize(path: &Path) -> String {
         let mut normalized = path.to_string_lossy().replace('\\', "/").to_lowercase();
 
@@ -330,8 +433,15 @@ pub mod protection {
         normalized
     }
 
-    /// Detect whether the path points to a protected system font location.
-    /// Covers common macOS and Windows system font directories.
+    /// Is this font in a directory the OS owns?
+    ///
+    /// Protected paths:
+    /// - macOS: `/System/Library/Fonts/`, `/Library/Fonts/`
+    /// - Windows: `C:\Windows\Fonts\`
+    ///
+    /// Fonts in `~/Library/Fonts/` (macOS) or user-installed fonts on
+    /// Windows are *not* protected — the user put them there and can
+    /// remove them.
     pub fn is_protected_system_font_path(path: &Path) -> bool {
         let normalized = normalize(path);
 
@@ -340,8 +450,15 @@ pub mod protection {
             || normalized.starts_with("c:/windows/fonts/")
     }
 
-    /// Deduplicate fonts deterministically by PostScript name (case-insensitive)
-    /// and path (case-insensitive), returning a sorted list.
+    /// Remove duplicate font entries and return them in a stable, sorted order.
+    ///
+    /// Two entries are considered duplicates if they share the same PostScript
+    /// name *and* the same file path (both compared case-insensitively).
+    /// This happens when the OS reports the same font through multiple
+    /// enumeration paths.
+    ///
+    /// The output is sorted by (PostScript name, path), so results are
+    /// deterministic regardless of the order the OS returned them.
     pub fn dedupe_fonts(mut fonts: Vec<FontliftFontFaceInfo>) -> Vec<FontliftFontFaceInfo> {
         fonts.sort_by(|a, b| {
             let name_a = a.postscript_name.to_lowercase();
@@ -359,13 +476,27 @@ pub mod protection {
         fonts
     }
 
-    // Re-export for shared conflict detection helpers without exposing normalization publicly
+    // Re-export normalization for the `conflicts` module without making it public API.
     pub(crate) fn normalize_for_tests(path: &Path) -> String {
         normalize(path)
     }
 }
 
-/// Conflict detection helpers shared across platforms.
+/// Font conflict detection.
+///
+/// Before installing a new font, we check whether it collides with something
+/// already on the system. A "conflict" means any of:
+///
+/// 1. **Same file path** — the exact same file is already installed
+///    (case-insensitive comparison, so `/Fonts/Arial.ttf` matches
+///    `/fonts/arial.ttf`).
+/// 2. **Same PostScript name** — another file is already registered under
+///    the same unique identifier. Installing both would confuse applications.
+/// 3. **Same family + style** — e.g. two different files both claiming to be
+///    "Helvetica Bold". Applications would pick one arbitrarily.
+///
+/// The install flow uses this to unregister conflicting fonts before
+/// registering the new one, avoiding unpredictable behavior.
 pub mod conflicts {
     use super::*;
     use std::collections::BTreeSet;
@@ -375,9 +506,12 @@ pub mod conflicts {
         protection::normalize_for_tests(path)
     }
 
-    /// Detect conflicting fonts by path, PostScript name, or family+style (case-insensitive).
-    /// Returns unique references to installed fonts that should be removed or updated
-    /// before installing `candidate`.
+    /// Find installed fonts that would conflict with `candidate`.
+    ///
+    /// Returns references to entries in `installed` that share any of:
+    /// path, PostScript name, or family+style (all case-insensitive).
+    /// Each conflicting font appears at most once, even if it matches
+    /// on multiple criteria.
     pub fn detect_conflicts<'a>(
         installed: &'a [FontliftFontFaceInfo],
         candidate: &FontliftFontFaceInfo,
@@ -408,7 +542,11 @@ pub mod conflicts {
     }
 }
 
-/// Default font manager implementation that returns "not implemented" errors
+/// A font manager that refuses every operation.
+///
+/// Used on platforms where fontlift has no real implementation yet (Linux),
+/// and in tests that need a `FontManager` instance without touching the OS.
+/// Every method returns [`FontError::UnsupportedOperation`].
 #[derive(Debug)]
 pub struct DummyFontManager;
 
