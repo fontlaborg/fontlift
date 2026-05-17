@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1775598471046,
+  "lastScanned": 1776691903748,
   "projectRoot": "/Users/adam/Developer/vcs3/github.fontlaborg/fontlift",
   "techStack": {
     "languages": [
@@ -55,17 +55,18 @@
     "cli": {
       "path": "cli",
       "purpose": null,
-      "fileCount": 1,
-      "lastAccessed": 1775598471039,
+      "fileCount": 2,
+      "lastAccessed": 1776691903744,
       "keyFiles": [
-        "Cargo.toml"
+        "Cargo.toml",
+        "build.rs"
       ]
     },
     "core": {
       "path": "core",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1775598471039,
+      "lastAccessed": 1776691903744,
       "keyFiles": [
         "Cargo.toml"
       ]
@@ -74,7 +75,7 @@
       "path": "dist",
       "purpose": "Distribution/build output",
       "fileCount": 3,
-      "lastAccessed": 1775598471039,
+      "lastAccessed": 1776691903745,
       "keyFiles": [
         "fontlift-2.0.0.dev0-cp312-cp312-macosx_11_0_arm64.whl",
         "fontlift-2.0.0.dev0-cp313-cp313-macosx_11_0_arm64.whl",
@@ -85,7 +86,7 @@
       "path": "examples",
       "purpose": "Example code",
       "fileCount": 2,
-      "lastAccessed": 1775598471039,
+      "lastAccessed": 1776691903745,
       "keyFiles": [
         "basic_usage.rs"
       ]
@@ -93,18 +94,19 @@
     "issues": {
       "path": "issues",
       "purpose": null,
-      "fileCount": 3,
-      "lastAccessed": 1775598471040,
+      "fileCount": 4,
+      "lastAccessed": 1776691903745,
       "keyFiles": [
         "101.md",
-        "102.md"
+        "102.md",
+        "103.md"
       ]
     },
     "mac-cli": {
       "path": "mac-cli",
       "purpose": null,
-      "fileCount": 21,
-      "lastAccessed": 1775598471040,
+      "fileCount": 22,
+      "lastAccessed": 1776691903745,
       "keyFiles": [
         "AGENTS.md",
         "CHANGELOG.md",
@@ -117,7 +119,7 @@
       "path": "platform-mac",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1775598471040,
+      "lastAccessed": 1776691903745,
       "keyFiles": [
         "Cargo.toml"
       ]
@@ -126,7 +128,7 @@
       "path": "platform-win",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1775598471040,
+      "lastAccessed": 1776691903745,
       "keyFiles": [
         "Cargo.toml"
       ]
@@ -135,7 +137,7 @@
       "path": "python",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1775598471041,
+      "lastAccessed": 1776691903745,
       "keyFiles": [
         "Cargo.toml",
         "build.rs"
@@ -144,8 +146,8 @@
     "target": {
       "path": "target",
       "purpose": null,
-      "fileCount": 2,
-      "lastAccessed": 1775598471041,
+      "fileCount": 3,
+      "lastAccessed": 1776691903745,
       "keyFiles": [
         "CACHEDIR.TAG"
       ]
@@ -153,9 +155,10 @@
     "tests": {
       "path": "tests",
       "purpose": "Test files",
-      "fileCount": 3,
-      "lastAccessed": 1775598471041,
+      "fileCount": 4,
+      "lastAccessed": 1776691903745,
       "keyFiles": [
+        "CLAUDE.md",
         "Lato-Thin.ttf",
         "integration_tests.rs",
         "test_fonts.rs"
@@ -165,7 +168,7 @@
       "path": "validator",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1775598471042,
+      "lastAccessed": 1776691903745,
       "keyFiles": [
         "Cargo.toml"
       ]
@@ -173,8 +176,8 @@
     "win-cli": {
       "path": "win-cli",
       "purpose": null,
-      "fileCount": 21,
-      "lastAccessed": 1775598471042,
+      "fileCount": 24,
+      "lastAccessed": 1776691903746,
       "keyFiles": [
         "AGENTS.md",
         "CHANGELOG.md",
@@ -186,19 +189,19 @@
     "cli/src": {
       "path": "cli/src",
       "purpose": "Source code",
-      "fileCount": 5,
-      "lastAccessed": 1775598471043,
+      "fileCount": 6,
+      "lastAccessed": 1776691903746,
       "keyFiles": [
+        "CLAUDE.md",
         "args.rs",
-        "lib.rs",
-        "main.rs"
+        "lib.rs"
       ]
     },
     "cli/tests": {
       "path": "cli/tests",
       "purpose": "Test files",
       "fileCount": 1,
-      "lastAccessed": 1775598471044,
+      "lastAccessed": 1776691903746,
       "keyFiles": [
         "macos_fake_registry_tests.rs"
       ]
@@ -206,20 +209,21 @@
     "core/src": {
       "path": "core/src",
       "purpose": "Source code",
-      "fileCount": 5,
-      "lastAccessed": 1775598471044,
+      "fileCount": 6,
+      "lastAccessed": 1776691903746,
       "keyFiles": [
+        "CLAUDE.md",
         "config.rs",
-        "journal.rs",
-        "lib.rs"
+        "journal.rs"
       ]
     },
     "platform-mac/src": {
       "path": "platform-mac/src",
       "purpose": "Source code",
-      "fileCount": 1,
-      "lastAccessed": 1775598471045,
+      "fileCount": 2,
+      "lastAccessed": 1776691903746,
       "keyFiles": [
+        "CLAUDE.md",
         "lib.rs"
       ]
     },
@@ -227,7 +231,7 @@
       "path": "platform-win/src",
       "purpose": "Source code",
       "fileCount": 1,
-      "lastAccessed": 1775598471045,
+      "lastAccessed": 1776691903746,
       "keyFiles": [
         "lib.rs"
       ]
@@ -236,7 +240,7 @@
       "path": "python/src",
       "purpose": "Source code",
       "fileCount": 3,
-      "lastAccessed": 1775598471045,
+      "lastAccessed": 1776691903746,
       "keyFiles": [
         "bindings.rs",
         "lib.rs",
@@ -247,7 +251,7 @@
       "path": "tests/fixtures",
       "purpose": "Test fixtures",
       "fileCount": 1,
-      "lastAccessed": 1775598471045,
+      "lastAccessed": 1776691903747,
       "keyFiles": [
         "README.md"
       ]
@@ -256,7 +260,7 @@
       "path": "validator/src",
       "purpose": "Source code",
       "fileCount": 1,
-      "lastAccessed": 1775598471045,
+      "lastAccessed": 1776691903747,
       "keyFiles": [
         "main.rs"
       ]

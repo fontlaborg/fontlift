@@ -1,7 +1,41 @@
-//! Windows platform implementation for fontlift
+//! Windows platform implementation for fontlift.
 //!
-//! This module provides Windows-specific font management using Windows APIs,
-//! implementing the same functionality as the C++ CLI but in Rust.
+//! Font installation on Windows is a two-part operation:
+//!
+//! 1. **Copy the file** into a Fonts directory the OS watches:
+//!    - System scope: `C:\Windows\Fonts\` — shared by all users; requires
+//!      Administrator privileges.
+//!    - User scope: `%LOCALAPPDATA%\Microsoft\Windows\Fonts\` — per-user;
+//!      available since Windows 10 version 1809 (October 2018 Update).
+//!      Older systems only have the system-wide location.
+//!
+//! 2. **Write a registry entry** so the font survives reboots:
+//!    - System scope: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\
+//!      CurrentVersion\Fonts` — key name is `"Family Name (TrueType)"`,
+//!      value is the filename (relative to `C:\Windows\Fonts\`) or a full path.
+//!    - User scope: same key path under `HKEY_CURRENT_USER`.
+//!
+//!    Without the registry entry the font is available until the next reboot
+//!    but then disappears. The registry is the persistent record of installed fonts.
+//!
+//! 3. **Notify GDI** via `AddFontResourceW` + `SendMessage(HWND_BROADCAST,
+//!    WM_FONTCHANGE)` so running applications see the new font without restarting.
+//!
+//! Uninstalling reverses those steps: `RemoveFontResourceW`, delete the registry
+//! value, then (for `remove`) delete the file.
+//!
+//! Font formats supported by GDI/DirectWrite (and therefore this module):
+//! - `.ttf` — TrueType
+//! - `.otf` — OpenType with PostScript or TrueType outlines
+//! - `.ttc` / `.otc` — TrueType / OpenType Collection (multiple faces per file)
+//!
+//! `.woff` / `.woff2` are web-only formats; Windows GDI does not support them
+//! as installed system fonts.
+//!
+//! Font caches: Windows maintains the Font Cache Service (`FontCache`) and
+//! binary cache files under `ServiceProfiles\LocalService\AppData\Local\FontCache\`.
+//! `clear_font_caches` stops the service, deletes cache files, and restarts it.
+//! A reboot may be required for all applications to pick up the changes.
 
 #[cfg(windows)]
 use fontlift_core::conflicts;
@@ -37,12 +71,33 @@ use winreg::enums::*;
 #[cfg(windows)]
 use winreg::RegKey;
 
+// Registry path where Windows records all installed fonts.
+// Each value under this key maps a display name like "Arial (TrueType)"
+// to either a bare filename ("arial.ttf", resolved relative to %WINDIR%\Fonts)
+// or an absolute path (used for user-scope fonts in modern Windows 10/11).
+// System scope lives under HKLM; user scope lives under the same path in HKCU.
 #[cfg(windows)]
 const FONTS_REGISTRY_KEY: &str = r"Software\Microsoft\Windows NT\CurrentVersion\Fonts";
+
+// Directory where the Windows Font Cache Service stores its binary cache.
+// The service (FontCache / FontCache3.0.0.0) pre-parses font files and stores
+// the result here so apps load faster. fontlift stops the service, deletes
+// these files, then restarts the service to force a clean rebuild.
 #[cfg(windows)]
 const FONT_CACHE_DIR: &str = r"ServiceProfiles\\LocalService\\AppData\\Local\\FontCache";
 
-/// Common Adobe font cache roots under Program Files variants
+/// Return the Adobe font cache directories to clear under each Program Files root.
+///
+/// Adobe applications (Illustrator, InDesign, Photoshop, Acrobat) build their
+/// own font index files (`AdobeFnt*.lst`) separate from the Windows font list.
+/// After fontlift installs or removes fonts, these stale manifests cause Adobe
+/// apps to show wrong or missing fonts until they are deleted and rebuilt.
+///
+/// Roots checked:
+/// - `Program Files\Common Files\Adobe\TypeSpt`
+/// - `Program Files\Common Files\Adobe\TypeSupport`
+/// - `Program Files\Common Files\Adobe\PDFL`
+/// - Same paths under `Program Files (x86)` if it differs
 #[cfg(any(windows, test))]
 fn adobe_cache_roots(program_files_dirs: &[PathBuf]) -> Vec<PathBuf> {
     let mut roots = Vec::new();
@@ -56,15 +111,29 @@ fn adobe_cache_roots(program_files_dirs: &[PathBuf]) -> Vec<PathBuf> {
     roots
 }
 
-/// Windows font manager using Windows Registry and GDI APIs
+/// Windows font manager — the [`FontManager`] implementation for Windows.
+///
+/// Font operations use three Windows subsystems in concert:
+/// - **Registry** (`winreg`): persistent record of installed fonts. Without
+///   a registry entry the font vanishes after reboot.
+/// - **GDI** (`AddFontResourceW` / `RemoveFontResourceW`): makes the font
+///   immediately available to running Win32 applications. `WM_FONTCHANGE`
+///   broadcasts the change to all top-level windows.
+/// - **DirectWrite / WIC**: used indirectly; GDI registration covers both.
+///
+/// System scope (`C:\Windows\Fonts` + HKLM) requires Administrator rights.
+/// User scope (`%LOCALAPPDATA%\Microsoft\Windows\Fonts` + HKCU) works without
+/// elevation on Windows 10 1809 and later.
 pub struct WinFontManager {
     _private: (),
-    /// Optional validation config for pre-install validation
+    /// Out-of-process font validator. When `Some`, fontlift spawns
+    /// `fontlift-validator` before each install to catch malformed files
+    /// without risking a crash in the main process.
     validation_config: Option<ValidatorConfig>,
 }
 
 impl WinFontManager {
-    /// Create a new Windows font manager
+    /// Create a new Windows font manager with no pre-install validation.
     pub fn new() -> Self {
         Self {
             _private: (),
@@ -72,7 +141,7 @@ impl WinFontManager {
         }
     }
 
-    /// Create a manager with validation enabled
+    /// Create a manager that runs the out-of-process validator before installs.
     pub fn with_validation(config: ValidatorConfig) -> Self {
         Self {
             _private: (),
@@ -122,12 +191,16 @@ impl WinFontManager {
             || lower.starts_with(format!(r"{}\\syswow64", root).as_str())
     }
 
-    /// Get Windows fonts directory (System scope)
+    /// Return the system-wide Fonts directory (`%WINDIR%\Fonts`).
+    ///
+    /// This is `C:\Windows\Fonts` on a standard installation. Writing here
+    /// requires Administrator privileges. All users on the machine share this
+    /// directory, and it is the only font location on Windows 7/8/10 pre-1809.
     fn get_fonts_directory(&self) -> FontResult<PathBuf> {
         Ok(self.system_root().join("Fonts"))
     }
 
-    /// Return the root fonts directory for the given scope
+    /// Return the Fonts directory for the given scope.
     fn fonts_directory_for_scope(&self, scope: FontScope) -> FontResult<PathBuf> {
         match scope {
             FontScope::User => self.user_fonts_directory(),
@@ -135,7 +208,12 @@ impl WinFontManager {
         }
     }
 
-    /// Resolve the per-user fonts directory
+    /// Return the per-user Fonts directory (`%LOCALAPPDATA%\Microsoft\Windows\Fonts`).
+    ///
+    /// This directory was introduced in Windows 10 version 1809 (October 2018
+    /// Update). Fonts installed here are visible only to the current user and
+    /// do not require Administrator rights. On older Windows builds this path
+    /// may not exist; fontlift falls back to the system directory in that case.
     fn user_fonts_directory(&self) -> FontResult<PathBuf> {
         let local_appdata = std::env::var("LOCALAPPDATA").map_err(|_| {
             FontError::PermissionDenied(
@@ -528,6 +606,13 @@ impl WinFontManager {
         )))
     }
 
+    /// Stop the Windows Font Cache Service before deleting cache files.
+    ///
+    /// Two services may be present:
+    /// - `FontCache` — the main Windows font cache service (always present on
+    ///   Vista+). Required; fail if it cannot be stopped.
+    /// - `FontCache3.0.0.0` — the WPF (Windows Presentation Foundation) font
+    ///   cache service. Optional; silently skip if it isn't installed.
     fn stop_font_cache_service(&self) -> FontResult<()> {
         self.control_service("FontCache", "stop", true)?;
         // WPF font cache service is optional; tolerate missing service
@@ -535,12 +620,23 @@ impl WinFontManager {
         Ok(())
     }
 
+    /// Restart the Font Cache Service after cache files have been deleted.
     fn start_font_cache_service(&self) -> FontResult<()> {
         self.control_service("FontCache", "start", true)?;
         let _ = self.control_service("FontCache3.0.0.0", "start", false);
         Ok(())
     }
 
+    /// Delete the binary font cache files written by the Font Cache Service.
+    ///
+    /// Two locations:
+    /// - `ServiceProfiles\LocalService\AppData\Local\FontCache\` — per-session
+    ///   cache files written by the FontCache service.
+    /// - `System32\FNTCACHE.DAT` — a legacy GDI font cache file. Its removal
+    ///   forces Windows to rebuild font metrics on next boot.
+    ///
+    /// This must be called while the FontCache service is stopped, otherwise
+    /// Windows holds locks on these files and the delete will fail.
     fn clear_font_cache_files(&self) -> FontResult<()> {
         let root = self.system_root();
         let cache_dir = root.join(FONT_CACHE_DIR);
@@ -608,7 +704,16 @@ impl WinFontManager {
         Ok(())
     }
 
-    /// Register font with Windows GDI
+    /// Register a font file with GDI and broadcast the change to all windows.
+    ///
+    /// `AddFontResourceW` loads the font into the GDI font table so Win32
+    /// applications can use it immediately in the current session. Without
+    /// this call the font would only appear after a reboot (once the registry
+    /// entry is read at startup).
+    ///
+    /// `SendMessage(HWND_BROADCAST, WM_FONTCHANGE)` notifies every top-level
+    /// window that the font list changed. Well-behaved applications (Notepad,
+    /// Office, etc.) refresh their font menus on this message.
     fn register_font_with_gdi(&self, path: &Path) -> FontResult<()> {
         let path_str = path.to_string_lossy().to_string();
         let path_wide: Vec<u16> = path_str.encode_utf16().chain(std::iter::once(0)).collect();
@@ -622,6 +727,7 @@ impl WinFontManager {
             )));
         }
 
+        // Broadcast so running apps refresh their font lists without restarting.
         unsafe {
             SendMessageW(HWND_BROADCAST, WM_FONTCHANGE, WPARAM(0), LPARAM(0));
         }
@@ -629,7 +735,11 @@ impl WinFontManager {
         Ok(())
     }
 
-    /// Unregister font from Windows GDI
+    /// Unregister a font from GDI and broadcast the change to all windows.
+    ///
+    /// `RemoveFontResourceW` removes the font from GDI's in-memory table.
+    /// The font file is untouched. A subsequent `WM_FONTCHANGE` broadcast
+    /// lets running applications update their font menus.
     fn unregister_font_from_gdi(&self, path: &Path) -> FontResult<()> {
         let path_str = path.to_string_lossy().to_string();
         let path_wide: Vec<u16> = path_str.encode_utf16().chain(std::iter::once(0)).collect();
@@ -684,7 +794,14 @@ impl WinFontManager {
         Ok(())
     }
 
-    /// Register font in Windows Registry
+    /// Write a font entry to the Windows registry so the font survives reboot.
+    ///
+    /// The registry value name follows the Windows convention:
+    ///   `"Family Name (TrueType)"` or `"Family Name (OpenType)"`.
+    /// The value data is the font file path. For system-scope fonts Windows
+    /// traditionally stores just the filename (e.g. `"arial.ttf"`) because
+    /// `C:\Windows\Fonts\` is implied, but fontlift stores full paths to be
+    /// unambiguous for both user and system scopes.
     fn register_font_in_registry(
         &self,
         path: &Path,
@@ -811,23 +928,31 @@ impl FontManager for WinFontManager {
             .unwrap_or(false);
 
         // Record operation in journal
-        let mut journal = journal::load_journal().unwrap_or_default();
-        let entry_id =
-            journal.record_operation(actions, Some(format!("Install {}", path.display())));
-        journal::save_journal(&journal)?;
+        let entry_id = journal::with_journal_lock(|| {
+            let mut j = journal::load_journal().unwrap_or_default();
+            let id = j.record_operation(actions, Some(format!("Install {}", path.display())));
+            journal::save_journal(&j)?;
+            Ok(id)
+        })?;
 
         if needs_copy {
             let copy_result = self.copy_font_to_target_directory(path, &target_path, scope);
             match copy_result {
                 Ok(_) => {
-                    let mut j = journal::load_journal().unwrap_or_default();
-                    let _ = j.mark_step(entry_id, 1);
-                    let _ = journal::save_journal(&j);
+                    let _ = journal::with_journal_lock(|| {
+                        let mut j = journal::load_journal().unwrap_or_default();
+                        let _ = j.mark_step(entry_id, 1);
+                        let _ = journal::save_journal(&j);
+                        Ok(())
+                    });
                 }
                 Err(e) => {
-                    let mut j = journal::load_journal().unwrap_or_default();
-                    let _ = j.mark_completed(entry_id);
-                    let _ = journal::save_journal(&j);
+                    let _ = journal::with_journal_lock(|| {
+                        let mut j = journal::load_journal().unwrap_or_default();
+                        let _ = j.mark_completed(entry_id);
+                        let _ = journal::save_journal(&j);
+                        Ok(())
+                    });
                     return Err(e);
                 }
             }
@@ -838,9 +963,12 @@ impl FontManager for WinFontManager {
                 .to_string_lossy()
                 .eq_ignore_ascii_case(&target_path.to_string_lossy())
         }) {
-            let mut j = journal::load_journal().unwrap_or_default();
-            let _ = j.mark_completed(entry_id);
-            let _ = journal::save_journal(&j);
+            let _ = journal::with_journal_lock(|| {
+                let mut j = journal::load_journal().unwrap_or_default();
+                let _ = j.mark_completed(entry_id);
+                let _ = journal::save_journal(&j);
+                Ok(())
+            });
             return Err(FontError::AlreadyInstalled(target_path));
         }
 
@@ -851,22 +979,28 @@ impl FontManager for WinFontManager {
         })();
 
         // Update journal and clean up on failure
-        let mut j = journal::load_journal().unwrap_or_default();
-        match register_result {
+        match &register_result {
             Ok(_) => {
-                let _ = j.mark_completed(entry_id);
-                let _ = journal::save_journal(&j);
-                Ok(())
+                let _ = journal::with_journal_lock(|| {
+                    let mut j = journal::load_journal().unwrap_or_default();
+                    let _ = j.mark_completed(entry_id);
+                    let _ = journal::save_journal(&j);
+                    Ok(())
+                });
             }
-            Err(e) => {
+            Err(_) => {
                 if needs_copy {
                     let _ = fs::remove_file(&target_path);
                 }
-                let _ = j.mark_completed(entry_id);
-                let _ = journal::save_journal(&j);
-                Err(e)
+                let _ = journal::with_journal_lock(|| {
+                    let mut j = journal::load_journal().unwrap_or_default();
+                    let _ = j.mark_completed(entry_id);
+                    let _ = journal::save_journal(&j);
+                    Ok(())
+                });
             }
         }
+        register_result
     }
 
     fn uninstall_font(&self, source: &FontliftFontSource) -> FontResult<()> {
@@ -901,34 +1035,44 @@ impl FontManager for WinFontManager {
 
         // Build journal actions: UnregisterFont -> DeleteFile
         let actions = self.remove_journal_actions(&installed_path, installed_scope);
-        let mut journal = journal::load_journal().unwrap_or_default();
-        let entry_id = journal.record_operation(
-            actions,
-            Some(format!("Remove {}", installed_path.display())),
-        );
-        journal::save_journal(&journal)?;
+        let entry_id = journal::with_journal_lock(|| {
+            let mut j = journal::load_journal().unwrap_or_default();
+            let id = j.record_operation(
+                actions,
+                Some(format!("Remove {}", installed_path.display())),
+            );
+            journal::save_journal(&j)?;
+            Ok(id)
+        })?;
 
         let resolved_source =
             FontliftFontSource::new(installed_path.clone()).with_scope(Some(installed_scope));
         let uninstall_result = self.uninstall_font(&resolved_source);
         if let Err(e) = uninstall_result {
-            let mut j = journal::load_journal().unwrap_or_default();
-            let _ = j.mark_completed(entry_id);
-            let _ = journal::save_journal(&j);
+            let _ = journal::with_journal_lock(|| {
+                let mut j = journal::load_journal().unwrap_or_default();
+                let _ = j.mark_completed(entry_id);
+                let _ = journal::save_journal(&j);
+                Ok(())
+            });
             return Err(e);
         }
 
-        {
+        let _ = journal::with_journal_lock(|| {
             let mut j = journal::load_journal().unwrap_or_default();
             let _ = j.mark_step(entry_id, 1);
             let _ = journal::save_journal(&j);
-        }
+            Ok(())
+        });
 
         std::fs::remove_file(installed_path).map_err(FontError::IoError)?;
 
-        let mut j = journal::load_journal().unwrap_or_default();
-        let _ = j.mark_completed(entry_id);
-        let _ = journal::save_journal(&j);
+        let _ = journal::with_journal_lock(|| {
+            let mut j = journal::load_journal().unwrap_or_default();
+            let _ = j.mark_completed(entry_id);
+            let _ = journal::save_journal(&j);
+            Ok(())
+        });
 
         Ok(())
     }
@@ -1352,8 +1496,8 @@ mod tests {
     #[test]
     fn validation_preinstall_rejects_malformed_font_when_enabled() {
         let manager = WinFontManager::with_validation(ValidatorConfig::default());
-        let malformed = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../tests/fixtures/fonts/malformed.ttf");
+        let malformed =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/fonts/malformed.ttf");
 
         let result = manager.validate_preinstall(&malformed);
 

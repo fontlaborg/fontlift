@@ -1,309 +1,262 @@
-# FontLift
+# fontlift
 
-A cross-platform font management library and CLI tool written in Rust, consolidating the functionality of the existing Swift and C++ implementations into a unified codebase.
+Install, uninstall, list, and clean up fonts on macOS and Windows — from the
+command line, from Rust, or from Python.
 
-## Overview
+Made by FontLab https://www.fontlab.com/
 
-FontLift provides:
-- **Core Library**: Cross-platform font management abstraction
-- **Platform Implementations**: Native macOS and Windows integration  
-- **CLI Tool**: Command-line interface for font operations
-- **Python Bindings**: PyO3 bindings for Python integration
+---
 
-## Status (2025-12-03)
-- macOS: Parity with the Swift CLI including install/uninstall/remove, descriptor-based listing, cleanup with prune/cache toggles, and fake-registry/dry-run support.
-- Windows: Registry + GDI install/uninstall/list and cache cleanup (FontCache + Adobe) are implemented; needs validation on a Windows host and golden-output capture.
-- Python: Bindings expose `FontliftFontSource`/`FontliftFontFaceInfo`, name-based operations, cleanup toggles, and a Fire CLI; wheels build via `maturin`.
-- CI: GitHub Actions matrix on macOS 14 and Windows runs `cargo fmt`, `cargo clippy`, platform-scoped tests, and `maturin develop` + `pytest` for Python bindings.
+## What fontlift does
 
-## Architecture
+A font is not just a file. To make a font usable by applications, the OS must
+be told about it: on macOS that means a Core Text registration, on Windows a
+registry entry plus a GDI call. fontlift handles that mechanics so you don't
+have to.
 
-The project is organized into several crates:
+| Operation | What it does |
+|---|---|
+| `install` | Copy the font file to the OS font directory, register it. Apps see it immediately. |
+| `uninstall` | Remove the OS registration. File stays on disk. |
+| `remove` | Unregister **and** delete the file. |
+| `list` | Enumerate every face the OS currently knows about. |
+| `cleanup` | Prune stale registrations + clear font caches. |
+| `doctor` | Find interrupted operations and resume them. |
 
-- `fontlift-core`: Core traits, types, and platform-agnostic logic
-- `fontlift-platform-mac`: macOS-specific implementation using Core Text
-- `fontlift-platform-win`: Windows-specific implementation using Registry APIs
-- `fontlift-cli`: Command-line interface built with Clap
-- `fontlift-python`: Python bindings using PyO3
+---
 
-## Features
+## Platform support
 
-### Font Management
-- ✅ Install fonts (user-level and system-level)
-- ✅ Uninstall fonts (keeping files)
-- ✅ Remove fonts (uninstall and delete)
-- ✅ List installed fonts with metadata
-- ✅ Clear font caches
-- ✅ Cross-platform support (macOS, Windows)
+| Platform | Status | Install location (user) | Install location (system) | Admin needed for system? |
+|---|---|---|---|---|
+| macOS 12+ | Full | `~/Library/Fonts/` | `/Library/Fonts/` | sudo |
+| Windows 10 1809+ | Full | `%LOCALAPPDATA%\Microsoft\Windows\Fonts\` | `C:\Windows\Fonts\` | Administrator |
+| Windows 7–10 pre-1809 | System scope only | — | `C:\Windows\Fonts\` | Administrator |
+| Linux | Planned | `~/.local/share/fonts/` | `/usr/share/fonts/` | — |
 
-### Font Formats Supported
-- TrueType (.ttf, .ttc)
-- OpenType (.otf, .otc)  
-- Web Open Font Format (.woff, .woff2)
-- macOS dfont (.dfont)
+**macOS detail:** Core Text picks up the font immediately after installation —
+no reboot, no log-out. `/System/Library/Fonts/` is managed by macOS and
+protected by SIP; fontlift never touches it.
 
-### Safety Features
-- Validation of font files before installation
-- Protection against modifying system fonts
-- Proper error handling and reporting
-- Scope-based operations (user vs system)
+**Windows detail:** Installation writes both a registry entry under
+`HKCU\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts` (user scope) or
+`HKLM\...` (system scope) and calls `AddFontResourceW` + `WM_FONTCHANGE` so
+running apps can use the font right away. Without the registry entry the font
+disappears after the next reboot.
 
-## Quick Start
+---
 
-### As a Rust Library
+## Font formats
 
-```rust
-use fontlift_core::{FontManager, FontScope};
-use fontlift_platform_mac::MacFontManager; // or WinFontManager
+| Extension | Format | Notes |
+|---|---|---|
+| `.ttf` | TrueType | Single face. Most common format. |
+| `.otf` | OpenType | Single face. PostScript or TrueType outlines. |
+| `.ttc` / `.otc` | Collection | Multiple faces in one file (e.g. CJK families). |
+| `.woff` / `.woff2` | Web Open Font | Compressed for the web; system support varies. |
+| `.dfont` | Mac data-fork suitcase | Legacy macOS format. |
 
-let manager = MacFontManager::new();
-let font_path = std::path::PathBuf::from("my-font.ttf");
+---
 
-// Install font for current user
-manager.install_font(&font_path, FontScope::User)?;
+## CLI quick start
 
-// List installed fonts
-let fonts = manager.list_installed_fonts()?;
-for font in fonts {
-    println!("{}: {}", font.family_name, font.style);
-}
-```
+```sh
+# Install a font for the current user (no admin needed)
+fontlift install MyFont.otf
 
-### CLI Usage
+# Install an entire directory of fonts
+fontlift install ~/Downloads/InterFamily/
 
-```bash
-# Install a font
-fontlift install my-font.ttf
+# Install system-wide for all users (requires sudo / admin)
+fontlift install --admin MyFont.otf
 
-# List installed fonts (sorted; path-only output is deduped)
+# List all installed fonts (one path per line, sorted, deduped)
 fontlift list
+fontlift list --name          # PostScript names instead of paths
+fontlift list --path --name   # path::PostScriptName pairs
+fontlift list --json          # machine-readable JSON
 
-# List installed fonts as deterministic JSON
-fontlift list --json
+# Uninstall (keeps the file on disk)
+fontlift uninstall ~/Library/Fonts/MyFont.otf
+fontlift uninstall --name HelveticaNeue-Bold
 
-# Install multiple fonts or an entire directory (non-recursive)
-fontlift install my-font.ttf extras/AnotherFont.otf fonts/
+# Remove (uninstall + delete the file)
+fontlift remove ~/Library/Fonts/OldFont.otf
+fontlift remove --name OldFont-Regular
 
-# Preview changes without touching the system
-fontlift install my-font.ttf --dry-run --quiet
-
-# Install system-wide (requires admin)
-fontlift install my-font.ttf --admin
-
-# List installed fonts with detailed fields (use --sorted to dedupe names/paths when combining)
-fontlift list --path --name --sorted
-
-# Uninstall a font
-fontlift uninstall --name "MyFont"
-
-# Remove a font (uninstall + delete)
-fontlift remove my-font.ttf
-
-# Clear font caches
+# Prune stale registrations and clear caches
 fontlift cleanup
+fontlift cleanup --prune-only   # registrations only
+fontlift cleanup --cache-only   # caches only
+fontlift cleanup --admin        # include system scope
 
-# Clear system caches (requires admin)
-fontlift cleanup --admin
+# Preview any operation without changing anything
+fontlift --dry-run install MyFont.otf
 
-# Prune stale registrations without touching caches
-fontlift cleanup --prune-only
+# Check for and recover interrupted operations
+fontlift doctor
+fontlift doctor --preview
 
-# Clear caches only (skip pruning)
-fontlift cleanup --cache-only
-
-# Generate shell completions (bash|zsh|fish|powershell|elvish)
-fontlift completions bash > /usr/local/etc/bash_completion.d/fontlift
+# Shell completions
+fontlift completions bash >> ~/.bashrc
+fontlift completions zsh  > ~/.zsh/completions/_fontlift
+fontlift completions fish > ~/.config/fish/completions/fontlift.fish
 ```
 
-### Python Integration
+Global flags work with every subcommand:
+
+| Flag | Effect |
+|---|---|
+| `--dry-run` | Print what would happen, change nothing |
+| `--quiet` / `-q` | Suppress all non-error output |
+| `--verbose` / `-v` | Show resolved paths, scope choices, extra detail |
+| `--json` / `-j` | Machine-readable JSON output |
+
+---
+
+## Validation
+
+Before installing, fontlift can run an out-of-process validator to catch
+malformed font files. The validator runs in a separate process so a corrupt
+font cannot crash fontlift itself.
+
+```sh
+fontlift install MyFont.ttf                                 # normal (64 MB, 5 s)
+fontlift install --validation-strictness lenient Big.ttf    # 128 MB, 10 s
+fontlift install --validation-strictness paranoid Untrusted.ttf  # 32 MB, 2 s
+fontlift install --no-validate QuickTest.ttf                # skip entirely
+```
+
+---
+
+## Python
 
 ```python
 import fontlift
 
-# Create manager
-manager = fontlift.FontliftManager()
+# One-shot helpers
+fontlift.install("MyFont.ttf")                    # user scope, no admin
+fontlift.install("MyFont.ttf", admin=True)        # system scope
+fontlift.uninstall("MyFont.ttf")
+fontlift.uninstall(name="HelveticaNeue-Bold")     # by PostScript name
+fontlift.remove("OldFont.ttf")
+fontlift.cleanup(prune=True, cache=True)
+fontlift.cleanup(admin=True)                      # system scope
 
-# List fonts
-fonts = manager.list_fonts()
-for font in fonts:
-    print(f"{font['family_name']}: {font['style']}")
+# List all installed fonts
+for font in fontlift.list_fonts():
+    # font is a dict; key fields:
+    # postscript_name, full_name, family_name, style, path, scope
+    print(f"{font['family_name']} {font['style']}  →  {font['path']}")
 
-# Install font
-manager.install_font("my-font.ttf")
-
-# Or use functional API
-fontlift.install("my-font.ttf", admin=False)
-fontlift.list()
-fontlift.cleanup(prune=True, cache=True, admin=False, dry_run=True)
-
-# Fire CLI mirror with JSON/quiet/verbose/dry-run toggles (parity with Rust CLI)
-# fontliftpy list --json --path --name --sorted
-# fontliftpy install my-font.ttf --dry_run True --quiet True
+# Reusable manager (one platform connection, multiple operations)
+mgr = fontlift.FontliftManager()
+mgr.install_font("/tmp/MyFont.ttf")
+faces = mgr.list_fonts()
+mgr.cleanup(prune=True, cache=True)
 ```
 
-## Platform-Specific Details
-
-### macOS
-- Uses Core Text APIs for font registration
-- Supports both user (`~/Library/Fonts`) and system (`/Library/Fonts`) scopes
-- Cache clearing via `atsutil` commands
-- Safe handling of system font protection
-
-### Windows  
-- Uses Windows Registry and GDI APIs
-- Supports per-user and system-wide font installation
-- Registry-based font tracking
-- Safe handling of Windows Fonts directory protection
-
-## Building
-
-### Prerequisites
-- Rust 1.75+
-- Platform-specific build tools:
-  - macOS: Xcode Command Line Tools
-  - Windows: Visual Studio Build Tools
-
-### Build Commands
-
-```bash
-# Build all workspace members
-cargo build --workspace
-
-# Build release
-cargo build --workspace --release
-
-# Run tests
-cargo test --workspace
-
-# Run with specific features
-cargo build --workspace --features "python"
-```
-
-### Platform-Specific Builds
-
-```bash
-# Build only current platform
-cargo build -p fontlift-core
-cargo build -p fontlift-platform-mac  # macOS only
-cargo build -p fontlift-platform-win  # Windows only
-
-# Build CLI
-cargo build -p fontlift-cli
-
-# Build Python bindings
-cargo build -p fontlift-python
-```
-
-### Packaging (CLI + Python wheels)
-
-- Windows: run from the "x64 Native Tools" developer prompt with Visual Studio Build Tools installed; ensure Python 3.12+ is on PATH for PyO3.
-- Cross-platform build helper: `./build.sh` will run fmt/clippy, build the workspace, and, when `maturin` is available, emit wheels via `crates/fontlift-python/Cargo.toml` into `dist-<mode>-<platform>-<arch>/`.
-- Python wheels only: `maturin build -m crates/fontlift-python/Cargo.toml --release -o dist`.
-- CLI release artifacts: `cargo build -p fontlift-cli --release` produces `target/release/fontlift`/`fontlift.exe` ready for packaging or signing.
-
-## Testing
-
-```bash
-# Run all tests
-cargo test --workspace
-
-# Run specific crate tests
-cargo test -p fontlift-core
-cargo test -p fontlift-cli
-
-# Run documentation tests
-cargo test --doc
-
-# Run with logging
-RUST_LOG=debug cargo test --workspace
-```
-
-## Development
-
-### Project Structure
-```
-fontlift/
-├── Cargo.toml              # Workspace configuration
-├── README.md
-├── crates/
-│   ├── fontlift-core/      # Core library
-│   ├── fontlift-platform-mac/  # macOS implementation
-│   ├── fontlift-platform-win/  # Windows implementation
-│   ├── fontlift-cli/       # Command-line interface
-│   └── fontlift-python/    # Python bindings
-└── docs/
-    └── platform-specific.md
-```
-
-### Adding New Platforms
-1. Create a new crate: `fontlift-platform-{platform}`
-2. Implement the `FontManager` trait
-3. Add platform-specific dependencies
-4. Update workspace and CLI integration
-5. Add tests and documentation
-
-### Code Style
-- Use `cargo fmt` for formatting
-- Use `cargo clippy -- -D warnings` for linting
-- Follow Rust API guidelines
-- Document all public APIs
-
-## Error Handling
-
-FontLift uses a comprehensive error type system:
-
-- `FontNotFound`: Font file doesn't exist
-- `InvalidFormat`: Not a valid font file
-- `RegistrationFailed`: Platform registration failed
-- `SystemFontProtection`: Attempted to modify system font
-- `PermissionDenied`: Insufficient privileges
-- `AlreadyInstalled`: Font already exists
-- `UnsupportedOperation`: Platform doesn't support operation
-
-## Security Considerations
-
-- Font files are validated before installation
-- System fonts are protected from modification
-- Scope-based privilege separation
-- Safe path handling and sandboxing
-- No network operations by default
-
-## Performance
-
-- Minimal memory allocations
-- Efficient font metadata extraction
-- Lazy loading of platform resources
-- Async operations where applicable
-- Optimized for bulk operations
-
-## Roadmap
-
-- [ ] Linux platform support (fontconfig integration)
-- [ ] Font collection (.ttc/.otc) handling
-- [ ] Variable font metadata extraction
-- [ ] Font conflict detection and resolution
-- [ ] Batch installation/uninstallation
-- [ ] Font preview generation
-- [ ] GUI application (via testypf integration)
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
-
-## License
-
-FontLift is licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for version history and release notes.
+The Python package is a thin wrapper around the `fontlift._native` PyO3
+extension. Build it with `maturin develop` (development) or
+`maturin build --release` (wheel for distribution).
 
 ---
 
-Made by FontLab https://www.fontlab.com/
+## Rust library
+
+```rust
+use fontlift_core::{FontManager, FontScope, FontliftFontSource};
+use fontlift_platform_mac::MacFontManager; // or WinFontManager on Windows
+
+let manager = MacFontManager::new();
+let source = FontliftFontSource::new("MyFont.ttf".into())
+    .with_scope(Some(FontScope::User));
+
+manager.install_font(&source)?;
+
+for face in manager.list_installed_fonts()? {
+    println!("{}: {} {}", face.source.path.display(), face.family_name, face.style);
+}
+```
+
+---
+
+## Crate layout
+
+```
+fontlift/
+├── core/            fontlift-core       types, traits, validation, journal
+├── platform-mac/    fontlift-platform-mac   Core Text implementation
+├── platform-win/    fontlift-platform-win   Registry + GDI implementation
+├── cli/             fontlift-cli        clap-based CLI
+├── python/          fontlift-python     PyO3 bindings
+└── validator/       fontlift-validator  out-of-process font parser helper
+```
+
+`fontlift-core` defines `FontManager`, `FontError`, `FontScope`, and the shared
+data types. Platform crates implement `FontManager` with real OS calls. The CLI
+and Python bindings delegate to whichever platform crate is compiled in.
+
+---
+
+## Building
+
+```sh
+# Prerequisites: Rust 1.75+, platform SDK (Xcode CLT on macOS, VS Build Tools on Windows)
+
+# Full workspace build + tests
+./build.sh --test
+
+# Rust only
+cargo build --workspace
+cargo test --workspace
+cargo clippy --workspace -- -D warnings
+
+# Python wheel (requires maturin)
+maturin develop -m python/Cargo.toml          # editable install for dev
+maturin build  -m python/Cargo.toml --release # distributable wheel → dist/
+```
+
+---
+
+## Environment variables
+
+| Variable | Effect | Default |
+|---|---|---|
+| `FONTLIFT_OVERRIDE_USER_LIBRARY` | Override per-user font directory | Platform default |
+| `FONTLIFT_OVERRIDE_SYSTEM_LIBRARY` | Override system font directory | Platform default |
+| `FONTLIFT_DRY_RUN` | Simulate all operations | `false` |
+| `FONTLIFT_ALLOW_SYSTEM` | Permit system-scope writes | `false` |
+| `FONTLIFT_LOG_LEVEL` | `trace`/`debug`/`info`/`warn`/`error` | `info` |
+| `FONTLIFT_JOURNAL_PATH` | Override crash-recovery journal location | Platform default |
+| `RUST_LOG` | Standard `env_logger` filter | — |
+
+---
+
+## Error types
+
+| Error | Meaning |
+|---|---|
+| `FontNotFound` | File does not exist at the given path |
+| `InvalidFormat` | File exists but is not a supported font format |
+| `RegistrationFailed` | OS refused to register the font |
+| `SystemFontProtection` | Path is in a system-managed font directory |
+| `PermissionDenied` | Process lacks the required privileges |
+| `AlreadyInstalled` | A font with that path is already registered |
+| `UnsupportedOperation` | Feature not available on this platform |
+
+---
+
+## Roadmap
+
+- [ ] Linux support (fontconfig + `fc-cache`)
+- [ ] Variable font metadata extraction
+- [ ] GUI via testypf integration
+
+---
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE).
+
+See [CHANGELOG.md](CHANGELOG.md) for version history.

@@ -420,10 +420,7 @@ pub async fn handle_uninstall_command(
                     Err(e) => {
                         log_status(
                             &opts,
-                            &format!(
-                                "⚠️  Could not unregister font '{}': {}",
-                                font_name, e
-                            ),
+                            &format!("⚠️  Could not unregister font '{}': {}", font_name, e),
                         );
                     }
                 }
@@ -431,7 +428,10 @@ pub async fn handle_uninstall_command(
         } else {
             log_status(
                 &opts,
-                &format!("⚠️  Font '{}' is not installed, nothing to uninstall", font_name),
+                &format!(
+                    "⚠️  Font '{}' is not installed, nothing to uninstall",
+                    font_name
+                ),
             );
             return Ok(());
         }
@@ -553,7 +553,10 @@ pub async fn handle_remove_command(
         } else {
             log_status(
                 &opts,
-                &format!("⚠️  Font '{}' is not installed, nothing to remove", font_name),
+                &format!(
+                    "⚠️  Font '{}' is not installed, nothing to remove",
+                    font_name
+                ),
             );
             return Ok(());
         }

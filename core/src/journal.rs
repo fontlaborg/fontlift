@@ -46,6 +46,7 @@
 //! the old journal or the new one, never a half-written mix.
 
 use crate::{FontError, FontResult, FontScope};
+use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -277,6 +278,11 @@ pub fn load_journal() -> FontResult<Journal> {
 }
 
 /// Save the journal with a temp-file-then-rename write.
+///
+/// The temp file name is unique per call (`journal.json.tmp.<pid>.<uuid>`) so
+/// concurrent processes never clobber each other's staging file.  On rename
+/// failure the temp file is removed before the error is returned so no
+/// leftover files accumulate.
 pub fn save_journal(journal: &Journal) -> FontResult<()> {
     let path = journal_path();
 
@@ -285,8 +291,14 @@ pub fn save_journal(journal: &Journal) -> FontResult<()> {
         fs::create_dir_all(parent).map_err(FontError::IoError)?;
     }
 
-    // Write to temp file first
-    let temp_path = path.with_extension("json.tmp");
+    // Build a per-call unique temp path in the same directory so the rename
+    // stays on the same filesystem (required for atomicity on all platforms).
+    let temp_path = path.with_file_name(format!(
+        "journal.json.tmp.{}.{}",
+        std::process::id(),
+        Uuid::new_v4()
+    ));
+
     let content = serde_json::to_string_pretty(journal)
         .map_err(|e| FontError::InvalidFormat(format!("Failed to serialize journal: {e}")))?;
 
@@ -297,15 +309,62 @@ pub fn save_journal(journal: &Journal) -> FontResult<()> {
         ))
     })?;
 
-    // Atomic rename
-    fs::rename(&temp_path, &path).map_err(|e| {
-        FontError::IoError(std::io::Error::new(
+    // Atomic rename — if this fails, clean up the unique temp file so it
+    // doesn't accumulate in the journal directory.
+    if let Err(e) = fs::rename(&temp_path, &path) {
+        let _ = fs::remove_file(&temp_path);
+        return Err(FontError::IoError(std::io::Error::new(
             e.kind(),
             format!("Failed to rename journal file: {e}"),
+        )));
+    }
+
+    Ok(())
+}
+
+/// Run `f` while holding an exclusive cross-process advisory lock on the
+/// journal directory.
+///
+/// The lock file sits next to the journal file (`journal.json.lock`).  Any
+/// other fontlift process that calls `with_journal_lock` will block until the
+/// lock is released, preventing lost-update races on the load → mutate → save
+/// cycle.
+///
+/// The lock is released automatically when the `File` handle is dropped at the
+/// end of this function.
+pub fn with_journal_lock<R>(f: impl FnOnce() -> FontResult<R>) -> FontResult<R> {
+    let lock_path = journal_path().with_extension("lock");
+
+    // Ensure the parent directory exists before creating the lock file.
+    if let Some(parent) = lock_path.parent() {
+        fs::create_dir_all(parent).map_err(FontError::IoError)?;
+    }
+
+    let lock_file = fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(false)
+        .open(&lock_path)
+        .map_err(|e| {
+            FontError::IoError(std::io::Error::new(
+                e.kind(),
+                format!("Failed to open journal lock file: {e}"),
+            ))
+        })?;
+
+    lock_file.lock_exclusive().map_err(|e| {
+        FontError::IoError(std::io::Error::new(
+            e.kind(),
+            format!("Failed to acquire journal lock: {e}"),
         ))
     })?;
 
-    Ok(())
+    let result = f();
+
+    // Lock released here when `lock_file` is dropped.
+    drop(lock_file);
+
+    result
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -334,50 +393,52 @@ pub fn recover_incomplete_operations<F>(handler: F) -> FontResult<Vec<ActionReco
 where
     F: Fn(&JournalAction, RecoveryPolicy) -> FontResult<bool>,
 {
-    let mut journal = load_journal()?;
-    let mut results = Vec::new();
+    with_journal_lock(|| {
+        let mut journal = load_journal()?;
+        let mut results = Vec::new();
 
-    let incomplete_ids: Vec<Uuid> = journal.incomplete_entries().iter().map(|e| e.id).collect();
+        let incomplete_ids: Vec<Uuid> = journal.incomplete_entries().iter().map(|e| e.id).collect();
 
-    for entry_id in incomplete_ids {
-        // Get entry details (we need to clone because we'll modify journal later)
-        let (remaining, current_step) = {
-            let entry = journal.find_entry(entry_id).unwrap();
-            (entry.remaining_actions().to_vec(), entry.current_step)
-        };
+        for entry_id in incomplete_ids {
+            // Get entry details (we need to clone because we'll modify journal later)
+            let (remaining, current_step) = {
+                let entry = journal.find_entry(entry_id).unwrap();
+                (entry.remaining_actions().to_vec(), entry.current_step)
+            };
 
-        for (i, action) in remaining.iter().enumerate() {
-            let policy = determine_recovery_policy(action);
-            let success = handler(action, policy)?;
+            for (i, action) in remaining.iter().enumerate() {
+                let policy = determine_recovery_policy(action);
+                let success = handler(action, policy)?;
 
-            results.push(ActionRecoveryResult {
-                action: action.clone(),
-                policy,
-                success,
-                message: None,
-            });
+                results.push(ActionRecoveryResult {
+                    action: action.clone(),
+                    policy,
+                    success,
+                    message: None,
+                });
 
-            if success {
-                // Update step
-                journal.mark_step(entry_id, current_step + i + 1)?;
-            } else {
-                // Stop processing this entry on failure
-                break;
+                if success {
+                    // Update step
+                    journal.mark_step(entry_id, current_step + i + 1)?;
+                } else {
+                    // Stop processing this entry on failure
+                    break;
+                }
+            }
+
+            // Check if all actions completed
+            if let Some(entry) = journal.find_entry(entry_id) {
+                if entry.current_step >= entry.actions.len() {
+                    journal.mark_completed(entry_id)?;
+                }
             }
         }
 
-        // Check if all actions completed
-        if let Some(entry) = journal.find_entry(entry_id) {
-            if entry.current_step >= entry.actions.len() {
-                journal.mark_completed(entry_id)?;
-            }
-        }
-    }
+        // Save updated journal
+        save_journal(&journal)?;
 
-    // Save updated journal
-    save_journal(&journal)?;
-
-    Ok(results)
+        Ok(results)
+    })
 }
 
 /// Choose the built-in recovery policy for one action.
@@ -418,6 +479,55 @@ mod tests {
         let temp = TempDir::new().unwrap();
         std::env::set_var("FONTLIFT_JOURNAL_PATH", temp.path().join("journal.json"));
         (temp, Journal::new())
+    }
+
+    /// Regression test: 8 threads each do a locked load→mutate→save cycle.
+    ///
+    /// Without locking the last-writer-wins race loses entries; with
+    /// `with_journal_lock` every update is serialised and all 8 entries survive.
+    #[test]
+    fn concurrent_locked_updates_preserve_all_entries() {
+        use std::sync::Arc;
+
+        let temp = TempDir::new().unwrap();
+        let journal_path = temp.path().join("journal.json");
+
+        // Each thread needs its own env-var view; we use a shared path string
+        // and set the env var inside each thread.
+        let path_str = Arc::new(journal_path.to_string_lossy().into_owned());
+
+        let threads: Vec<_> = (0..8)
+            .map(|_| {
+                let ps = Arc::clone(&path_str);
+                std::thread::spawn(move || {
+                    std::env::set_var("FONTLIFT_JOURNAL_PATH", ps.as_str());
+                    with_journal_lock(|| {
+                        let mut j = load_journal()?;
+                        j.record_operation(
+                            vec![JournalAction::ClearCache {
+                                scope: FontScope::User,
+                            }],
+                            None,
+                        );
+                        save_journal(&j)
+                    })
+                    .expect("locked update should not fail");
+                })
+            })
+            .collect();
+
+        for t in threads {
+            t.join().expect("thread should not panic");
+        }
+
+        std::env::set_var("FONTLIFT_JOURNAL_PATH", path_str.as_str());
+        let final_journal = load_journal().expect("journal should be readable after all updates");
+        assert_eq!(
+            final_journal.entries.len(),
+            8,
+            "all 8 concurrent updates must be preserved; got {}",
+            final_journal.entries.len()
+        );
     }
 
     #[test]

@@ -1,7 +1,30 @@
-//! macOS platform implementation for fontlift
+//! macOS platform implementation for fontlift.
 //!
-//! This module provides macOS-specific font management using Core Text APIs,
-//! implementing the same functionality as the Swift CLI but in Rust.
+//! Font installation on macOS works by:
+//! 1. Copying the font file into a Fonts directory the OS watches:
+//!    - user scope: `~/Library/Fonts/` (no admin needed)
+//!    - system scope: `/Library/Fonts/` (requires root/sudo)
+//! 2. Calling `CTFontManagerRegisterFontsForURL` to tell Core Text about it.
+//!    Core Text picks up the new font immediately; no reboot or logout needed.
+//!
+//! Uninstalling reverses those steps: `CTFontManagerUnregisterFontsForURL`
+//! removes the registration, then (for `remove`) the file is deleted.
+//!
+//! Core Text does **not** touch `/System/Library/Fonts/` — those fonts are
+//! managed by macOS itself and protected by SIP (System Integrity Protection).
+//! fontlift refuses to modify any path under that directory.
+//!
+//! Font caches: macOS caches font metadata in `~/Library/Caches/` and in
+//! per-app locations (Adobe, Microsoft Office). `clear_font_caches` purges
+//! those so apps see the updated font set without restarting the machine.
+//!
+//! Font formats understood by Core Text (and therefore by this module):
+//! - `.ttf` — TrueType
+//! - `.otf` — OpenType with PostScript or TrueType outlines
+//! - `.ttc` / `.otc` — TrueType / OpenType Collection (multiple faces per file)
+//! - `.dfont` — data-fork resource suitcase (legacy macOS format)
+//! - `.woff` / `.woff2` — web fonts; Core Text may accept them but they are
+//!   primarily for browsers; system-wide use is not guaranteed
 
 use fontlift_core::{
     journal::{self, JournalAction},
@@ -23,6 +46,10 @@ use objc2_core_text::{
     CTFontManagerRegisterFontsForURL, CTFontManagerScope, CTFontManagerUnregisterFontsForURL,
 };
 
+// Core Text error codes returned when a font is already known to the system.
+// 105 = kCTFontManagerErrorAlreadyRegistered: the URL is already registered.
+// 305 = kCTFontManagerErrorDuplicatedName: a different file already claims
+//       the same PostScript name — installing both would confuse applications.
 const K_CT_FONT_MANAGER_ERROR_ALREADY_REGISTERED: isize = 105;
 const K_CT_FONT_MANAGER_ERROR_DUPLICATED_NAME: isize = 305;
 
@@ -126,7 +153,10 @@ fn purge_directory_contents(root: &Path) -> FontResult<usize> {
 }
 
 fn clear_adobe_font_caches(home: &Path) -> FontResult<usize> {
-    // Adobe Font cache manifests (AdobeFnt*.lst) live under TypeSupport; remove them recursively
+    // Adobe applications (Illustrator, InDesign, Photoshop, Acrobat) build
+    // their own font index on top of the OS font list. These manifests are
+    // named AdobeFnt*.lst and live under TypeSupport. Deleting them forces
+    // Adobe apps to rebuild their index on next launch.
     let type_support = home.join("Library/Application Support/Adobe/TypeSupport");
     let removed_lists = delete_matching_files(&type_support, |path| {
         path.file_name()
@@ -135,7 +165,8 @@ fn clear_adobe_font_caches(home: &Path) -> FontResult<usize> {
             .unwrap_or(false)
     })?;
 
-    // Adobe font cache files under Caches/Adobe/Fonts
+    // Adobe also caches binary font data under Caches/Adobe/Fonts.
+    // Purging this directory is safe — Adobe rebuilds it automatically.
     let fonts_cache = home.join("Library/Caches/Adobe/Fonts");
     let removed_cache = purge_directory_contents(&fonts_cache)?;
 
@@ -143,11 +174,23 @@ fn clear_adobe_font_caches(home: &Path) -> FontResult<usize> {
 }
 
 fn clear_office_font_cache(home: &Path) -> FontResult<usize> {
-    // Microsoft Office font cache storage used by Office apps
+    // Microsoft Office (Word, Excel, PowerPoint) caches font metrics in the
+    // Group Containers sandbox. The bundle ID prefix "UBF8T346G9" identifies
+    // the Microsoft Office suite. Clearing this cache fixes rendering glitches
+    // after fonts are added or removed; Office rebuilds it at next launch.
     let office_cache = home.join("Library/Group Containers/UBF8T346G9.Office/FontCache");
     purge_directory_contents(&office_cache)
 }
 
+/// Map fontlift scope to the Core Text registration scope.
+///
+/// `CTFontManagerScope::User` registers the font for the current user only,
+/// stored in `~/Library/Fonts`. No admin required.
+///
+/// `CTFontManagerScope::Persistent` registers system-wide under `/Library/Fonts`
+/// so all users on the machine see the font. Requires root or an entitlement.
+/// Despite the name, both scopes persist across reboots; "Persistent" here means
+/// machine-wide rather than session-only.
 fn ct_scope(scope: FontScope) -> CTFontManagerScope {
     match scope {
         FontScope::User => CTFontManagerScope::User,
@@ -438,6 +481,13 @@ fn descriptor_to_font_face_info(descriptor: &CTFontDescriptor) -> Option<Fontlif
                     )
                 };
                 if success {
+                    // Core Text reports weight as a float in [-1.0, 1.0]
+                    // where 0.0 ≈ Regular (400 on the CSS/OpenType scale).
+                    // Map to the 1–1000 CSS weight scale:
+                    //   weight_css = weight_ct * 400 + 500
+                    // So -1.0 → 100 (Thin), 0.0 → 500 (Medium), 1.0 → 900 (Black).
+                    // This is an approximation; actual numeric weight comes
+                    // from the font's OS/2 `usWeightClass` table entry.
                     let weight_int = (weight * 400.0 + 500.0).round();
                     if weight_int.is_finite() {
                         let clamped = weight_int.clamp(1.0, 1000.0) as u16;
@@ -451,10 +501,24 @@ fn descriptor_to_font_face_info(descriptor: &CTFontDescriptor) -> Option<Fontlif
     Some(info)
 }
 
-/// macOS font manager using Core Text APIs
+/// macOS font manager — the [`FontManager`] implementation for macOS.
+///
+/// All font operations go through Core Text:
+/// - Install: copy file to a Fonts directory, then call
+///   `CTFontManagerRegisterFontsForURL`. Core Text notifies running apps
+///   immediately; they see the new font without restarting.
+/// - Uninstall: call `CTFontManagerUnregisterFontsForURL`. The file stays.
+/// - Remove: unregister then delete the file.
+/// - List: query all font descriptors from `CTFontCollectionCreateFromAvailableFonts`.
+///
+/// `fake_root` exists for testing: set `FONTLIFT_FAKE_REGISTRY_ROOT` to a
+/// temp directory and the manager reads/writes a local file tree instead of
+/// calling Core Text APIs. This makes tests deterministic and portable.
 pub struct MacFontManager {
     fake_root: Option<PathBuf>,
-    /// Optional validation config for pre-install validation
+    /// Out-of-process font validator. When `Some`, fontlift spawns
+    /// `fontlift-validator` before each install to catch malformed files
+    /// without risking a crash in the main process.
     validation_config: Option<ValidatorConfig>,
 }
 
@@ -487,6 +551,17 @@ impl MacFontManager {
         self.fake_root.is_some()
     }
 
+    /// Return the directory where fonts for `scope` should be copied.
+    ///
+    /// Real paths:
+    /// - User:   `~/Library/Fonts`   — per-account; no elevation needed.
+    /// - System: `/Library/Fonts`    — all users; requires root or sudo.
+    ///
+    /// Note: `/System/Library/Fonts` is managed by macOS itself (protected by
+    /// SIP). fontlift never installs into that directory.
+    ///
+    /// When `FONTLIFT_FAKE_REGISTRY_ROOT` is set the paths are rooted there
+    /// so tests never touch the real system font directories.
     fn target_directory(&self, scope: FontScope) -> FontResult<PathBuf> {
         if let Some(root) = &self.fake_root {
             let dir = match scope {
@@ -763,10 +838,12 @@ impl FontManager for MacFontManager {
         });
 
         // Record operation in journal
-        let mut journal = journal::load_journal().unwrap_or_default();
-        let entry_id =
-            journal.record_operation(actions, Some(format!("Install {}", path.display())));
-        journal::save_journal(&journal)?;
+        let entry_id = journal::with_journal_lock(|| {
+            let mut journal = journal::load_journal().unwrap_or_default();
+            let id = journal.record_operation(actions, Some(format!("Install {}", path.display())));
+            journal::save_journal(&journal)?;
+            Ok(id)
+        })?;
 
         // Step 0: Copy file (if needed)
         let (target_path, created_copy) = if needs_copy {
@@ -774,16 +851,22 @@ impl FontManager for MacFontManager {
             match result {
                 Ok(copied_path) => {
                     // Mark step 0 complete
-                    let mut j = journal::load_journal().unwrap_or_default();
-                    let _ = j.mark_step(entry_id, 1);
-                    let _ = journal::save_journal(&j);
+                    let _ = journal::with_journal_lock(|| {
+                        let mut j = journal::load_journal().unwrap_or_default();
+                        let _ = j.mark_step(entry_id, 1);
+                        let _ = journal::save_journal(&j);
+                        Ok(())
+                    });
                     (copied_path, true)
                 }
                 Err(e) => {
                     // Cleanup journal entry on failure
-                    let mut j = journal::load_journal().unwrap_or_default();
-                    let _ = j.mark_completed(entry_id);
-                    let _ = journal::save_journal(&j);
+                    let _ = journal::with_journal_lock(|| {
+                        let mut j = journal::load_journal().unwrap_or_default();
+                        let _ = j.mark_completed(entry_id);
+                        let _ = journal::save_journal(&j);
+                        Ok(())
+                    });
                     return Err(e);
                 }
             }
@@ -795,18 +878,18 @@ impl FontManager for MacFontManager {
         let result = self.install_font_core_text(&target_path, scope);
 
         // Update journal
-        let mut j = journal::load_journal().unwrap_or_default();
-        if result.is_ok() {
-            let _ = j.mark_completed(entry_id);
-        } else {
+        if result.is_err() {
             // Rollback: delete copied file on registration failure
             if created_copy {
                 let _ = fs::remove_file(&target_path);
             }
-            // Mark as completed (failed, but nothing to recover)
-            let _ = j.mark_completed(entry_id);
         }
-        let _ = journal::save_journal(&j);
+        let _ = journal::with_journal_lock(|| {
+            let mut j = journal::load_journal().unwrap_or_default();
+            let _ = j.mark_completed(entry_id);
+            let _ = journal::save_journal(&j);
+            Ok(())
+        });
 
         result
     }
@@ -887,27 +970,34 @@ impl FontManager for MacFontManager {
         ];
 
         // Record operation in journal
-        let mut journal = journal::load_journal().unwrap_or_default();
-        let entry_id =
-            journal.record_operation(actions, Some(format!("Remove {}", target_path.display())));
-        journal::save_journal(&journal)?;
+        let entry_id = journal::with_journal_lock(|| {
+            let mut journal = journal::load_journal().unwrap_or_default();
+            let id = journal
+                .record_operation(actions, Some(format!("Remove {}", target_path.display())));
+            journal::save_journal(&journal)?;
+            Ok(id)
+        })?;
 
         // Step 0: Unregister font
         let unregister_result = self.uninstall_font(&installed_source);
         if let Err(e) = unregister_result {
             // Mark completed (nothing to recover from unregister failure)
-            let mut j = journal::load_journal().unwrap_or_default();
-            let _ = j.mark_completed(entry_id);
-            let _ = journal::save_journal(&j);
+            let _ = journal::with_journal_lock(|| {
+                let mut j = journal::load_journal().unwrap_or_default();
+                let _ = j.mark_completed(entry_id);
+                let _ = journal::save_journal(&j);
+                Ok(())
+            });
             return Err(e);
         }
 
         // Mark step 0 complete
-        {
+        let _ = journal::with_journal_lock(|| {
             let mut j = journal::load_journal().unwrap_or_default();
             let _ = j.mark_step(entry_id, 1);
             let _ = journal::save_journal(&j);
-        }
+            Ok(())
+        });
 
         // Step 1: Delete file
         if target_path.exists() {
@@ -915,9 +1005,12 @@ impl FontManager for MacFontManager {
         }
 
         // Mark operation completed
-        let mut j = journal::load_journal().unwrap_or_default();
-        let _ = j.mark_completed(entry_id);
-        let _ = journal::save_journal(&j);
+        let _ = journal::with_journal_lock(|| {
+            let mut j = journal::load_journal().unwrap_or_default();
+            let _ = j.mark_completed(entry_id);
+            let _ = journal::save_journal(&j);
+            Ok(())
+        });
 
         Ok(())
     }
