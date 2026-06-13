@@ -1245,7 +1245,16 @@ mod tests {
     use super::*;
     use std::fs;
     use std::path::PathBuf;
+    use std::sync::{Mutex, MutexGuard};
     use tempfile::TempDir;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn lock_env() -> MutexGuard<'static, ()> {
+        ENV_LOCK
+            .lock()
+            .expect("environment lock should not be poisoned")
+    }
 
     #[test]
     fn test_win_font_manager_creation() {
@@ -1268,6 +1277,7 @@ mod tests {
 
     #[test]
     fn program_files_roots_deduplicates_case_insensitive_paths() {
+        let _env_lock = lock_env();
         let manager = WinFontManager::new();
         let temp = TempDir::new().expect("tempdir");
         let upper = temp.path().to_string_lossy().to_uppercase();
@@ -1281,6 +1291,7 @@ mod tests {
 
     #[test]
     fn clear_adobe_font_caches_removes_lst_files_under_program_files_variants() {
+        let _env_lock = lock_env();
         let manager = WinFontManager::new();
         let pf = TempDir::new().expect("pf dir");
         let pf86 = TempDir::new().expect("pf86 dir");
@@ -1403,6 +1414,7 @@ mod tests {
 
     #[test]
     fn normalize_registry_path_resolves_relative_to_scope_roots() {
+        let _env_lock = lock_env();
         let manager = WinFontManager::new();
         let windir = TempDir::new().expect("windir");
         let local = TempDir::new().expect("localappdata");
@@ -1426,6 +1438,7 @@ mod tests {
 
     #[test]
     fn registry_value_matches_path_accepts_filename_only_entries() {
+        let _env_lock = lock_env();
         let manager = WinFontManager::new();
         let windir = TempDir::new().expect("windir");
         let local = TempDir::new().expect("localappdata");
@@ -1442,6 +1455,7 @@ mod tests {
 
     #[test]
     fn registry_value_matches_path_handles_case_insensitive_absolute_paths() {
+        let _env_lock = lock_env();
         let manager = WinFontManager::new();
         let windir = TempDir::new().expect("windir");
         let local = TempDir::new().expect("localappdata");

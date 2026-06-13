@@ -176,11 +176,12 @@ fontlift.cleanup(admin=False)
 fontlift.cleanup(prune=True, cache=True, admin=False, dry_run=True)
 
 # Fire CLI mirror with JSON/quiet/verbose/dry-run toggles (matches Rust CLI)
-# fontliftpy list --json --path --name --sorted
-# fontliftpy install my-font.ttf --dry_run True --quiet True
+# fontlift list --json --path --name --sorted
+# fontlift install my-font.ttf --dry_run True --quiet True
 ```
 
 Notes:
+- `fontliftpy` remains available as a compatibility alias for older scripts.
 - Windows install/remove/cleanup honor `admin` to pick system scope; calls that require elevation will raise `PermissionDenied`.
 - macOS supports fake-registry/dry-run paths for tests via `FONTLIFT_FAKE_REGISTRY_ROOT`.
 

@@ -1,3 +1,16 @@
+## 2026-06-14
+
+- Issue 104 docs/log update: documented `fontlift` as the primary Python console command while preserving the `fontliftpy` compatibility alias.
+- Stabilized Windows platform unit tests that mutate process-wide environment variables so the full workspace test run no longer races under parallel execution.
+
+#### Tests
+- `PYTHONPATH=python uv run --no-project --python 3.12 --with pytest --with fire python -m pytest -q python/tests` (2 passed)
+- `PYTHONPATH=python uv run --no-project --python 3.12 --with fire python -m py_compile python/fontlift/cli.py python/tests/test_cli_entrypoints.py`
+- `cargo test -p fontlift-python` (1 passed)
+- `cargo test -p fontlift-platform-win` (15 passed)
+- `cargo test --workspace` (all workspace tests passed)
+- Built a local wheel, installed it into an isolated Python 3.12 venv, and verified both `fontlift` and `fontliftpy` console scripts run `install /tmp/ExampleFont.ttf --dry_run True` without the Fire `argv` crash.
+
 ## 2025-12-04
 
 - build.sh now auto-creates/uses `.venv` (prefers `uv venv`, falls back to `python -m venv`) so `maturin develop` no longer fails when no virtualenv is active.

@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Python package now exposes the `fontlift` console script while retaining `fontliftpy`; Fire CLI dispatch now uses `command=` to avoid the unsupported `argv` crash.
+- Stabilized Windows platform unit tests that mutate process-wide environment variables so they no longer race under parallel `cargo test --workspace` execution.
 - Fixed parallel-process journal race: `save_journal` now writes to a unique per-call temp file (`journal.json.tmp.<pid>.<uuid>`) so concurrent fontlift processes no longer clobber each other's staging file, eliminating the "Failed to rename journal file: No such file or directory" error when running `fd -e ttf -x fontlift i -c {}`. Added `with_journal_lock` (backed by `fs2` advisory file locking) that serialises every load→mutate→save cycle across processes, preventing lost-update races; all platform install/remove journal paths now use this lock.
 - build.sh now bootstraps a `.venv` (prefers `uv venv`, falls back to `python -m venv`) before running `maturin develop`, so Python binding builds succeed without a pre-activated virtualenv.
 - Made `fontlift-python` bindings opt-in via a `python-bindings` feature so default workspace builds no longer require a host Python toolchain; `pyproject.toml` and build scripts enable the feature for maturin wheel builds.

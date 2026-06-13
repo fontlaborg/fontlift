@@ -22,6 +22,7 @@ dependencies = ["fire>=0.5"]
 dynamic = ["version"]
 
 [project.scripts]
+fontlift = "fontlift.cli:main"
 fontliftpy = "fontlift.cli:main"
 
 [tool.maturin]
