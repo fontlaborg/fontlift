@@ -1,0 +1,45 @@
+# cargo-deny configuration for fontlift.
+#
+# Run with: cargo deny check
+# Schema: cargo-deny v0.14+ (https://embarkstudios.github.io/cargo-deny/).
+# `version = 2` opts each section into the current defaults (advisory severity
+# handling and SPDX-only license evaluation) and silences deprecation warnings.
+
+[advisories]
+version = 2
+# Security advisories are denied by default under the v2 schema. List specific
+# RUSTSEC ids here only with a justification if one must be temporarily ignored.
+ignore = []
+
+[licenses]
+version = 2
+# fontlift is Apache-2.0. Allow the permissive licenses that appear in the
+# dependency tree (objc2/windows/read-fonts/serde/tokio and friends).
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "MPL-2.0",        # option-ext (transitive via dirs); weak file-level copyleft
+    "Unicode-DFS-2016",
+    "Unicode-3.0",
+    "Zlib",
+]
+confidence-threshold = 0.8
+# The allow-list is intentionally broader than the current tree so new transitive
+# deps don't break the build; don't warn about allowances that aren't hit yet.
+unused-allowed-license = "allow"
+
+[bans]
+# Duplicate versions are a warning, not a failure: the objc2/windows ecosystems
+# routinely pull several minor versions during transitions.
+multiple-versions = "warn"
+wildcards = "allow"
+highlight = "all"
+
+[sources]
+unknown-registry = "warn"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

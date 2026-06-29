@@ -37,6 +37,10 @@ pub use bindings::*;
 pub use stub::*;
 
 #[cfg(test)]
+// These tests confirm the correct module (stub vs bindings) was compiled in for
+// the active feature set. clippy sees the inlined const and flags the assert as
+// constant-valued; the wiring check is the point, so the lint is allowed here.
+#[allow(clippy::assertions_on_constants)]
 mod feature_flags {
     use super::*;
 

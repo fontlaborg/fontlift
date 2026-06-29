@@ -1,6 +1,12 @@
 # Changelog
 
 ## Unreleased
+- Added MkDocs Material documentation under `src_docs/md/` (built to `docs/`): an API reference for the `FontManager` trait and `FontError` type, an environment-variables table that distinguishes wired vs. planned variables, a "What fontlift does NOT do" page (SIP-protected paths, WOFF/WOFF2), a Linux `fontconfig`/`fc-cache` roadmap stub, and a documentation style guide.
+- README: added a "Recovering interrupted operations" section with a worked `doctor` example, a "What fontlift does NOT do" section (SIP + WOFF/WOFF2), and a documentation pointer.
+- Documented the `FontManager::install_font` re-installation contract and `FontError::AlreadyInstalled` semantics (user scope overwrites; system scope errors; OS-level "already registered"/"duplicate name" conflicts are auto-resolved) in `core/src/lib.rs`; clarified the out-of-process validator rationale in `core/src/validation_ext.rs`.
+- Added `deny.toml` (cargo-deny) with the project's permissive-license allow-list (`cargo deny check licenses` passes).
+- Tests: added a macOS integration test for `doctor` recovering an interrupted install (file copied, registration pending) and a `cleanup --cache-only` test asserting Adobe `AdobeFnt*.lst` manifests are removed (sandboxed via `FONTLIFT_TEST_CACHE_ROOT`).
+- Fixed clippy `-D warnings` failures under `--all-targets`: needless borrow and `expect_fun_call` in `cli/src/tests.rs`, `assertions_on_constants` in `python/src/lib.rs`, and `await_holding_lock` in the macOS integration tests (the env-serialising guard is intentional under the single-thread test runtime).
 - Python package now exposes the `fontlift` console script while retaining `fontliftpy`; Fire CLI dispatch now uses `command=` to avoid the unsupported `argv` crash.
 - Stabilized Windows platform unit tests that mutate process-wide environment variables so they no longer race under parallel `cargo test --workspace` execution.
 - Fixed parallel-process journal race: `save_journal` now writes to a unique per-call temp file (`journal.json.tmp.<pid>.<uuid>`) so concurrent fontlift processes no longer clobber each other's staging file, eliminating the "Failed to rename journal file: No such file or directory" error when running `fd -e ttf -x fontlift i -c {}`. Added `with_journal_lock` (backed by `fs2` advisory file locking) that serialises every load→mutate→save cycle across processes, preventing lost-update races; all platform install/remove journal paths now use this lock.

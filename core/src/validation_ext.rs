@@ -1,8 +1,17 @@
 //! Extended font validation via out-of-process validator
 //!
 //! This module provides functions to validate fonts using the external
-//! `fontlift-validator` helper process, which parses fonts in isolation
-//! for safety.
+//! `fontlift-validator` helper process, which parses fonts in isolation.
+//!
+//! # Why a separate process?
+//!
+//! A malformed or hostile font file can crash, hang, or run a parser out of
+//! memory. If that happened inside `fontlift`, the user would lose the whole
+//! operation. By parsing in a short-lived child process the blast radius is
+//! contained: a crash kills the child and is reported back as an ordinary
+//! [`FontError`], a hang is bounded by the per-font timeout, and the
+//! `fontlift` process itself stays alive. See the `fontlift-validator` crate
+//! for the wire protocol and the parsing details.
 
 use crate::{FontError, FontResult, FontliftFontFaceInfo};
 use serde::{Deserialize, Serialize};

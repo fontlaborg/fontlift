@@ -1,4 +1,10 @@
 #![cfg(target_os = "macos")]
+// These tests serialize on a process-global `Mutex` to guard the shared
+// `FONTLIFT_FAKE_REGISTRY_ROOT` env var while the awaited CLI handlers run.
+// `#[tokio::test]` uses a single-threaded runtime, so holding the guard across
+// `.await` is safe here; the lock must span the awaits to keep env mutation
+// from racing between tests.
+#![allow(clippy::await_holding_lock)]
 
 use std::env;
 use std::path::{Path, PathBuf};
@@ -8,8 +14,9 @@ use std::sync::{Arc, Mutex};
 static ENV_LOCK: Mutex<()> = Mutex::new(());
 
 use fontlift_cli::{
-    handle_doctor_command, handle_install_command, handle_uninstall_command, ListRender,
-    ListRenderOptions, OperationOptions, ValidationStrictness,
+    handle_cleanup_command, handle_doctor_command, handle_install_command,
+    handle_uninstall_command, ListRender, ListRenderOptions, OperationOptions,
+    ValidationStrictness,
 };
 use fontlift_core::{
     journal, validation_ext::ValidatorConfig, FontManager, FontScope, FontliftFontSource,
@@ -775,4 +782,112 @@ async fn mac_fake_registry_doctor_recovers_incomplete_delete() {
         reloaded.incomplete_entries().is_empty(),
         "journal should have no incomplete entries after recovery"
     );
+}
+
+/// Test doctor recovery of an interrupted install: the font file was copied
+/// into the fonts directory but the OS registration step never ran (the classic
+/// "copy file, don't register" crash). Doctor must resume the operation by
+/// recognizing the completed copy and preserving the partially installed file
+/// rather than rolling it back.
+#[tokio::test]
+async fn mac_fake_registry_doctor_recovers_interrupted_install() {
+    let _env_lock = ENV_LOCK.lock().expect("env lock");
+    let temp_root = TempDir::new().expect("temp dir for fake registry");
+    let _guard = EnvGuard::set_path("FONTLIFT_FAKE_REGISTRY_ROOT", temp_root.path());
+
+    // Simulate a completed copy step: the file already sits in Library/Fonts.
+    let target_dir = temp_root.path().join("Library/Fonts");
+    std::fs::create_dir_all(&target_dir).expect("create fonts dir");
+    let installed_font = target_dir.join("interrupted-font.ttf");
+    std::fs::copy(fixture_font(), &installed_font).expect("simulate completed copy");
+
+    // Journal records both steps; registration is still pending (crash point).
+    let mut test_journal = journal::Journal::new();
+    let actions = vec![
+        journal::JournalAction::CopyFile {
+            from: fixture_font(),
+            to: installed_font.clone(),
+        },
+        journal::JournalAction::RegisterFont {
+            path: installed_font.clone(),
+            scope: FontScope::User,
+        },
+    ];
+    test_journal.record_operation(actions, Some("Interrupted install".to_string()));
+    journal::save_journal(&test_journal).expect("save journal");
+
+    // Run doctor (non-preview) to resume the interrupted install.
+    let result = handle_doctor_command(false, quiet_opts()).await;
+    assert!(
+        result.is_ok(),
+        "doctor should handle the interrupted install: {:?}",
+        result.err()
+    );
+
+    // The already-copied font must survive recovery — doctor must not undo a
+    // partial install.
+    assert!(
+        installed_font.exists(),
+        "doctor must preserve the already-copied font during install recovery"
+    );
+
+    // The completed copy step must be recognized, advancing the journal cursor
+    // past it (registration still requires a live manager, so the entry is not
+    // forced to complete).
+    let reloaded = journal::load_journal().expect("reload journal");
+    let entry = reloaded
+        .entries
+        .iter()
+        .find(|e| e.description.as_deref() == Some("Interrupted install"))
+        .expect("journal entry persists after recovery");
+    assert!(
+        entry.current_step >= 1,
+        "doctor should advance past the completed copy step, got step {}",
+        entry.current_step
+    );
+}
+
+/// Test that `cleanup --cache-only` removes Adobe `AdobeFnt*.lst` manifests.
+///
+/// This exercises the real cache-clear path (not the fake registry), so
+/// `FONTLIFT_FAKE_REGISTRY_ROOT` must be unset — `clear_font_caches`
+/// short-circuits to a no-op in fake-registry mode. `FONTLIFT_TEST_CACHE_ROOT`
+/// sandboxes all deletions to a temp dir so no real cache is touched.
+#[tokio::test]
+async fn cleanup_cache_only_clears_adobe_font_lists() {
+    let _env_lock = ENV_LOCK.lock().expect("env lock");
+
+    let fake_prev = env::var_os("FONTLIFT_FAKE_REGISTRY_ROOT");
+    env::remove_var("FONTLIFT_FAKE_REGISTRY_ROOT");
+
+    let cache_root = TempDir::new().expect("temp dir for cache root");
+    let _cache_guard = EnvGuard::set_path("FONTLIFT_TEST_CACHE_ROOT", cache_root.path());
+
+    // Adobe apps keep an AdobeFnt*.lst manifest under TypeSupport.
+    let type_support = cache_root
+        .path()
+        .join("Library/Application Support/Adobe/TypeSupport");
+    std::fs::create_dir_all(&type_support).expect("create Adobe TypeSupport");
+    let adobe_list = type_support.join("AdobeFnt20.lst");
+    std::fs::write(&adobe_list, b"cache").expect("write AdobeFnt list");
+
+    let manager: Arc<dyn FontManager> = Arc::new(MacFontManager::new());
+
+    // admin=false, prune_only=false, cache_only=true
+    let result = handle_cleanup_command(manager, false, false, true, quiet_opts()).await;
+    assert!(
+        result.is_ok(),
+        "cache-only cleanup should succeed: {:?}",
+        result.err()
+    );
+
+    assert!(
+        !adobe_list.exists(),
+        "cleanup --cache-only should remove Adobe AdobeFnt*.lst manifests"
+    );
+
+    // Restore the prior fake-registry env state for subsequent tests.
+    if let Some(prev) = fake_prev {
+        env::set_var("FONTLIFT_FAKE_REGISTRY_ROOT", prev);
+    }
 }

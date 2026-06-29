@@ -11,7 +11,7 @@ use tokio::runtime::Runtime;
 fn test_cli_parsing() {
     use clap::Parser;
 
-    let cli = Cli::try_parse_from(&["fontlift", "list", "-p"]).unwrap();
+    let cli = Cli::try_parse_from(["fontlift", "list", "-p"]).unwrap();
     match cli.command {
         Commands::List { path, name, sorted } => {
             assert!(path);
@@ -597,7 +597,7 @@ fn shell_completions_generate_for_all_shells() {
         Shell::Elvish,
     ] {
         let mut buffer = Vec::new();
-        write_completions(shell, &mut buffer).expect(&format!("{:?} completions", shell));
+        write_completions(shell, &mut buffer).unwrap_or_else(|_| panic!("{:?} completions", shell));
         let script = String::from_utf8(buffer).expect("utf8");
         assert!(
             !script.is_empty(),

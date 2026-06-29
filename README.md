@@ -129,6 +129,60 @@ fontlift install --no-validate QuickTest.ttf                # skip entirely
 
 ---
 
+## Recovering interrupted operations
+
+Install and remove are multi-step (copy, then register; unregister, then
+delete). If `fontlift` is killed midway — a crash, a `Ctrl-C`, a lost SSH
+session — a crash-recovery journal records what was planned and how far it got.
+`doctor` reads that journal and resumes or tidies up the unfinished work.
+
+```sh
+# See what was left unfinished, without changing anything
+fontlift doctor --preview
+
+# Resume / roll forward the interrupted operations
+fontlift doctor
+```
+
+Example output after an install was interrupted between copy and registration:
+
+```text
+$ fontlift doctor
+Checking for interrupted operations...
+Found 1 interrupted operation(s)
+
+Operation 7f3c… (started …):
+  Description: Install /Users/me/Downloads/Inter-Bold.otf
+  Progress: step 1 of 2
+  [2] Register /Users/me/Library/Fonts/Inter-Bold.otf (User)
+
+Attempting recovery...
+✅ Successfully recovered 1 action(s)
+```
+
+---
+
+## What fontlift does NOT do
+
+These boundaries are intentional, not missing features:
+
+- **It never touches SIP-protected system fonts.** Anything under
+  `/System/Library/Fonts/` (macOS) or `C:\Windows\Fonts\` (Windows) is off
+  limits; such operations return `SystemFontProtection`. Deleting `SFNS.ttf` or
+  `segoeui.ttf` would break the system UI.
+- **It does not convert or unpack WOFF/WOFF2.** Those are web-only compression
+  wrappers. fontlift recognises the extensions and hands them to the OS, but
+  Windows GDI rejects them as system fonts and macOS support is not guaranteed.
+  Convert WOFF to `.ttf`/`.otf` with a dedicated tool first.
+- **It does not shape, render, or subset fonts.** fontlift installs files; it
+  does not lay out text or rasterise glyphs.
+- **No Linux support yet.** The CLI is macOS/Windows only; see the
+  [Linux roadmap](src_docs/md/linux.md).
+
+See [`src_docs/md/limitations.md`](src_docs/md/limitations.md) for the full list.
+
+---
+
 ## Python
 
 ```python
@@ -252,6 +306,24 @@ maturin build  -m python/Cargo.toml --release # distributable wheel → dist/
 - [ ] Linux support (fontconfig + `fc-cache`)
 - [ ] Variable font metadata extraction
 - [ ] GUI via testypf integration
+
+---
+
+## Documentation
+
+Full documentation source lives in [`src_docs/md/`](src_docs/md/) and builds to a
+[MkDocs Material](https://squidfunk.github.io/mkdocs-material/) site under
+`docs/`:
+
+```sh
+mkdocs build -f src_docs/mkdocs.yaml   # output → docs/
+mkdocs serve -f src_docs/mkdocs.yaml   # live preview
+```
+
+Key pages: [API reference](src_docs/md/api-reference.md),
+[environment variables](src_docs/md/environment-variables.md),
+[what fontlift does NOT do](src_docs/md/limitations.md),
+[Linux roadmap](src_docs/md/linux.md).
 
 ---
 

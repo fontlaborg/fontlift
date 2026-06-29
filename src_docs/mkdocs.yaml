@@ -1,0 +1,51 @@
+site_name: fontlift
+site_description: Cross-platform font install/uninstall/list/cleanup for macOS and Windows.
+site_url: https://fontlaborg.github.io/fontlift/
+repo_url: https://github.com/fontlaborg/fontlift
+repo_name: fontlaborg/fontlift
+copyright: Made by FontLab — https://www.fontlab.com/
+
+# Source Markdown lives in src_docs/md; the built site goes to the repo-level docs/.
+docs_dir: md
+site_dir: ../docs
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.top
+    - content.code.copy
+    - search.suggest
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+nav:
+  - Home: index.md
+  - API reference: api-reference.md
+  - Environment variables: environment-variables.md
+  - What fontlift does NOT do: limitations.md
+  - Linux roadmap: linux.md
+  - Style guide: style-guide.md
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite

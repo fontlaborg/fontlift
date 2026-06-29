@@ -59,7 +59,14 @@ pub enum FontError {
     #[error("Permission denied: {0}\n→ On macOS: use sudo. On Windows: run as Administrator")]
     PermissionDenied(String),
 
-    /// A font file with the same target name already exists.
+    /// A font file with the same target name already exists in the destination
+    /// directory.
+    ///
+    /// This is only raised when re-installation is *not* allowed to overwrite —
+    /// currently system scope on macOS. User-scope re-installs overwrite the
+    /// existing file instead (see [`FontManager::install_font`] for the full
+    /// contract). OS-level "already registered" / "duplicate name" conflicts are
+    /// resolved automatically and do **not** surface as this error.
     #[error("Font already installed: {0}\n→ Uninstall it first with 'fontlift uninstall', or reinstall with --inplace")]
     AlreadyInstalled(PathBuf),
 
@@ -198,11 +205,32 @@ impl FontliftFontFaceInfo {
 /// them, enumerate installed faces, clear caches, and prune stale records.
 /// The caller decides whether install happens after copying the file or by
 /// registering the original path in place.
+///
+/// # Re-installation contract (`AlreadyInstalled`)
+///
+/// Implementors MUST follow these rules so callers can reason about repeat
+/// installs:
+///
+/// - **User scope:** re-installing a font that is already present overwrites the
+///   existing file and re-registers it. This makes upgrades idempotent — calling
+///   `install_font` twice succeeds both times and leaves the newest bytes in
+///   place. It does **not** return [`FontError::AlreadyInstalled`].
+/// - **System scope:** if a file with the same name already exists at the target
+///   directory, `install_font` returns [`FontError::AlreadyInstalled`] rather
+///   than clobbering a shared, all-users font. The caller must `uninstall` first
+///   or re-run with `--inplace`.
+/// - **OS-level conflicts:** "already registered" and "duplicate PostScript
+///   name" responses from the OS font manager are resolved internally
+///   (unregister, then retry) and never surface as `AlreadyInstalled`.
 pub trait FontManager: Send + Sync {
     /// Register the font at `source.path` so applications can use it.
     ///
     /// The caller may already have copied the file into an OS font directory,
     /// or may be doing an in-place install.
+    ///
+    /// Re-installation behaviour depends on scope: user-scope installs overwrite
+    /// an existing copy, system-scope installs return
+    /// [`FontError::AlreadyInstalled`]. See the trait-level contract above.
     fn install_font(&self, source: &FontliftFontSource) -> FontResult<()>;
 
     /// Unregister a font without deleting the file.
