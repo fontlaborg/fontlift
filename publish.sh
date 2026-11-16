@@ -60,6 +60,6 @@ echo "Preparing Python wheel..."
 uvx maturin build --release
 
 echo "Publishing to PyPI..."
-uv publish target/wheels/fontlift-${version}*.whl
+"$ROOT/scripts/pypi-upload.sh" target/wheels/fontlift-${version}*.whl
 
 echo "Done."
